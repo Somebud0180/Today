@@ -8,10 +8,13 @@
 import SwiftUI
 
 struct JournalView: View {
+    @StateObject var viewModel = VideoViewModel()
+    
     var body: some View {
         NavigationView {
             ZStack {
-                Text(/*@START_MENU_TOKEN@*/"Hello, World!"/*@END_MENU_TOKEN@*/)
+                WrappedVideoView(player: self.viewModel.player)
+                self.playButton
                 
                 VStack {
                     Spacer()
@@ -49,6 +52,22 @@ struct JournalView: View {
                     }
                 }
             }
+            .onAppear { self.viewModel.play() }
+        }
+    }
+    
+    private var playButton: some View {
+        Button(action: {
+            self.viewModel.togglePlayback()
+        }) {
+            Image(systemName: viewModel.isPlaying ? "pause.fill" : "play.fill")
+                .font(.system(size: 32))
+                .foregroundStyle(.black.opacity(0.75))
+                .padding(16)
+                .glassEffect(
+                    .clear
+                    .interactive(),
+                    in: Circle())
         }
     }
 }
