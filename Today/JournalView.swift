@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct JournalView: View {
+    @Environment(\.dismiss) private var dismiss
     @StateObject var viewModel = VideoViewModel(video: "example")
     
     var body: some View {
@@ -47,7 +48,7 @@ struct JournalView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(action: {
-                        // Action for the button
+                        dismiss()
                     }) {
                         Image(systemName: "chevron.left")
                     }
