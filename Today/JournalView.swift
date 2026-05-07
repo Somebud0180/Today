@@ -39,7 +39,7 @@ struct JournalView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background {
                 Rectangle()
-                    .fill(Color.gray)
+                    .fill(Color.black)
                     .ignoresSafeArea()
             }
             .navigationTitle("05/07/26")

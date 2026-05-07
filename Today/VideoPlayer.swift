@@ -132,17 +132,23 @@ struct VideoPlayerView: View {
     
     var body: some View {
         ZStack {
-            WrappedVideoView(player: player)
-                .padding(8)
+            WrappedVideoView(player: player, videoGravity: .resize)
+                .blur(radius: 12)
+                .ignoresSafeArea()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            
+            WrappedVideoView(player: player, videoGravity: .resizeAspect)
+                .padding(4)
         }
     }
 }
 
 struct WrappedVideoView: UIViewRepresentable {
     let player: AVPlayer
+    let videoGravity: AVLayerVideoGravity
     
     func makeUIView(context: Context) -> PlayerView {
-        return PlayerView(player: player)
+        return PlayerView(player: player, videoGravity: videoGravity)
     }
     
     func updateUIView(_ uiView: PlayerView, context: Context) {
@@ -153,18 +159,18 @@ struct WrappedVideoView: UIViewRepresentable {
 class PlayerView: UIView {
     private var playerLayer: AVPlayerLayer?
     
-    init(player: AVPlayer) {
+    init(player: AVPlayer, videoGravity: AVLayerVideoGravity = .resizeAspect) {
         super.init(frame: .zero)
-        setupPlayer(player)
+        setupPlayer(player, videoGravity: videoGravity)
     }
     
     func updatePlayer(_ player: AVPlayer) {
         playerLayer?.player = player
     }
     
-    private func setupPlayer(_ player: AVPlayer) {
+    private func setupPlayer(_ player: AVPlayer, videoGravity: AVLayerVideoGravity) {
         let layer = AVPlayerLayer(player: player)
-        layer.videoGravity = .resizeAspect
+        layer.videoGravity = videoGravity
         self.layer.addSublayer(layer)
         self.playerLayer = layer
     }
