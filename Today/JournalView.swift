@@ -8,12 +8,13 @@
 import SwiftUI
 
 struct JournalView: View {
-    @StateObject var viewModel = VideoViewModel()
+    @StateObject var viewModel = VideoViewModel(video: "example")
     
     var body: some View {
         NavigationView {
             ZStack {
-                WrappedVideoView(player: self.viewModel.player)
+                VideoPlayerView(player: self.viewModel.player, videoName: "example")
+                // Add modifiers here easily: .padding() .blur() etc.
                 self.playButton
                 
                 VStack {
@@ -23,8 +24,8 @@ struct JournalView: View {
                         startPoint: .center,
                         endPoint: .bottom
                     )
-                        .ignoresSafeArea()
-                        .frame(maxWidth: .infinity, maxHeight: 256, alignment: .bottom)
+                    .ignoresSafeArea()
+                    .frame(maxWidth: .infinity, maxHeight: 256, alignment: .bottom)
                 }
                 
                 VStack {
@@ -66,7 +67,7 @@ struct JournalView: View {
                 .padding(16)
                 .glassEffect(
                     .clear
-                    .interactive(),
+                        .interactive(),
                     in: Circle())
         }
     }

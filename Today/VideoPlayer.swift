@@ -106,13 +106,35 @@ class VideoViewModel: ObservableObject {
     }
     
     func play() {
+        player.volume = 0.0
         self.player.play()
         isPlaying = true
+        
+        _ = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [self] t in
+            player.volume += 0.1
+            
+            if player.volume >= 1.0 {
+                player.volume = 1.0
+                t.invalidate()
+            }
+        }
     }
     
     func pause() {
         self.player.pause()
         isPlaying = false
+    }
+}
+
+struct VideoPlayerView: View {
+    let player: AVPlayer
+    var videoName: String = "example"
+    
+    var body: some View {
+        ZStack {
+            WrappedVideoView(player: player)
+                .padding(8)
+        }
     }
 }
 
@@ -142,7 +164,7 @@ class PlayerView: UIView {
     
     private func setupPlayer(_ player: AVPlayer) {
         let layer = AVPlayerLayer(player: player)
-        layer.videoGravity = .resizeAspectFill
+        layer.videoGravity = .resizeAspect
         self.layer.addSublayer(layer)
         self.playerLayer = layer
     }
