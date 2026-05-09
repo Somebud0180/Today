@@ -6,17 +6,18 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct JournalView: View {
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @StateObject var viewModel = VideoViewModel(video: "example")
-    @State var note: String = ""
+    let selectedEntry: JournalEntry
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
-                VideoPlayerView(player: self.viewModel.player, videoName: "example")
-                // Add modifiers here easily: .padding() .blur() etc.
+                VideoPlayerView(player: self.viewModel.player, videoName: selectedEntry.videoName)
                 self.playButton
                 
                 VStack {
@@ -32,7 +33,7 @@ struct JournalView: View {
                 
                 VStack {
                     Spacer()
-                    TextField("Enter a note...", text: $note, axis: .vertical)
+                    TextField("Enter a note...", text: bindingFor(\.note), axis: .vertical)
                         .fontWeight(.medium)
                         .shadow(radius: 12)
                         .lineLimit(5)
@@ -49,19 +50,39 @@ struct JournalView: View {
                     .fill(Color.black)
                     .ignoresSafeArea()
             }
-            .navigationTitle("05/07/26")
+            .navigationTitle(selectedEntry.title.isEmpty ? selectedEntry.date.formatted(date: .numeric, time: .omitted) : selectedEntry.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: {
-                        dismiss()
-                    }) {
-                        Image(systemName: "chevron.left")
-                    }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(
+                        role: .destructive,
+                        action: {
+                            modelContext.delete(selectedEntry)
+                            try? modelContext.save()
+                            dismiss()
+                        }) {
+                            Image(systemName: "trash")
+                        }
+                        .foregroundStyle(.red)
                 }
             }
             .onAppear { self.viewModel.play() }
+            .onDisappear { saveChanges() }
         }
+    }
+
+    private func bindingFor<Value>(_ keyPath: ReferenceWritableKeyPath<JournalEntry, Value>) -> Binding<Value> {
+        Binding(
+            get: { selectedEntry[keyPath: keyPath] },
+            set: { newValue in
+                selectedEntry[keyPath: keyPath] = newValue
+                saveChanges()
+            }
+        )
+    }
+
+    private func saveChanges() {
+        try? modelContext.save()
     }
     
     private var playButton: some View {
@@ -81,5 +102,6 @@ struct JournalView: View {
 }
 
 #Preview {
-    JournalView()
+    @Previewable @State var entry = JournalEntry(videoName: "example", note: "This is a note.")
+    JournalView(selectedEntry: entry)
 }
