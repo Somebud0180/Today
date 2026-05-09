@@ -10,6 +10,7 @@ import SwiftUI
 struct JournalView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject var viewModel = VideoViewModel(video: "example")
+    @State var note: String = ""
     
     var body: some View {
         NavigationView {
@@ -31,8 +32,13 @@ struct JournalView: View {
                 
                 VStack {
                     Spacer()
-                    Text("Enter a note...")
+                    TextField("Enter a note...", text: $note, axis: .vertical)
+                        .fontWeight(.medium)
+                        .shadow(radius: 12)
+                        .lineLimit(5)
                         .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxHeight: 256, alignment: .bottom)
                         .padding()
                 }
             }
