@@ -15,24 +15,20 @@ struct ContentView: View {
     private let minimumCardWidth: CGFloat = 150
     private let cardAspectRatio: CGFloat = 2 / 3
     private let gridSpacing: CGFloat = 24
-    private let gridPadding: CGFloat = 12
+    private let gridPadding: CGFloat = 10
     
     var body: some View {
         NavigationStack {
             ScrollView {
                 GeometryReader { proxy in
-                    let availableWidth = proxy.size.width - (gridPadding * 2)
-                    let columns = calculateGridColumns(availableWidth: availableWidth)
-                    let cardWidth = calculateCardWidth(availableWidth: availableWidth, columns: columns)
-                    let cardHeight = cardWidth / cardAspectRatio
-                    let cardSize = CGSize(width: cardWidth, height: cardHeight)
+                    let metrics = layoutMetrics(in: proxy.size)
                     
-                    LazyVGrid(columns: columns, spacing: gridSpacing) {
+                    LazyVGrid(columns: metrics.columns, spacing: gridSpacing) {
                         ForEach(journalEntries) { journalEntry in
                             NavigationLink {
                                 JournalView(selectedEntry: journalEntry)
                             } label: {
-                                gridCard(for: journalEntry, size: cardSize)
+                                gridCard(for: journalEntry, size: metrics.cardSize)
                             }
                         }
                     }
@@ -134,6 +130,27 @@ struct ContentView: View {
             print("Thumbnail generation error: \(error)")
             return nil
         }
+    }
+    
+    private func layoutMetrics(in  size: CGSize) -> ViewLayoutMetrics {
+        let availableWidth = size.width - (gridPadding * 2)
+        let columns = calculateGridColumns(availableWidth: availableWidth)
+        let cardWidth = calculateCardWidth(availableWidth: availableWidth, columns: columns)
+        let cardHeight = cardWidth / cardAspectRatio
+        let cardSize = CGSize(width: cardWidth, height: cardHeight)
+        
+        return ViewLayoutMetrics(
+            availableWidth: availableWidth,
+            columns: columns,
+            cardSize: cardSize
+        )
+    }
+
+    
+    private struct ViewLayoutMetrics {
+        var availableWidth: CGFloat = 0
+        var columns: [GridItem] = []
+        var cardSize: CGSize = .zero
     }
 }
 
