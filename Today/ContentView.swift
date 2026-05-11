@@ -7,7 +7,6 @@
 
 import SwiftUI
 import SwiftData
-import AVFoundation
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
@@ -75,8 +74,8 @@ struct ContentView: View {
             let innerSize = CGSize(width: size.width - inset * 2,
                                    height: size.height - inset * 2)
             
-            if let uiImage = generateThumbnail(journalEntry.videoName) {
-                Image(uiImage: uiImage)
+            if let thumbnail = journalEntry.videoThumbImage {
+                thumbnail
                     .resizable()
                     .scaledToFill()
                     .frame(width: innerSize.width, height: innerSize.height)
@@ -101,35 +100,6 @@ struct ContentView: View {
             .padding(12)
         }
         .frame(width: size.width, height: size.height)
-    }
-    
-    private func generateThumbnail(_ videoName: String) -> UIImage? {
-        // Step 1: Get video URL from bundle
-        guard let videoURL = Bundle.main.url(forResource: videoName, withExtension: "mov") else {
-            print("Video file not found.")
-            return nil
-        }
-        
-        // Step 2: Create AVAsset
-        let asset = AVURLAsset(url: videoURL)
-        
-        // Step 3: Configure image generator
-        let imageGenerator = AVAssetImageGenerator(asset: asset)
-        imageGenerator.appliesPreferredTrackTransform = true
-        imageGenerator.maximumSize = CGSize(width: 300, height: 200)
-        
-        // Step 4: Generate thumbnail at 1 second
-        let time = CMTimeMakeWithSeconds(1, preferredTimescale: 600)
-        
-        do {
-            var actualTime = CMTime.zero
-            let cgImage = try imageGenerator.copyCGImage(at: time, actualTime: &actualTime)
-            let thumbnail = UIImage(cgImage: cgImage)
-            return thumbnail
-        } catch {
-            print("Thumbnail generation error: \(error)")
-            return nil
-        }
     }
     
     private func layoutMetrics(in  size: CGSize) -> ViewLayoutMetrics {
