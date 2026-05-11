@@ -65,8 +65,9 @@ struct ContentView: View {
     private func gridCard(for journalEntry: JournalEntry, size: CGSize) -> some View {
         ZStack {
             RoundedRectangle(cornerRadius: 16)
+                .fill(.gray)
                 .glassEffect(
-                    .regular,
+                    .clear,
                     in: RoundedRectangle(cornerRadius: 16)
                 )
             
