@@ -12,21 +12,33 @@ import AVFoundation
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var journalEntries: [JournalEntry]
-    let gridRows = [GridItem(.adaptive(minimum: 150))]
+    private let minimumCardWidth: CGFloat = 150
+    private let cardAspectRatio: CGFloat = 2 / 3
+    private let gridSpacing: CGFloat = 24
+    private let gridPadding: CGFloat = 12
     
     var body: some View {
         NavigationStack {
             ScrollView {
-                LazyVGrid(columns: gridRows, spacing: 24) {
-                    ForEach(journalEntries) { journalEntry in
-                        NavigationLink {
-                            JournalView(selectedEntry: journalEntry)
-                        } label: {
-                            gridCard(for: journalEntry)
+                GeometryReader { proxy in
+                    let availableWidth = proxy.size.width - (gridPadding * 2)
+                    let columns = calculateGridColumns(availableWidth: availableWidth)
+                    let cardWidth = calculateCardWidth(availableWidth: availableWidth, columns: columns)
+                    let cardHeight = cardWidth / cardAspectRatio
+                    let cardSize = CGSize(width: cardWidth, height: cardHeight)
+                    
+                    LazyVGrid(columns: columns, spacing: gridSpacing) {
+                        ForEach(journalEntries) { journalEntry in
+                            NavigationLink {
+                                JournalView(selectedEntry: journalEntry)
+                            } label: {
+                                gridCard(for: journalEntry, size: cardSize)
+                            }
                         }
                     }
+                    .padding(gridPadding)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
-                .padding(12)
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -44,39 +56,41 @@ struct ContentView: View {
         }
     }
     
-    private func gridCard(for journalEntry: JournalEntry) -> some View {
+    private func calculateGridColumns(availableWidth: CGFloat) -> [GridItem] {
+        let columnCount = max(1, Int((availableWidth + gridSpacing) / (minimumCardWidth + gridSpacing)))
+        return Array(repeating: GridItem(.flexible(), spacing: gridSpacing), count: columnCount)
+    }
+    
+    private func calculateCardWidth(availableWidth: CGFloat, columns: [GridItem]) -> CGFloat {
+        let columnCount = CGFloat(columns.count)
+        let totalSpacingWidth = (columnCount - 1) * gridSpacing
+        return max(minimumCardWidth, (availableWidth - totalSpacingWidth) / columnCount)
+    }
+    
+    private func gridCard(for journalEntry: JournalEntry, size: CGSize) -> some View {
         ZStack {
             RoundedRectangle(cornerRadius: 16)
                 .glassEffect(
                     .regular,
                     in: RoundedRectangle(cornerRadius: 16)
                 )
-                
             
-            // Use GeometryReader so the card defines its own size (2:3) and the image fills that area
-            GeometryReader { proxy in
-                let inset: CGFloat = 6
-                let innerSize = CGSize(width: proxy.size.width - inset * 2,
-                                       height: proxy.size.height - inset * 2)
-
-                if let uiImage = generateThumbnail(journalEntry.videoName) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: innerSize.width, height: innerSize.height)
-                        .clipped()
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                        // center inside the GeometryReader
-                        .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
-                } else {
-                    // Fallback placeholder when thumbnail can't be generated
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.gray.opacity(0.2))
-                        .frame(width: innerSize.width, height: innerSize.height)
-                        .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
-                }
+            let inset: CGFloat = 6
+            let innerSize = CGSize(width: size.width - inset * 2,
+                                   height: size.height - inset * 2)
+            
+            if let uiImage = generateThumbnail(journalEntry.videoName) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: innerSize.width, height: innerSize.height)
+                    .clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+            } else {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(width: innerSize.width, height: innerSize.height)
             }
-            .padding(6)
             
             VStack(alignment: .leading) {
                 Spacer()
@@ -90,8 +104,7 @@ struct ContentView: View {
             }
             .padding(12)
         }
-        // Ensure the card itself defines the 2:3 aspect ratio so the image fills it
-        .aspectRatio(2/3, contentMode: .fit)
+        .frame(width: size.width, height: size.height)
     }
     
     private func generateThumbnail(_ videoName: String) -> UIImage? {
