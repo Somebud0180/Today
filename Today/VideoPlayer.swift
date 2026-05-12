@@ -9,7 +9,7 @@
 
 import SwiftUI
 import AVKit
-internal import Combine
+import Combine
 
 
 class VideoViewModel: ObservableObject {
