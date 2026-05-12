@@ -120,7 +120,7 @@ class AudioRecorderManager: NSObject {
     var error: (any Error)? {
         didSet {
             if let error = self.error {
-                print(error.message)
+                print(error.localizedDescription)
                 self.showError = true
             }
         }
