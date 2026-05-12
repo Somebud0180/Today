@@ -21,6 +21,7 @@ struct CreateView: View {
 
     @State private var activePage: Page = .menu
     @State private var transitionDirection: TransitionDirection = .forward
+    @State private var manager = AudioRecorderManager()
 
     private var pageTransition: AnyTransition {
         switch transitionDirection {
@@ -122,22 +123,11 @@ struct CreateView: View {
                     .transition(pageTransition)
 
                 case .audio:
-                    VStack {
-                        Spacer()
-                        Text("Audio Entry Page")
-                        Spacer()
-                        Button(action: {
-                            transitionDirection = .backward
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                activePage = .menu
-                            }
-                        }) {
-                            Text("Back")
-                                .frame(maxWidth: .infinity)
-                                .font(.headline)
-                                .padding(8)
+                    AudioRecordingView(manager: manager) {
+                        transitionDirection = .backward
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            activePage = .menu
                         }
-                        .buttonStyle(.glass)
                     }
                     .transition(pageTransition)
                 }

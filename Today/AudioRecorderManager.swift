@@ -12,8 +12,7 @@ import AVFAudio
 import UniformTypeIdentifiers
 import Combine
 
-@Observable
-class AudioRecorderManager: NSObject {
+class AudioRecorderManager: NSObject, ObservableObject {
     
     enum RecordingOption {
         case frontStereo
@@ -324,7 +323,6 @@ extension AudioRecorderManager {
 
 // MARK: - AVAudioRecorderDelegate
 extension AudioRecorderManager: AVAudioRecorderDelegate {
-    
     // Tells the delegate when recording stops or finishes due to reaching its time limit, for example, that defined by duration when calling AVAudioRecorder.record(forDuration:).
     // The system doesn’t call this method if the recorder stops due to an interruption.
     func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
@@ -526,7 +524,7 @@ extension AudioRecorderManager {
     }
     
     
-    private func getPowerMetrics() -> [PowerMetrics] {
+    func getPowerMetrics() -> [PowerMetrics] {
         guard let recorder = self.recorder else {
             return []
         }
