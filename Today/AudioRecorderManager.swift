@@ -62,6 +62,13 @@ class AudioRecorderManager: NSObject, ObservableObject {
         var average: Float
         var peak: Float
     }
+
+    /// Recorded power frames captured during a recording session.
+    /// Each frame contains the timestamp (seconds from recording start) and the power metrics for that moment.
+    struct RecordedPowerFrame {
+        var time: TimeInterval
+        var metrics: [PowerMetrics]
+    }
     
     enum _Error: Error {
         
@@ -149,6 +156,8 @@ class AudioRecorderManager: NSObject, ObservableObject {
     }
     
     private var recorder: AVAudioRecorder?
+    /// Power frames captured while recording. Cleared when a new recording starts or when discarded.
+    private(set) var recordedPowerFrames: [RecordedPowerFrame] = []
     
     private let audioSession: AVAudioSession = AVAudioSession.sharedInstance()
     
@@ -237,6 +246,8 @@ extension AudioRecorderManager {
         if let time  {
             self.recorderState = .reserved(time)
         } else {
+            // Clear any previous captured power frames for a fresh recording session
+            self.recordedPowerFrames = []
             self.recorderState = .started(0, self.getPowerMetrics())
         }
         
@@ -305,6 +316,8 @@ extension AudioRecorderManager {
         // clear player metadata
         self.player = nil
         self.recordedContentsDuration = nil
+        // clear captured power frames
+        self.recordedPowerFrames = []
     }
 }
 
@@ -396,6 +409,63 @@ extension AudioRecorderManager: AVAudioPlayerDelegate {
         }
         self.error = error
         
+    }
+}
+
+// MARK: - Playback metering
+extension AudioRecorderManager {
+    /// Get power metrics for playback audio
+    /// Note: AVAudioPlayer doesn't provide real-time metering like AVAudioRecorder.
+    /// This returns simulated metrics for visualization purposes.
+    func getPlaybackPowerMetrics() -> [PowerMetrics] {
+        guard let player = self.player, player.isPlaying else {
+            return []
+        }
+
+        // Prefer using captured metrics from the recording session, if available.
+        if !self.recordedPowerFrames.isEmpty {
+            let playbackTime = player.currentTime
+
+            // Find the most recent recorded frame at or before the playback time.
+            // Iterate in reverse for efficiency assuming playback progresses forward.
+            if let frame = self.recordedPowerFrames.reversed().first(where: { $0.time <= playbackTime }) {
+                return frame.metrics
+            }
+
+            // If none found (playback earlier than first frame), return the first frame's metrics.
+            return self.recordedPowerFrames.first?.metrics ?? []
+        }
+
+        // Fallback: simulate playback metrics when no recorded metrics are available.
+        let channelCount = self.audioSettings[AVNumberOfChannelsKey] as? Int ?? 1
+
+        // Generate a realistic-looking simulated waveform for visualization
+        // Use a combination of sine waves with random variation to simulate audio
+        let time = Float(player.currentTime)
+        let baseFrequency = sin(time * 1.5) * 0.3 + 0.4
+        let variation = Float.random(in: 0...0.3)
+        let amplitude = (baseFrequency + variation).clamped(to: 0...1)
+
+        return (0..<channelCount).map { channel in
+            let channelVariance = Float.random(in: -0.05...0.05)
+            let finalAmplitude = (amplitude + channelVariance).clamped(to: 0...1)
+            // NOTE: These simulated values are in normalized linear amplitude (0..1).
+            // To keep the API consistent with recorder metrics (dBFS), we map them into a small
+            // dB range so downstream code that expects dB values can still operate.
+            let approxDb = log10(max(0.0001, finalAmplitude)) * 20
+            return PowerMetrics(
+                channelName: nil,
+                channelNumber: channel,
+                average: approxDb,
+                peak: approxDb
+            )
+        }
+    }
+}
+
+extension Comparable {
+    func clamped(to limits: ClosedRange<Self>) -> Self {
+        return min(max(self, limits.lowerBound), limits.upperBound)
     }
 }
 
@@ -558,12 +628,19 @@ extension AudioRecorderManager {
         // Refreshes the average and peak power values for all channels of an audio recorder.
         // Call this method to update the level meter data before calling averagePower(forChannel:) or peakPower(forChannel:).
         recorder.updateMeters()
-        return channels.map({ PowerMetrics(
+        let metrics = channels.map({ PowerMetrics(
             channelName: $0.0,
             channelNumber: $0.1,
             average: recorder.averagePower(forChannel: $0.1),
             peak: recorder.peakPower(forChannel: $0.1)) }
         )
+
+        // Capture the metrics with a timestamp so we can reuse them for playback visualization.
+        let currentTime = recorder.currentTime
+        let frame = RecordedPowerFrame(time: currentTime, metrics: metrics)
+        self.recordedPowerFrames.append(frame)
+
+        return metrics
     }
     
     private func getChannels() -> [(String?, Int)] {

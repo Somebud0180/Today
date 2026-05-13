@@ -26,6 +26,7 @@ struct AudioRecordingView: View {
     }
     @State private var recordingTask: Task<Void, Never>?
     @State private var meterPollTask: Task<Void, Never>?
+    @State private var playbackPollTask: Task<Void, Never>?
     @State private var showError: Bool = false
     @State private var errorMessage: String = ""
     
@@ -57,7 +58,7 @@ struct AudioRecordingView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                WaveformView(levels: levels, isRecording: isRecording || hasRecording)
+                WaveformView(levels: levels, isRecording: isRecording || isPlaying)
                     .frame(height: 120)
             }
             .frame(maxWidth: .infinity)
@@ -97,10 +98,19 @@ struct AudioRecordingView: View {
                         if isPlaying {
                             manager.pausePlayingRecording()
                             isPlaying = false
+                            playbackPollTask?.cancel()
+                            playbackPollTask = nil
+                            // Clear waveform when paused
+                            levels = []
+                            smoothedLevels = [0, 0, 0, 0, 0]
                         } else {
                             do {
                                 try manager.resumePlayingRecording()
                                 isPlaying = true
+                                // Reset smoothed levels to avoid artifacts when resuming
+                                smoothedLevels = [0, 0, 0, 0, 0]
+                                levels = []
+                                startPlaybackMetering()
                             } catch {
                                 errorMessage = "Failed to play recording: \(error.localizedDescription)"
                                 showError = true
@@ -168,6 +178,15 @@ struct AudioRecordingView: View {
         .onChange(of: manager.recorderState) { oldValue, newValue in
             updateRecordingState(newValue)
         }
+        .onChange(of: manager.isPlayingRecording) { oldValue, newValue in
+            if !newValue && isPlaying {
+                isPlaying = false
+                levels = []
+                smoothedLevels = [0, 0, 0, 0, 0]
+                playbackPollTask?.cancel()
+                playbackPollTask = nil
+            }
+        }
         .onDisappear {
             stopRecording()
             manager.pausePlayingRecording()
@@ -225,6 +244,10 @@ struct AudioRecordingView: View {
             recordedURL = url
         }
         
+        // Clear the waveform to idle state
+        levels = []
+        smoothedLevels = [0, 0, 0, 0, 0]
+        
         // Haptic feedback: success notification
         let notificationFeedback = UINotificationFeedbackGenerator()
         notificationFeedback.notificationOccurred(.success)
@@ -271,6 +294,52 @@ struct AudioRecordingView: View {
                 
                 // Poll at ~30 FPS
                 try? await Task.sleep(nanoseconds: 33_333_333)
+            }
+        }
+    }
+    
+    private func startPlaybackMetering() {
+        playbackPollTask = Task {
+            while !Task.isCancelled {
+                // Check if we should still be playing
+                if !isPlaying || !manager.isPlayingRecording {
+                    break
+                }
+                
+                let powerMetrics = manager.getPlaybackPowerMetrics()
+                
+                if !powerMetrics.isEmpty {
+                    // For playback, convert the metrics to normalized levels
+                    let averageDb = powerMetrics[0].average
+                    let linearAmplitude = pow(10, averageDb / 20)
+                    let normalizedAmplitude = min(1.0, max(0.0, linearAmplitude))
+                    
+                    // Apply low-pass smoothing
+                    let alpha: Float = 0.3
+                    let smoothed = smoothedLevels.last! * (1 - alpha) + Float(normalizedAmplitude) * alpha
+                    smoothedLevels.append(smoothed)
+                    if smoothedLevels.count > 50 {
+                        smoothedLevels.removeFirst()
+                    }
+                    
+                    // Convert to CGFloat for display
+                    levels = smoothedLevels.map { CGFloat($0) }
+                } else {
+                    // No metrics available - playback might have ended
+                    break
+                }
+                
+                // Poll at ~30 FPS
+                try? await Task.sleep(nanoseconds: 33_333_333)
+            }
+            
+            // Cleanup when loop exits
+            DispatchQueue.main.async {
+                if self.isPlaying {
+                    self.isPlaying = false
+                    self.levels = []
+                    self.smoothedLevels = [0, 0, 0, 0, 0]
+                }
             }
         }
     }
