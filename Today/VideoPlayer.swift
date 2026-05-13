@@ -21,9 +21,9 @@ class VideoViewModel: ObservableObject {
     private var playbackObserver: NSObjectProtocol?
     private var readyObserver: NSKeyValueObservation?
     
-    init(video: String = "example") {
+    init(fileURL: URL) {
         self.configurePlayer()
-        self.loadVideo(named: video)
+        self.loadVideo(fileURL: fileURL)
         self.observeAppLifecycle()
     }
     
@@ -39,13 +39,8 @@ class VideoViewModel: ObservableObject {
         player.automaticallyWaitsToMinimizeStalling = false
     }
     
-    private func loadVideo(named name: String) {
-        guard let localURL = Bundle.main.url(forResource: name, withExtension: "mp4") else {
-            print("Video \(name).mp4 not found.")
-            return
-        }
-        
-        let item = AVPlayerItem(url: localURL)
+    private func loadVideo(fileURL: URL) {
+        let item = AVPlayerItem(url: fileURL)
         self.player.replaceCurrentItem(with: item)
         self.observeReady(item: item)
     }
@@ -128,7 +123,6 @@ class VideoViewModel: ObservableObject {
 
 struct VideoPlayerView: View {
     let player: AVPlayer
-    var videoName: String = "example"
     
     var body: some View {
         ZStack {

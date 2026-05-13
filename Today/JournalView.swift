@@ -11,13 +11,18 @@ import SwiftData
 struct JournalView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @StateObject var viewModel = VideoViewModel(video: "example")
+    @StateObject var viewModel: VideoViewModel
     let selectedEntry: JournalEntry
+    
+    init(selectedEntry: JournalEntry) {
+        self.selectedEntry = selectedEntry
+        _viewModel = StateObject(wrappedValue: VideoViewModel(fileURL: selectedEntry.mediaURL!))
+    }
     
     var body: some View {
         NavigationStack {
             ZStack {
-                VideoPlayerView(player: self.viewModel.player, videoName: selectedEntry.videoName)
+                VideoPlayerView(player: self.viewModel.player)
                 self.playButton
                 
                 VStack {
