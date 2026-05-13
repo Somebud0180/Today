@@ -11,6 +11,9 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var journalEntries: [JournalEntry]
+    
+    @State var isShowingCreateView: Bool = false
+    
     private let minimumCardWidth: CGFloat = 150
     private let cardAspectRatio: CGFloat = 2 / 3
     private let gridSpacing: CGFloat = 24
@@ -41,12 +44,14 @@ struct ContentView: View {
                 }
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(action: {
-                        let newEntry = JournalEntry(videoName: "example", note: "")
-                        modelContext.insert(newEntry)
+                        isShowingCreateView = true
                     }) {
                         Image(systemName: "plus")
                     }
                 }
+            }
+            .sheet(isPresented: $isShowingCreateView) {
+                CreateView()
             }
         }
     }
