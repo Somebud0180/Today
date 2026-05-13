@@ -96,13 +96,11 @@ struct AudioRecordingView: View {
                     // Post-recording: Play/Pause, Confirm, Record again
                     Button(action: {
                         if isPlaying {
-                            manager.pausePlayingRecording()
-                            isPlaying = false
-                            playbackPollTask?.cancel()
-                            playbackPollTask = nil
-                            // Clear waveform when paused
-                            levels = []
-                            smoothedLevels = [0, 0, 0, 0, 0]
+                                    manager.pausePlayingRecording()
+                                    isPlaying = false
+                                    playbackPollTask?.cancel()
+                                    playbackPollTask = nil
+                                    // Keep last waveform levels so WaveformView can smoothly animate to idle.
                         } else {
                             do {
                                 try manager.resumePlayingRecording()
@@ -181,8 +179,6 @@ struct AudioRecordingView: View {
         .onChange(of: manager.isPlayingRecording) { oldValue, newValue in
             if !newValue && isPlaying {
                 isPlaying = false
-                levels = []
-                smoothedLevels = [0, 0, 0, 0, 0]
                 playbackPollTask?.cancel()
                 playbackPollTask = nil
             }
@@ -244,10 +240,6 @@ struct AudioRecordingView: View {
             recordedURL = url
         }
         
-        // Clear the waveform to idle state
-        levels = []
-        smoothedLevels = [0, 0, 0, 0, 0]
-        
         // Haptic feedback: success notification
         let notificationFeedback = UINotificationFeedbackGenerator()
         notificationFeedback.notificationOccurred(.success)
@@ -297,48 +289,46 @@ struct AudioRecordingView: View {
             }
         }
     }
-    
+
     private func startPlaybackMetering() {
         playbackPollTask = Task {
             while !Task.isCancelled {
-                // Check if we should still be playing
+                // Stop if playback has stopped or we've been asked to halt
                 if !isPlaying || !manager.isPlayingRecording {
                     break
                 }
-                
+
                 let powerMetrics = manager.getPlaybackPowerMetrics()
-                
+
                 if !powerMetrics.isEmpty {
-                    // For playback, convert the metrics to normalized levels
+                    // For playback, manager now returns dB-style metrics (or simulated dB) so reuse same conversion
                     let averageDb = powerMetrics[0].average
                     let linearAmplitude = pow(10, averageDb / 20)
                     let normalizedAmplitude = min(1.0, max(0.0, linearAmplitude))
-                    
+
                     // Apply low-pass smoothing
-                    let alpha: Float = 0.3
+                    let alpha: Float = 0.25
                     let smoothed = smoothedLevels.last! * (1 - alpha) + Float(normalizedAmplitude) * alpha
                     smoothedLevels.append(smoothed)
                     if smoothedLevels.count > 50 {
                         smoothedLevels.removeFirst()
                     }
-                    
+
                     // Convert to CGFloat for display
                     levels = smoothedLevels.map { CGFloat($0) }
                 } else {
-                    // No metrics available - playback might have ended
+                    // No metrics available - finish
                     break
                 }
-                
+
                 // Poll at ~30 FPS
                 try? await Task.sleep(nanoseconds: 33_333_333)
             }
-            
-            // Cleanup when loop exits
+
+            // Cleanup when loop exits. Don't clear levels immediately; allow WaveformView to animate to idle.
             DispatchQueue.main.async {
                 if self.isPlaying {
                     self.isPlaying = false
-                    self.levels = []
-                    self.smoothedLevels = [0, 0, 0, 0, 0]
                 }
             }
         }

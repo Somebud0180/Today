@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 struct WaveformView: View {
     var levels: [CGFloat]
@@ -13,6 +14,8 @@ struct WaveformView: View {
     
     @State private var displayLevels: [CGFloat] = []
     @State private var animationPhase: CGFloat = 0
+    // Task used to smoothly decay displayLevels to idle
+    @State private var decayTask: Task<Void, Never>? = nil
     
     private let barWidth: CGFloat = 4
     private let barSpacing: CGFloat = 3
@@ -21,60 +24,84 @@ struct WaveformView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                if isRecording && !levels.isEmpty {
-                    // Recording mode: show animated bars
-                    Canvas { context, size in
-                        let barsToShow = Int(size.width / (barWidth + barSpacing))
+                // Always draw the bars in a Canvas so recording, playback and idle share the same layout/width.
+                Canvas { context, size in
+                    let barsToShow = max(1, Int(size.width / (barWidth + barSpacing)))
+
+                    // Determine which source levels to draw. Prefer displayLevels (real captured levels).
+                    // If displayLevels is empty (no data), synthesize a flat idle waveform of the same width.
+                    var source: [CGFloat]
+                    if displayLevels.isEmpty {
+                        // Flat idle: all bars at minAmplitude
+                        source = Array(repeating: minAmplitude, count: barsToShow)
+                    } else {
                         let maxBars = min(barsToShow, displayLevels.count)
-                        
-                        for i in 0..<maxBars {
-                            let index = displayLevels.count - maxBars + i
-                            if index >= 0 && index < displayLevels.count {
-                                let level = displayLevels[index]
-                                let height = max(minAmplitude, level) * size.height * 0.8
-                                
-                                let x = CGFloat(i) * (barWidth + barSpacing) + barSpacing
-                                let y = (size.height - height) / 2
-                                
-                                var path = Path()
-                                path.addRoundedRect(
-                                    in: CGRect(x: x, y: y, width: barWidth, height: height),
-                                    cornerSize: CGSize(width: barWidth / 2, height: barWidth / 2)
-                                )
-                                
-                                context.fill(
-                                    path,
-                                    with: .color(.blue.opacity(0.8))
-                                )
-                            }
+                        source = Array(displayLevels.suffix(maxBars))
+                        // If there are fewer levels than barsToShow, pad the left with flat idle values
+                        if source.count < barsToShow {
+                            let padCount = barsToShow - source.count
+                            let pads = Array(repeating: minAmplitude, count: padCount)
+                            source = pads + source
                         }
                     }
-                    .frame(height: 120)
-                    .transition(.opacity)
-                } else {
-                    // Idle mode: show 5 dots
-                    HStack(spacing: 12) {
-                        ForEach(0..<5, id: \.self) { _ in
-                            Circle()
-                                .fill(Color.blue.opacity(0.4))
-                                .frame(width: 8, height: 8)
-                                .scaleEffect(isRecording ? 0.8 : 1.0)
-                        }
+
+                    for i in 0..<source.count {
+                        let level = source[i]
+                        let height = max(minAmplitude, level) * size.height * 0.8
+
+                        let x = CGFloat(i) * (barWidth + barSpacing) + barSpacing
+                        let y = (size.height - height) / 2
+
+                        var path = Path()
+                        path.addRoundedRect(
+                            in: CGRect(x: x, y: y, width: barWidth, height: height),
+                            cornerSize: CGSize(width: barWidth / 2, height: barWidth / 2)
+                        )
+
+                        context.fill(
+                            path,
+                            with: .color(.blue.opacity(0.85))
+                        )
                     }
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .frame(height: 120)
-                    .transition(.opacity)
                 }
+                .frame(height: 120)
+                .transition(.opacity)
             }
             .onChange(of: levels) { oldValue, newValue in
                 updateDisplayLevels(newValue)
             }
             .onChange(of: isRecording) { oldValue, newValue in
                 if !newValue {
-                    // Reset to idle state
-                    withAnimation(.easeOut(duration: 0.3)) {
+                    // When stopping recording/playback, smoothly decay the visible displayLevels
+                    // down to the flat idle amplitude instead of abruptly clearing them.
+                    decayTask?.cancel()
+                    decayTask = Task { @MainActor in
+                        let steps = 12
+                        // If no current displayLevels, nothing to do
+                        guard !displayLevels.isEmpty else {
+                            displayLevels = []
+                            return
+                        }
+
+                        let target = Array(repeating: minAmplitude, count: displayLevels.count)
+                        for step in 1...steps {
+                            if Task.isCancelled { return }
+                            let t = CGFloat(step) / CGFloat(steps)
+                            // Interpolate each value towards target
+                            displayLevels = zip(displayLevels, target).map { current, tgt in
+                                current + (t) * (tgt - current)
+                            }
+                            try? await Task.sleep(nanoseconds: 30_000_000)
+                        }
+
+                        // Finally set to empty so Canvas will render flat idle consistently
                         displayLevels = []
+                        decayTask = nil
                     }
+                } else {
+                    // If recording/resuming, cancel any decay in progress
+                    decayTask?.cancel()
+                    decayTask = nil
                 }
             }
             .onAppear {
@@ -84,17 +111,19 @@ struct WaveformView: View {
     }
     
     private func updateDisplayLevels(_ newLevels: [CGFloat]) {
-        let maxBars = 50 // Cap at reasonable number
+        let maxBars = 200 // Cap at reasonable number depending on width
         var updated = displayLevels
-        
+
         for level in newLevels {
             updated.append(level)
             if updated.count > maxBars {
                 updated.removeFirst()
             }
         }
-        
-        withAnimation(.easeInOut(duration: 0.05)) {
+
+        // Smoothly animate the append for cohesive motion. Cancel any decay in progress.
+        decayTask?.cancel()
+        withAnimation(.linear(duration: 0.06)) {
             displayLevels = updated
         }
     }
