@@ -11,64 +11,98 @@ import SwiftUI
 import AVFoundation
 import UIKit
 
+// Unified media type
+enum MediaType: String, Codable {
+    case video
+    case audio
+}
+
 @Model
 class JournalEntries: Identifiable {
     var uuid: UUID = UUID()
     @Relationship(deleteRule: .cascade) var entries: [JournalEntry] = []
-    
-    init(entries: [JournalEntry]) {
+
+    init(entries: [JournalEntry] = []) {
         self.entries = entries
     }
 }
 
 @Model
-class JournalEntry: Identifiable{
+class JournalEntry: Identifiable {
     var uuid: UUID = UUID()
     var date: Date = Date()
-    var videoName: String = ""
-    var videoThumbData: Data? = nil
     var title: String = ""
     var note: String = ""
-    
-    init(videoName: String, note: String) {
-        self.videoName = videoName
+    var mediaTypeRaw: String = MediaType.video.rawValue
+    var mediaURLString: String = ""
+    var thumbnailURLString: String? = nil
+
+    init?(title: String,
+          note: String,
+          mediaData: Data,
+          fileExtension: String,
+          mediaType: MediaType) {
+
+        let id = UUID()
+
+        guard let mediaURL = MediaStore.saveMedia(data: mediaData, fileExtension: fileExtension, entryID: id) else {
+            print("Failed to save media for entry")
+            return nil
+        }
+
+        var thumbURLString: String? = nil
+        if mediaType == .video {
+            if let thumbData = Self.generateThumbnailData(from: mediaURL) {
+                if let thumbURL = MediaStore.saveThumbnail(data: thumbData, entryID: id) {
+                    thumbURLString = thumbURL.absoluteString
+                }
+            }
+        }
+
+        self.uuid = id
+        self.date = Date()
+        self.title = title
         self.note = note
-        self.videoThumbData = Self.generateThumbnailData(videoName)
-        
+        self.mediaTypeRaw = mediaType.rawValue
+        self.mediaURLString = mediaURL.absoluteString
+        self.thumbnailURLString = thumbURLString
     }
-    
+
+    var mediaType: MediaType {
+        MediaType(rawValue: mediaTypeRaw) ?? .video
+    }
+
+    var mediaURL: URL? {
+        URL(string: mediaURLString)
+    }
+
+    var thumbnailURL: URL? {
+        if let s = thumbnailURLString { return URL(string: s) }
+        return nil
+    }
+
     var videoThumbImage: Image? {
-        guard let videoThumbData, let uiImage = UIImage(data: videoThumbData) else {
+        guard let thumbURL = thumbnailURL,
+              let data = try? Data(contentsOf: thumbURL),
+              let ui = UIImage(data: data) else {
             return nil
         }
 
-        return Image(uiImage: uiImage)
+        return Image(uiImage: ui)
     }
 
-    private static func generateThumbnailData(_ videoName: String) -> Data? {
-        final class ThumbnailDataBox: @unchecked Sendable {
-            var data: Data?
-        }
+    private static func generateThumbnailData(from videoURL: URL) -> Data? {
+        final class ThumbnailDataBox: @unchecked Sendable { var data: Data? }
 
-        // Step 1: Get video URL from bundle
-        guard let videoURL = Bundle.main.url(forResource: videoName, withExtension: "mov") else {
-            print("Video file not found.")
-            return nil
-        }
-        
-        // Step 2: Create AVAsset
         let asset = AVURLAsset(url: videoURL)
-        
-        // Step 3: Configure image generator
         let imageGenerator = AVAssetImageGenerator(asset: asset)
         imageGenerator.appliesPreferredTrackTransform = true
         imageGenerator.maximumSize = CGSize(width: 600, height: 400)
-        
-        // Step 4: Generate thumbnail at 1 second
+
         let time = CMTimeMakeWithSeconds(1, preferredTimescale: 600)
         let box = ThumbnailDataBox()
         let semaphore = DispatchSemaphore(value: 0)
-        
+
         imageGenerator.generateCGImageAsynchronously(for: time) { cgImage, _, error in
             defer { semaphore.signal() }
 
@@ -77,9 +111,7 @@ class JournalEntry: Identifiable{
                 return
             }
 
-            guard let cgImage else {
-                return
-            }
+            guard let cgImage else { return }
 
             let thumbnail = UIImage(cgImage: cgImage)
             box.data = thumbnail.jpegData(compressionQuality: 0.85)

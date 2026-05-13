@@ -11,19 +11,21 @@ import Combine
 
 struct AudioRecordingView: View {
     @ObservedObject var manager: AudioRecorderManager
+    @Binding var recordedURL: URL?
     var onBack: () -> Void
     
     @State private var levels: [CGFloat] = []
     @State private var smoothedLevels: [Float] = [0, 0, 0, 0, 0]
-    @State private var isRecording: Bool = false
     @State private var elapsedTime: TimeInterval = 0
-    @State private var recordedURL: URL? = nil
+    @State private var isRecording: Bool = false
     @State private var isPlaying: Bool = false
     @State private var showDiscardConfirmation: Bool = false
+    @State private var localRecordedURL: URL? = nil
 
     private var hasRecording: Bool {
-        recordedURL != nil
+        localRecordedURL != nil
     }
+    
     @State private var recordingTask: Task<Void, Never>?
     @State private var meterPollTask: Task<Void, Never>?
     @State private var playbackPollTask: Task<Void, Never>?
@@ -123,7 +125,7 @@ struct AudioRecordingView: View {
                     .buttonStyle(.glass)
 
                     Button(action: {
-                        // Placeholder for confirm action — implement saving to model later
+                        recordedURL = localRecordedURL
                     }) {
                         Text("Confirm Recording")
                             .frame(maxWidth: .infinity)
@@ -221,7 +223,7 @@ struct AudioRecordingView: View {
                 elapsedTime = 0
                 levels = []
                 smoothedLevels = [0, 0, 0, 0, 0]
-                recordedURL = nil
+                localRecordedURL = nil
                 
                 startMeterPolling()
             } catch {
@@ -237,7 +239,7 @@ struct AudioRecordingView: View {
         isRecording = false
         // Capture the finished recording URL for post-recording UI
         if let url = manager.destinationURL, FileManager.default.fileExists(atPath: url.path) {
-            recordedURL = url
+            localRecordedURL = url
         }
         
         // Haptic feedback: success notification
@@ -354,6 +356,7 @@ struct AudioRecordingView: View {
     NavigationStack {
         AudioRecordingView(
             manager: AudioRecorderManager(),
+            recordedURL: .constant(nil),
             onBack: { }
         )
     }

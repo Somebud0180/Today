@@ -6,22 +6,30 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct CreateView: View {
     private enum Page {
         case menu
         case video
         case audio
+        case save
     }
 
     private enum TransitionDirection {
         case forward
         case backward
     }
+    
+    @Environment(\.modelContext) private var modelContext
 
+    @State private var audioRecorderManager = AudioRecorderManager()
     @State private var activePage: Page = .menu
     @State private var transitionDirection: TransitionDirection = .forward
-    @State private var manager = AudioRecorderManager()
+    @State private var recordedAudioURL: URL? = nil
+    
+    @State private var entryTitle: String = ""
+    @State private var entryNote: String = ""
 
     private var pageTransition: AnyTransition {
         switch transitionDirection {
@@ -101,7 +109,7 @@ struct CreateView: View {
                         .buttonStyle(.plain)
                     }
                     .transition(pageTransition)
-
+                    
                 case .video:
                     VStack {
                         Spacer()
@@ -121,15 +129,72 @@ struct CreateView: View {
                         .buttonStyle(.glass)
                     }
                     .transition(pageTransition)
-
+                    
                 case .audio:
-                    AudioRecordingView(manager: manager) {
+                    AudioRecordingView(
+                        manager: audioRecorderManager,
+                        recordedURL: $recordedAudioURL,
+                    ) {
                         transitionDirection = .backward
                         withAnimation(.easeInOut(duration: 0.3)) {
                             activePage = .menu
                         }
                     }
                     .transition(pageTransition)
+                    
+                case .save:
+                    if recordedAudioURL != nil {
+                        VStack {
+                            Spacer()
+                            TextField(
+                                Date().formatted(date: .numeric, time: .omitted),
+                                text: $entryTitle,
+                                axis: .vertical
+                            )
+                            .font(.largeTitle)
+                            
+                            TextField(
+                                "Add a note (optional)",
+                                text: $entryNote
+                            )
+                            Spacer()
+                            Button(action: {
+                                let entry = JournalEntry(
+                                    title: entryTitle,
+                                    note: entryNote,
+                                    mediaData: try! Data(contentsOf: recordedAudioURL!),
+                                    fileExtension: "m4a",
+                                    mediaType: .audio
+                                )
+                                
+                                if let entry = entry {
+                                    modelContext.insert(entry)
+                                    try? modelContext.save()
+                                }
+                            }) {
+                                Text("Save Entry")
+                                    .frame(maxWidth: .infinity)
+                                    .font(.headline)
+                                    .padding(8)
+                            }
+                            .buttonStyle(.glassProminent)
+                            
+                            Button(action: {
+                                transitionDirection = .backward
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    recordedAudioURL = nil
+                                }
+                            }) {
+                                Text("Back")
+                                    .frame(maxWidth: .infinity)
+                                    .font(.headline)
+                                    .padding(8)
+                            }
+                            .buttonStyle(.glass)
+                            
+                        }
+                        .transition(pageTransition)
+                    }
                 }
             }
             .padding(24)

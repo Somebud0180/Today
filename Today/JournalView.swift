@@ -102,6 +102,13 @@ struct JournalView: View {
 }
 
 #Preview {
-    @Previewable @State var entry = JournalEntry(videoName: "example", note: "This is a note.")
-    JournalView(selectedEntry: entry)
+    @Previewable @State var entry = JournalEntry(
+        title: "Sample Entry",
+        note: "This is a sample journal entry.",
+        mediaData: try! Data(contentsOf: Bundle.main.url(forResource: "example", withExtension: "mp4")!),
+        fileExtension: "mp4",
+        mediaType: .video
+    )
+    
+    JournalView(selectedEntry: entry!)
 }
