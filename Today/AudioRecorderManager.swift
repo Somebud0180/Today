@@ -285,6 +285,27 @@ extension AudioRecorderManager {
             throw _Error.failToDeleteRecording("Failed To delete recording.")
         }
     }
+
+    /// Discard the recorded file and clear internal playback metadata.
+    /// This will stop any playback/recording and remove the destination file on disk.
+    func discardRecording() throws {
+        // stop any playing
+        self.stopPlayingRecording()
+
+        // ensure recorder is stopped
+        self.recorder?.stop()
+        self.recorder = nil
+        self.recorderState = .stopped
+        self.stopTimer()
+
+        if let fileURL = self.destinationURL, FileManager.default.fileExists(atPath: fileURL.path) {
+            try FileManager.default.removeItem(at: fileURL)
+        }
+
+        // clear player metadata
+        self.player = nil
+        self.recordedContentsDuration = nil
+    }
 }
 
 // MARK: - Player

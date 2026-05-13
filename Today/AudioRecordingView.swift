@@ -17,6 +17,13 @@ struct AudioRecordingView: View {
     @State private var smoothedLevels: [Float] = [0, 0, 0, 0, 0]
     @State private var isRecording: Bool = false
     @State private var elapsedTime: TimeInterval = 0
+    @State private var recordedURL: URL? = nil
+    @State private var isPlaying: Bool = false
+    @State private var showDiscardConfirmation: Bool = false
+
+    private var hasRecording: Bool {
+        recordedURL != nil
+    }
     @State private var recordingTask: Task<Void, Never>?
     @State private var meterPollTask: Task<Void, Never>?
     @State private var showError: Bool = false
@@ -40,11 +47,17 @@ struct AudioRecordingView: View {
             
             // Center: Waveform
             VStack(spacing: 24) {
-                Text(isRecording ? "Recording..." : "Ready to record")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                
-                WaveformView(levels: levels, isRecording: isRecording)
+                if isRecording {
+                    Text("Recording...")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else if hasRecording {
+                    Text("Recording complete")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                WaveformView(levels: levels, isRecording: isRecording || hasRecording)
                     .frame(height: 120)
             }
             .frame(maxWidth: .infinity)
@@ -52,40 +65,92 @@ struct AudioRecordingView: View {
             
             Spacer()
             
-            // Bottom: Record button and Back button
+            // Bottom: Record button and Back / Post-recording controls
             VStack(spacing: 24) {
-                // Record button (red circle inside white ring)
-                Button(action: toggleRecording) {
-                    ZStack {
-                        Circle()
-                            .stroke(Color.white, lineWidth: 3)
-                            .background(Circle().fill(Color.white.opacity(0.1)))
-                            .frame(width: 80, height: 80)
-                        
-                        Circle()
-                            .fill(Color.red)
-                            .frame(width: 60, height: 60)
-                            .scaleEffect(isRecording ? 0.95 : 1.0)
+                if !hasRecording {
+                    // Record button (red circle inside white ring)
+                    Button(action: toggleRecording) {
+                        ZStack {
+                            Circle()
+                                .stroke(Color.white, lineWidth: 3)
+                                .background(Circle().fill(Color.white.opacity(0.1)))
+                                .frame(width: 80, height: 80)
+                            
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 60, height: 60)
+                                .scaleEffect(isRecording ? 0.95 : 1.0)
+                        }
+                        .frame(height: 80)
                     }
-                    .frame(height: 80)
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(isRecording ? "Stop recording" : "Start recording")
+                    .accessibilityAddTraits(.isButton)
+                    
+                    // Back button
+                    Button(action: {
+                        stopRecording()
+                        onBack()
+                    }) {
+                        Text("Back")
+                            .frame(maxWidth: .infinity)
+                            .font(.headline)
+                            .padding(12)
+                    }
+                    .buttonStyle(.glass)
+                    .disabled(isRecording)
+                    .opacity(isRecording ? 0.5 : 1.0)
+                } else {
+                    // Post-recording: Play/Pause, Confirm, Record again
+                    Button(action: {
+                        if isPlaying {
+                            manager.pausePlayingRecording()
+                            isPlaying = false
+                        } else {
+                            do {
+                                try manager.resumePlayingRecording()
+                                isPlaying = true
+                            } catch {
+                                errorMessage = "Failed to play recording: \(error.localizedDescription)"
+                                showError = true
+                            }
+                        }
+                    }) {
+                        ZStack {
+                            Circle()
+                                .stroke(Color.white, lineWidth: 3)
+                                .background(Circle().fill(Color.white.opacity(0.06)))
+                                .frame(width: 80, height: 80)
+
+                            Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                                .font(.system(size: 32, weight: .bold))
+                                .foregroundStyle(.primary)
+                        }
+                        .frame(height: 80)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(action: {
+                        // Placeholder for confirm action — implement saving to model later
+                    }) {
+                        Text("Confirm Recording")
+                            .frame(maxWidth: .infinity)
+                            .font(.headline)
+                            .padding(12)
+                    }
+                    .buttonStyle(.glass)
+                    .disabled(recordedURL == nil)
+
+                    Button(action: {
+                        showDiscardConfirmation = true
+                    }) {
+                        Text("Record again")
+                            .frame(maxWidth: .infinity)
+                            .font(.headline)
+                            .padding(12)
+                    }
+                    .buttonStyle(.glass)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(isRecording ? "Stop recording" : "Start recording")
-                .accessibilityAddTraits(.isButton)
-                
-                // Back button
-                Button(action: {
-                    stopRecording()
-                    onBack()
-                }) {
-                    Text("Back")
-                        .frame(maxWidth: .infinity)
-                        .font(.headline)
-                        .padding(12)
-                }
-                .buttonStyle(.glass)
-                .disabled(isRecording)
-                .opacity(isRecording ? 0.5 : 1.0)
             }
             .padding(.horizontal, 24)
         }
@@ -96,11 +161,32 @@ struct AudioRecordingView: View {
         } message: {
             Text(errorMessage)
         }
+        .alert("Discard Recording?", isPresented: $showDiscardConfirmation) {
+            Button("Discard", role: .destructive) {
+                Task {
+                    do {
+                        try manager.discardRecording()
+                        // restore view state
+                        recordedURL = nil
+                        isPlaying = false
+                        elapsedTime = 0
+                        levels = []
+                    } catch {
+                        errorMessage = "Failed to discard recording: \(error.localizedDescription)"
+                        showError = true
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Discarding will permanently delete this recording.")
+        }
         .onChange(of: manager.recorderState) { oldValue, newValue in
             updateRecordingState(newValue)
         }
         .onDisappear {
             stopRecording()
+            manager.pausePlayingRecording()
         }
     }
     
@@ -136,6 +222,7 @@ struct AudioRecordingView: View {
                 elapsedTime = 0
                 levels = []
                 smoothedLevels = [0, 0, 0, 0, 0]
+                recordedURL = nil
                 
                 startMeterPolling()
             } catch {
@@ -149,6 +236,10 @@ struct AudioRecordingView: View {
     private func stopRecording() {
         manager.stopRecording()
         isRecording = false
+        // Capture the finished recording URL for post-recording UI
+        if let url = manager.destinationURL, FileManager.default.fileExists(atPath: url.path) {
+            recordedURL = url
+        }
         
         // Haptic feedback: success notification
         let notificationFeedback = UINotificationFeedbackGenerator()
