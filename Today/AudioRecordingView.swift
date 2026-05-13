@@ -70,22 +70,13 @@ struct AudioRecordingView: View {
                 if !hasRecording {
                     // Record button (red circle inside white ring)
                     Button(action: toggleRecording) {
-                        ZStack {
-                            Circle()
-                                .stroke(Color.white, lineWidth: 3)
-                                .background(Circle().fill(Color.white.opacity(0.1)))
-                                .frame(width: 80, height: 80)
-                            
-                            Circle()
-                                .fill(Color.red)
-                                .frame(width: 60, height: 60)
-                                .scaleEffect(isRecording ? 0.95 : 1.0)
-                        }
-                        .frame(height: 80)
+                        Text(isRecording ? "Stop Recording" : "Start Recording")
+                            .frame(maxWidth: .infinity)
+                            .font(.headline)
+                            .padding(12)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(isRecording ? "Stop recording" : "Start recording")
-                    .accessibilityAddTraits(.isButton)
+                    .buttonStyle(.glassProminent)
+                    .tint(.red)
                     
                     // Back button
                     Button(action: {
@@ -116,19 +107,12 @@ struct AudioRecordingView: View {
                             }
                         }
                     }) {
-                        ZStack {
-                            Circle()
-                                .stroke(Color.white, lineWidth: 3)
-                                .background(Circle().fill(Color.white.opacity(0.06)))
-                                .frame(width: 80, height: 80)
-
-                            Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                                .font(.system(size: 32, weight: .bold))
-                                .foregroundStyle(.primary)
-                        }
-                        .frame(height: 80)
+                            Text(isPlaying ? "Pause" : "Play")
+                                .frame(maxWidth: .infinity)
+                                .font(.headline)
+                                .padding(12)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.glass)
 
                     Button(action: {
                         // Placeholder for confirm action — implement saving to model later
@@ -138,7 +122,7 @@ struct AudioRecordingView: View {
                             .font(.headline)
                             .padding(12)
                     }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.glassProminent)
                     .disabled(recordedURL == nil)
 
                     Button(action: {
