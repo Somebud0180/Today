@@ -13,39 +13,118 @@ class AudioViewModel: ObservableObject {
     @Published private(set) var isPlayerReady = false
     @Published var isPlaying = false
     @Published private(set) var audioLevels: [CGFloat] = []
-    private(set) var player = AVAudioPlayer()
     
-    private var cancellables = Set<AnyCancellable>()
-    private var playbackObserver: NSObjectProtocol?
-    private var readyObserver: NSKeyValueObservation?
+    private var engine: AVAudioEngine?
+    private var playerNode: AVAudioPlayerNode?
+    private var audioFile: AVAudioFile?
     private var meterTimer: Timer?
     
+    // For real-time metering
+    private var currentLevels: [Float] = []
+    private let levelQueue = DispatchQueue(label: "com.audio.levels")
+    
+    // Noise gate threshold in dB - suppress levels below this
+    private let noiseFloorThreshold: Float = -80
+    
+    private var cancellables = Set<AnyCancellable>()
+    
     init(fileURL: URL) {
-        self.configurePlayer()
         self.loadAudio(fileURL: fileURL)
         self.observeAppLifecycle()
     }
     
     deinit {
         self.cancellables.forEach { $0.cancel() }
-        self.removePlaybackObserver()
-        self.readyObserver?.invalidate()
-        self.readyObserver = nil
         self.stopMeterTimer()
+        self.stopEngine()
     }
     
-    private func configurePlayer() {
-        player.prepareToPlay()
-    }
-        
     private func loadAudio(fileURL: URL) {
         do {
-            self.player = try AVAudioPlayer(contentsOf: fileURL)
+            let audioFile = try AVAudioFile(forReading: fileURL)
+            self.audioFile = audioFile
+            self.setupAudioEngine()
             self.isPlayerReady = true
         } catch {
             print("Error loading audio: \(error)")
             self.isPlayerReady = false
         }
+    }
+    
+    private func setupAudioEngine() {
+        let engine = AVAudioEngine()
+        let playerNode = AVAudioPlayerNode()
+        
+        engine.attach(playerNode)
+        
+        // Connect player to output
+        engine.connect(playerNode, to: engine.mainMixerNode, format: nil)
+        
+        // Setup audio tap for real-time metering
+        setupAudioTap(playerNode: playerNode, engine: engine)
+        
+        do {
+            try engine.start()
+            self.engine = engine
+            self.playerNode = playerNode
+        } catch {
+            print("Error starting audio engine: \(error)")
+        }
+    }
+    
+    private func setupAudioTap(playerNode: AVAudioPlayerNode, engine: AVAudioEngine) {
+        guard let audioFile = audioFile else { return }
+        let format = audioFile.processingFormat
+        
+        // Install a tap on the output to monitor levels
+        engine.mainMixerNode.installTap(onBus: 0, bufferSize: 4096, format: format) { [weak self] buffer, _ in
+            self?.analyzeLevels(buffer: buffer)
+        }
+    }
+    
+    private func analyzeLevels(buffer: AVAudioPCMBuffer) {
+        guard let channelData = buffer.floatChannelData else { return }
+        let frameLength = Int(buffer.frameLength)
+        let channelCount = Int(buffer.format.channelCount)
+        
+        var levels: [Float] = []
+        
+        for channel in 0..<channelCount {
+            let data = channelData[channel]
+            
+            // Find peak value for this channel (more responsive than RMS)
+            var peak: Float = 0
+            for i in 0..<frameLength {
+                let absValue = abs(data[i])
+                if absValue > peak {
+                    peak = absValue
+                }
+            }
+            
+            // Convert to dB
+            let db = peak > 0 ? 20 * log10(peak) : -160
+            
+            // Apply noise gate: suppress signals below noise floor threshold
+            let gatedDb = db < noiseFloorThreshold ? -160 : db
+            
+            // Normalize to 0...1 using the range from noise floor to 0 dB
+            let normalized = max(0, min(1, (gatedDb - noiseFloorThreshold) / (-noiseFloorThreshold)))
+            levels.append(normalized)
+        }
+        
+        levelQueue.async {
+            self.currentLevels = levels
+        }
+    }
+    
+    private func stopEngine() {
+        if let playerNode = playerNode {
+            engine?.mainMixerNode.removeTap(onBus: 0)
+            playerNode.stop()
+        }
+        engine?.stop()
+        engine = nil
+        playerNode = nil
     }
     
     //MARK: - Observers
@@ -63,16 +142,10 @@ class AudioViewModel: ObservableObject {
             .store(in: &cancellables)
     }
     
-    private func removePlaybackObserver() {
-        if let observer = playbackObserver {
-            NotificationCenter.default.removeObserver(observer)
-        }
-    }
-    
     //MARK: - Playback Controls
     func togglePlayback() {
         guard isPlayerReady else { return }
-        if player.isPlaying {
+        if playerNode?.isPlaying == true {
             pause()
         } else {
             play()
@@ -80,15 +153,28 @@ class AudioViewModel: ObservableObject {
     }
     
     func play() {
-        guard isPlayerReady else { return }
-        player.play()
-        isPlaying = true
-        startMeterTimer()
+        guard isPlayerReady, let playerNode = playerNode, let audioFile = audioFile, let engine = engine else { return }
+        
+        if !playerNode.isPlaying {
+            do {
+                if !engine.isRunning {
+                    try engine.start()
+                }
+                
+                playerNode.scheduleFile(audioFile, at: nil)
+                playerNode.play()
+                
+                isPlaying = true
+                startMeterTimer()
+            } catch {
+                print("Error starting playback: \(error)")
+            }
+        }
     }
     
     func pause() {
-        guard isPlayerReady else { return }
-        player.pause()
+        guard let playerNode = playerNode else { return }
+        playerNode.pause()
         isPlaying = false
         stopMeterTimer()
     }
@@ -108,28 +194,16 @@ class AudioViewModel: ObservableObject {
     }
     
     private func updateAudioLevels() {
-        guard player.isPlaying else { return }
+        guard playerNode?.isPlaying == true else { return }
         
-        // Generate simulated audio levels for visualization
-        // Using a combination of sine waves with random variation to simulate audio waveform
-        let time = Float(player.currentTime)
-        let baseFrequency = sin(time * 1.5) * 0.3 + 0.4
-        let variation = Float.random(in: 0...0.3)
-        let amplitude = (baseFrequency + variation).clamped(to: 0...1)
-        
-        // Generate 1 level per update call, creating a flowing waveform
-        let level = CGFloat(amplitude)
-        
-        var updatedLevels = audioLevels
-        updatedLevels.append(level)
-        
-        // Keep a reasonable history (cap at 200 levels)
-        if updatedLevels.count > 200 {
-            updatedLevels.removeFirst()
-        }
-        
-        withAnimation(.linear(duration: 0.06)) {
-            audioLevels = updatedLevels
+        levelQueue.async { [weak self] in
+            let levels = self?.currentLevels.map { CGFloat($0) } ?? []
+            
+            DispatchQueue.main.async {
+                withAnimation(.linear(duration: 0.06)) {
+                    self?.audioLevels = levels
+                }
+            }
         }
     }
 }
@@ -139,11 +213,11 @@ struct AudioPlayerView: View {
     
     var body: some View {
         VStack {
-            Text(Duration.seconds(viewModel.player.currentTime).formatted(.time(pattern: .minuteSecond)))
+            Text("Audio Player")
                 .font(.largeTitle)
                 .padding()
             Spacer()
-            WaveformView(levels: viewModel.audioLevels, isRecording: false)
+            WaveformView(levels: viewModel.audioLevels, isRecording: viewModel.isPlaying)
                 .frame(height: 200)
                 .padding()
             Spacer()
