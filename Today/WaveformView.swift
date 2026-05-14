@@ -11,6 +11,7 @@ import Combine
 struct WaveformView: View {
     var levels: [CGFloat]
     var isRecording: Bool
+    var resetToken: Int
     
     @State private var displayLevels: [CGFloat] = []
     @State private var animationPhase: CGFloat = 0
@@ -69,6 +70,9 @@ struct WaveformView: View {
             }
             .onChange(of: levels) { oldValue, newValue in
                 updateDisplayLevels(newValue)
+            }
+            .onChange(of: resetToken) { _, _ in
+                displayLevels = []
             }
             .onChange(of: isRecording) { oldValue, newValue in
                 if !newValue {
@@ -131,13 +135,14 @@ struct WaveformView: View {
 
 #Preview {
     VStack(spacing: 40) {
-        WaveformView(levels: [], isRecording: false)
+        WaveformView(levels: [], isRecording: false, resetToken: 0)
             .frame(height: 120)
             .padding()
         
         WaveformView(
             levels: (0..<10).map { _ in CGFloat.random(in: 0.2...1.0) },
-            isRecording: true
+            isRecording: true,
+            resetToken: 0
         )
         .frame(height: 120)
         .padding()

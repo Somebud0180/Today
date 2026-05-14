@@ -61,7 +61,7 @@ struct AudioRecordingView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                WaveformView(levels: levels, isRecording: isRecording || isPlaying)
+                WaveformView(levels: levels, isRecording: isRecording || isPlaying, resetToken: 0)
                     .frame(height: 120)
             }
             .frame(maxWidth: .infinity)
