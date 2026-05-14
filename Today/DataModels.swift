@@ -20,16 +20,17 @@ enum MediaType: String, Codable {
 @Model
 class JournalEntries: Identifiable {
     var uuid: UUID = UUID()
-    @Relationship(deleteRule: .cascade) var entries: [JournalEntry] = []
+    @Relationship(deleteRule: .cascade, inverse: \JournalEntry.journalEntries) var entries: [JournalEntry]? = nil
 
     init(entries: [JournalEntry] = []) {
-        self.entries = entries
+        self.entries = entries.isEmpty ? nil : entries
     }
 }
 
 @Model
 class JournalEntry: Identifiable {
     var uuid: UUID = UUID()
+    var journalEntries: JournalEntries? = nil
     var date: Date = Date()
     var title: String = ""
     var note: String = ""

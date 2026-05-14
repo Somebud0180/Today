@@ -29,9 +29,22 @@
 		AA8C50F42FAB9A7300FC23FF /* TodayUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TodayUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		AA5B576B2FB5C61D00A5FCE8 /* Exceptions for "Today" folder in "Today" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AA8C50DA2FAB9A7000FC23FF /* Today */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		AA8C50DD2FAB9A7000FC23FF /* Today */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AA5B576B2FB5C61D00A5FCE8 /* Exceptions for "Today" folder in "Today" target */,
+			);
 			path = Today;
 			sourceTree = "<group>";
 		};
@@ -401,6 +414,7 @@
 				DEVELOPMENT_TEAM = L5KZFNA2X4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Today/Info.plist;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "The microphone will be used to record the audio for your  journal entries.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -436,6 +450,7 @@
 				DEVELOPMENT_TEAM = L5KZFNA2X4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Today/Info.plist;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "The microphone will be used to record the audio for your  journal entries.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

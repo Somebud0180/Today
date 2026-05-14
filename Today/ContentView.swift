@@ -132,5 +132,5 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: JournalEntries.self, inMemory: true)
+        .modelContainer(for: [JournalEntries.self, JournalEntry.self], inMemory: true)
 }
