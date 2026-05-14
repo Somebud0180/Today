@@ -11,19 +11,26 @@ import SwiftData
 struct JournalView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @StateObject var viewModel: VideoViewModel
+    @StateObject var videoViewModel: VideoViewModel
+    @StateObject var audioViewModel: AudioViewModel
     let selectedEntry: JournalEntry
     
     init(selectedEntry: JournalEntry) {
         self.selectedEntry = selectedEntry
-        _viewModel = StateObject(wrappedValue: VideoViewModel(fileURL: selectedEntry.mediaURL!))
+        _videoViewModel = StateObject(wrappedValue: VideoViewModel(fileURL: selectedEntry.mediaURL!))
+        _audioViewModel = StateObject(wrappedValue: AudioViewModel(fileURL: selectedEntry.mediaURL!))
     }
     
     var body: some View {
         NavigationStack {
             ZStack {
-                VideoPlayerView(player: self.viewModel.player)
-                self.playButton
+                if selectedEntry.mediaType == .video {
+                    VideoPlayerView(player: videoViewModel.player)
+                } else if selectedEntry.mediaType == .audio {
+                    AudioPlayerView(viewModel: audioViewModel)
+                }
+                
+                playButton()
                 
                 VStack {
                     Spacer()
@@ -71,7 +78,13 @@ struct JournalView: View {
                         .foregroundStyle(.red)
                 }
             }
-            .onAppear { self.viewModel.play() }
+            .onAppear {
+                if selectedEntry.mediaType == .video {
+                    videoViewModel.play()
+                } else if selectedEntry.mediaType == .audio {
+                    audioViewModel.play()
+                }
+            }
             .onDisappear { saveChanges() }
         }
     }
@@ -90,18 +103,37 @@ struct JournalView: View {
         try? modelContext.save()
     }
     
-    private var playButton: some View {
-        Button(action: {
-            self.viewModel.togglePlayback()
-        }) {
-            Image(systemName: viewModel.isPlaying ? "pause.fill" : "play.fill")
-                .font(.system(size: 32))
-                .foregroundStyle(.black.opacity(0.75))
-                .padding(16)
-                .glassEffect(
-                    .clear
-                        .interactive(),
-                    in: Circle())
+    private func playButton() -> some View {
+        if selectedEntry.mediaType == .video {
+            return Group {
+                Button(action: {
+                    videoViewModel.togglePlayback()
+                }) {
+                    Image(systemName: videoViewModel.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 32))
+                        .foregroundStyle(.black.opacity(0.75))
+                        .padding(16)
+                        .glassEffect(
+                            .clear
+                                .interactive(),
+                            in: Circle())
+                }
+            }
+        }  else {
+            return Group {
+                Button(action: {
+                    audioViewModel.togglePlayback()
+                }) {
+                    Image(systemName: audioViewModel.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 32))
+                        .foregroundStyle(.black.opacity(0.75))
+                        .padding(16)
+                        .glassEffect(
+                            .clear
+                                .interactive(),
+                            in: Circle())
+                }
+            }
         }
     }
 }

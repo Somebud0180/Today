@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 
 struct CreateView: View {
-    private enum Page {
+    enum Page {
         case menu
         case video
         case audio
@@ -24,10 +24,10 @@ struct CreateView: View {
     @Environment(\.modelContext) private var modelContext
 
     @State private var audioRecorderManager = AudioRecorderManager()
-    @State private var activePage: Page = .menu
     @State private var transitionDirection: TransitionDirection = .forward
-    @State private var recordedAudioURL: URL? = nil
     
+    @State private var recordedAudioURL: URL? = nil
+    @State private var activePage: Page = .menu
     @State private var entryTitle: String = ""
     @State private var entryNote: String = ""
 
@@ -133,6 +133,7 @@ struct CreateView: View {
                 case .audio:
                     AudioRecordingView(
                         manager: audioRecorderManager,
+                        activePage: $activePage,
                         recordedURL: $recordedAudioURL,
                     ) {
                         transitionDirection = .backward

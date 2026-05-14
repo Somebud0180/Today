@@ -11,6 +11,7 @@ import Combine
 
 struct AudioRecordingView: View {
     @ObservedObject var manager: AudioRecorderManager
+    @Binding var activePage: CreateView.Page
     @Binding var recordedURL: URL?
     var onBack: () -> Void
     
@@ -126,6 +127,7 @@ struct AudioRecordingView: View {
 
                     Button(action: {
                         recordedURL = localRecordedURL
+                        activePage = .save
                     }) {
                         Text("Confirm Recording")
                             .frame(maxWidth: .infinity)
@@ -133,7 +135,7 @@ struct AudioRecordingView: View {
                             .padding(12)
                     }
                     .buttonStyle(.glassProminent)
-                    .disabled(recordedURL == nil)
+                    .disabled(localRecordedURL == nil)
 
                     Button(action: {
                         showDiscardConfirmation = true
@@ -356,6 +358,7 @@ struct AudioRecordingView: View {
     NavigationStack {
         AudioRecordingView(
             manager: AudioRecorderManager(),
+            activePage: .constant(.audio),
             recordedURL: .constant(nil),
             onBack: { }
         )
