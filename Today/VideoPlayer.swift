@@ -68,8 +68,9 @@ class VideoViewModel: ObservableObject {
             object: item,
             queue: .main) { [weak self] _ in
                 guard let self else { return }
-                self.player.seek(to: .zero)
-                self.player.play()
+                // Just pause at the end, don't auto-reset
+                self.player.pause()
+                self.isPlaying = false
             }
     }
     
@@ -101,6 +102,15 @@ class VideoViewModel: ObservableObject {
     }
     
     func play() {
+        // If we're at the end, reset to beginning before playing
+        if let currentItem = player.currentItem {
+            let duration = CMTimeGetSeconds(currentItem.duration)
+            let currentTime = CMTimeGetSeconds(player.currentTime())
+            if currentTime >= duration - 0.01 {
+                player.seek(to: .zero)
+            }
+        }
+        
         player.volume = 0.0
         self.player.play()
         isPlaying = true

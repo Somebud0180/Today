@@ -16,6 +16,7 @@ class AudioViewModel: ObservableObject {
     @Published var duration = 0.0
     @Published var currentTime = 0.0
     @Published var isScrubbing = false
+    @Published private(set) var fullWaveformLevels: [CGFloat] = []
 
     private var engine: AVAudioEngine?
     private var playerNode: AVAudioPlayerNode?
@@ -185,6 +186,7 @@ class AudioViewModel: ObservableObject {
 
             DispatchQueue.main.async {
                 self.waveformLevels = levels
+                self.fullWaveformLevels = levels
                 self.lastWaveformIndex = 0
                 self.waveformResetToken += 1
                 self.audioLevels = []
@@ -265,6 +267,7 @@ class AudioViewModel: ObservableObject {
     func play() {
         guard isPlayerReady, let engine = engine else { return }
 
+        // If we're at the end, reset to beginning before playing
         if currentTime >= duration - 0.01 {
             currentTime = 0
             playbackOffset = 0
@@ -350,10 +353,11 @@ class AudioViewModel: ObservableObject {
         isPlaying = false
         stopMeterTimer()
         stopPlaybackTimer()
+        // Keep position at end instead of resetting
         currentTime = duration
         playbackOffset = duration
         lastWaveformIndex = waveformLevels.count
-        audioLevels = []
+        // Don't clear audioLevels - keep waveform visible
         levelQueue.async { [weak self] in
             self?.currentLevels = []
         }
@@ -418,12 +422,15 @@ struct AudioPlayerView: View {
             Spacer()
 
             GeometryReader { proxy in
-                WaveformView(
-                    levels: viewModel.audioLevels,
-                    isRecording: viewModel.isPlaying || viewModel.isScrubbing || !viewModel.audioLevels.isEmpty,
-                    resetToken: viewModel.waveformResetToken
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                ZStack {
+                    WaveformView(
+                        fullLevels: viewModel.fullWaveformLevels,
+                        currentTime: viewModel.currentTime,
+                        duration: viewModel.duration,
+                        isPlaybackView: true
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
                 .contentShape(Rectangle())
                 .gesture(
                     DragGesture(minimumDistance: 0)
@@ -439,6 +446,7 @@ struct AudioPlayerView: View {
                             let percentage = 1 - (clampedX / width)
                             let targetTime = viewModel.duration * Double(percentage)
 
+                            // Always update the scrub time for immediate visual feedback
                             viewModel.updateScrubTime(targetTime)
 
                             let now = CFAbsoluteTimeGetCurrent()
