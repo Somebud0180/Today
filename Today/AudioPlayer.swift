@@ -409,6 +409,7 @@ struct AudioPlayerView: View {
     @StateObject var viewModel: AudioViewModel
     @State private var wasPlayingBeforeScrub = false
     @State private var lastScrubUpdate: TimeInterval = 0
+    @State private var initialScrubPosition: CGFloat? = nil
 
     private let scrubThrottle: TimeInterval = 0.05
 
@@ -439,6 +440,7 @@ struct AudioPlayerView: View {
                                 wasPlayingBeforeScrub = viewModel.isPlaying
                                 viewModel.pause()
                                 viewModel.isScrubbing = true
+                                initialScrubPosition = value.location.x
                             }
 
                             let width = max(1, proxy.size.width)
@@ -446,18 +448,21 @@ struct AudioPlayerView: View {
                             let percentage = 1 - (clampedX / width)
                             let targetTime = viewModel.duration * Double(percentage)
 
-                            // Always update the scrub time for immediate visual feedback
                             viewModel.updateScrubTime(targetTime)
 
-                            let now = CFAbsoluteTimeGetCurrent()
-                            if now - lastScrubUpdate >= scrubThrottle {
-                                lastScrubUpdate = now
-                                viewModel.seek(to: targetTime)
+                            // Only seek after user has moved more than a small threshold from initial position
+                            if let initialPos = initialScrubPosition, abs(value.location.x - initialPos) > 10 {
+                                let now = CFAbsoluteTimeGetCurrent()
+                                if now - lastScrubUpdate >= scrubThrottle {
+                                    lastScrubUpdate = now
+                                    viewModel.seek(to: targetTime)
+                                }
                             }
                         }
                         .onEnded { _ in
                             viewModel.isScrubbing = false
                             lastScrubUpdate = 0
+                            initialScrubPosition = nil
                             if wasPlayingBeforeScrub {
                                 viewModel.play()
                             }

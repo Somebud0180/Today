@@ -121,7 +121,7 @@ struct WaveformView: View {
         
         // Calculate how many bars fit on each side of center
         let barsPerSide = max(1, Int((size.width / 2) / (barWidth + barSpacing)))
-        let totalBarsToShow = barsPerSide * 2
+//      let totalBarsToShow = barsPerSide * 2
         
         // Calculate the current position in the waveform as an index
         let ratio = max(0, min(1, currentTime / duration))
