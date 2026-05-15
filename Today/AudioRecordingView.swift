@@ -10,7 +10,7 @@ import UIKit
 import Combine
 
 struct AudioRecordingView: View {
-    @ObservedObject var manager: AudioRecorderManager
+    @StateObject var manager = AudioRecorderManager()
     @Binding var activePage: CreateView.Page
     @Binding var recordedURL: URL?
     var onBack: () -> Void

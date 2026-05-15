@@ -46,6 +46,7 @@ final class VideoRecorderManager: NSObject, ObservableObject {
     @Published private(set) var exposureBias: Float = 0
     @Published private(set) var lastRecordingURL: URL?
     @Published private(set) var errorMessage: String?
+    @Published var showConfirmation: Bool = false
     @Published var showError = false
 
     private let session = AVCaptureSession()
@@ -143,14 +144,18 @@ extension VideoRecorderManager {
             guard let self else { return }
             guard self.movieOutput.isRecording else { return }
             self.movieOutput.stopRecording()
+            self.showConfirmation = true
         }
     }
 
     func discardRecording() {
-        if let url = lastRecordingURL, FileManager.default.fileExists(atPath: url.path) {
-            try? FileManager.default.removeItem(at: url)
+        sessionQueue.async {
+            if let url = self.lastRecordingURL, FileManager.default.fileExists(atPath: url.path) {
+                try? FileManager.default.removeItem(at: url)
+            }
+            self.lastRecordingURL = nil
+            self.showConfirmation = false
         }
-        lastRecordingURL = nil
     }
 }
 

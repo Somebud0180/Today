@@ -9,7 +9,8 @@ import SwiftUI
 import UIKit
 
 struct VideoRecordingView: View {
-    @ObservedObject var manager: VideoRecorderManager
+    @StateObject var manager: VideoRecorderManager
+    @StateObject var videoViewModel: VideoViewModel
     @Binding var activePage: CreateView.Page
     @Binding var recordedURL: URL?
     var onBack: () -> Void
@@ -23,15 +24,37 @@ struct VideoRecordingView: View {
     @State private var showDiscardConfirmation = false
     @State private var showError = false
     @State private var errorMessage = ""
+    
+    init(activePage: Binding<CreateView.Page>, recordedURL: Binding<URL?>, onBack: @escaping () -> Void ) {
+        _manager = StateObject(wrappedValue: VideoRecorderManager())
+        _videoViewModel = StateObject(wrappedValue: VideoViewModel(fileURL: nil))
+        self._activePage = activePage
+        self._recordedURL = recordedURL
+        self.onBack = onBack
+    }
 
     var body: some View {
         GeometryReader { proxy in
             ZStack {
-                CameraPreviewView(manager: manager)
-                    .ignoresSafeArea()
-                    .gesture(focusGesture(in: proxy.size))
-                    .simultaneousGesture(exposureGesture(in: proxy.size))
-                    .simultaneousGesture(zoomGesture)
+                if !manager.showConfirmation {
+                    CameraPreviewView(manager: manager)
+                        .ignoresSafeArea()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .gesture(focusGesture(in: proxy.size))
+                        .simultaneousGesture(exposureGesture(in: proxy.size))
+                        .simultaneousGesture(zoomGesture)
+                } else {
+                    VideoPlayerView(player: videoViewModel.player)
+                        .ignoresSafeArea()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .onAppear {
+                            videoViewModel.loadVideo(fileURL: localRecordedURL)
+                            videoViewModel.play()
+                        }
+                        .onTapGesture {
+                            videoViewModel.togglePlayback()
+                        }
+                }
                 
                 if let focusPoint, focusVisible {
                     Circle()
@@ -128,7 +151,7 @@ struct VideoRecordingView: View {
     
     private var bottomControls: some View {
         VStack(spacing: 16) {
-            if localRecordedURL == nil {
+            if !manager.showConfirmation {
                 HStack(spacing: 16) {
                     Button(action: toggleRecording) {
                         Text(manager.isRecording ? "Stop Recording" : "Start Recording")
@@ -241,7 +264,6 @@ struct VideoRecordingView: View {
 #Preview {
     NavigationStack {
         VideoRecordingView(
-            manager: VideoRecorderManager(),
             activePage: .constant(.video),
             recordedURL: .constant(nil),
             onBack: { }

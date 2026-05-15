@@ -21,7 +21,7 @@ class VideoViewModel: ObservableObject {
     private var playbackObserver: NSObjectProtocol?
     private var readyObserver: NSKeyValueObservation?
     
-    init(fileURL: URL) {
+    init(fileURL: URL?) {
         self.configurePlayer()
         self.loadVideo(fileURL: fileURL)
         self.observeAppLifecycle()
@@ -39,8 +39,9 @@ class VideoViewModel: ObservableObject {
         player.automaticallyWaitsToMinimizeStalling = false
     }
     
-    private func loadVideo(fileURL: URL) {
-        let item = AVPlayerItem(url: fileURL)
+    func loadVideo(fileURL: URL?) {
+        guard let file = fileURL else { return }
+        let item = AVPlayerItem(url: file)
         self.player.replaceCurrentItem(with: item)
         self.observeReady(item: item)
     }

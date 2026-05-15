@@ -23,10 +23,7 @@ struct CreateView: View {
     
     @Environment(\.modelContext) private var modelContext
 
-    @State private var audioRecorderManager = AudioRecorderManager()
-    @State private var videoRecorderManager = VideoRecorderManager()
     @State private var transitionDirection: TransitionDirection = .forward
-    
     @State private var recordedAudioURL: URL? = nil
     @State private var recordedVideoURL: URL? = nil
     @State private var activePage: Page = .menu
@@ -114,7 +111,6 @@ struct CreateView: View {
                     
                 case .video:
                     VideoRecordingView(
-                        manager: videoRecorderManager,
                         activePage: $activePage,
                         recordedURL: $recordedVideoURL
                     ) {
@@ -127,7 +123,6 @@ struct CreateView: View {
                     
                 case .audio:
                     AudioRecordingView(
-                        manager: audioRecorderManager,
                         activePage: $activePage,
                         recordedURL: $recordedAudioURL,
                     ) {
