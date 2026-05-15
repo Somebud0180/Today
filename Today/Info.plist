@@ -6,5 +6,9 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Allow access to the camera to record video entries.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Allow access to the microphone to record video with audio.</string>
 </dict>
 </plist>

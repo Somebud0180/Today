@@ -1,0 +1,581 @@
+//
+//  VideoRecorderManager.swift
+//  Today
+//
+//  Created by Ethan John Lagera on 5/15/26.
+//
+
+import AVFoundation
+import SwiftUI
+import UIKit
+import Combine
+
+final class VideoRecorderManager: NSObject, ObservableObject {
+    struct LensOption: Identifiable, Equatable {
+        let id: String
+        let position: AVCaptureDevice.Position
+        let deviceType: AVCaptureDevice.DeviceType
+        let displayName: String
+        let zoomHint: CGFloat
+    }
+
+    enum RecorderError: LocalizedError {
+        case permissionDenied(String)
+        case configurationFailed(String)
+        case recordingFailed(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .permissionDenied(let message):
+                return message
+            case .configurationFailed(let message):
+                return message
+            case .recordingFailed(let message):
+                return message
+            }
+        }
+    }
+
+    @Published private(set) var isSessionRunning = false
+    @Published private(set) var isRecording = false
+    @Published private(set) var activePosition: AVCaptureDevice.Position = .back
+    @Published private(set) var availableLensOptions: [LensOption] = []
+    @Published private(set) var selectedLens: LensOption?
+    @Published private(set) var availableZoomStops: [CGFloat] = []
+    @Published private(set) var zoomFactor: CGFloat = 1.0
+    @Published private(set) var exposureBias: Float = 0
+    @Published private(set) var lastRecordingURL: URL?
+    @Published private(set) var errorMessage: String?
+    @Published var showError = false
+
+    private let session = AVCaptureSession()
+    private let sessionQueue = DispatchQueue(label: "VideoRecorderManager.session")
+    private var isConfigured = false
+    private var videoDeviceInput: AVCaptureDeviceInput?
+    private var audioDeviceInput: AVCaptureDeviceInput?
+    private let movieOutput = AVCaptureMovieFileOutput()
+    private weak var previewLayer: AVCaptureVideoPreviewLayer?
+
+    private var zoomBaseFactor: CGFloat = 1.0
+    private var exposureBiasBase: Float = 0
+
+    override init() {
+        super.init()
+        UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleOrientationChange),
+            name: UIDevice.orientationDidChangeNotification,
+            object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+        UIDevice.current.endGeneratingDeviceOrientationNotifications()
+    }
+}
+
+// MARK: - Public session lifecycle
+extension VideoRecorderManager {
+    func attachPreviewLayer(_ layer: AVCaptureVideoPreviewLayer) {
+        previewLayer = layer
+        layer.session = session
+        layer.videoGravity = .resizeAspectFill
+        updateVideoOrientation()
+    }
+
+    func startSession() async {
+        let granted = await requestPermissions()
+        guard granted else { return }
+
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            if !self.isConfigured {
+                self.configureSession()
+            }
+            guard !self.session.isRunning else { return }
+            self.session.startRunning()
+            DispatchQueue.main.async {
+                self.isSessionRunning = true
+            }
+        }
+    }
+
+    func stopSession() {
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            guard self.session.isRunning else { return }
+            self.session.stopRunning()
+            DispatchQueue.main.async {
+                self.isSessionRunning = false
+            }
+        }
+    }
+}
+
+// MARK: - Recording controls
+extension VideoRecorderManager {
+    func startRecording() {
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            if !self.session.isRunning {
+                self.session.startRunning()
+            }
+            guard !self.movieOutput.isRecording else { return }
+
+            let url = self.makeRecordingURL()
+            self.lastRecordingURL = url
+
+            if let connection = self.movieOutput.connection(with: .video) {
+                if connection.isVideoStabilizationSupported {
+                    connection.preferredVideoStabilizationMode = .auto
+                }
+                connection.videoOrientation = self.currentVideoOrientation()
+            }
+
+            self.movieOutput.startRecording(to: url, recordingDelegate: self)
+        }
+    }
+
+    func stopRecording() {
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            guard self.movieOutput.isRecording else { return }
+            self.movieOutput.stopRecording()
+        }
+    }
+
+    func discardRecording() {
+        if let url = lastRecordingURL, FileManager.default.fileExists(atPath: url.path) {
+            try? FileManager.default.removeItem(at: url)
+        }
+        lastRecordingURL = nil
+    }
+}
+
+// MARK: - Camera selection
+extension VideoRecorderManager {
+    func switchCamera() {
+        let newPosition: AVCaptureDevice.Position = (activePosition == .back) ? .front : .back
+        setActivePosition(newPosition)
+    }
+
+    func setActivePosition(_ position: AVCaptureDevice.Position) {
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            DispatchQueue.main.async {
+                self.activePosition = position
+            }
+            self.refreshAvailableLenses()
+
+            guard let device = self.defaultDevice(for: position) else {
+                self.setErrorOnMain(RecorderError.configurationFailed("No camera available for position."))
+                return
+            }
+            self.configureVideoInput(device: device)
+        }
+    }
+
+    func selectLens(_ lens: LensOption) {
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            guard let device = self.device(for: lens) else { return }
+            self.configureVideoInput(device: device)
+        }
+    }
+}
+
+// MARK: - Focus, exposure, zoom
+extension VideoRecorderManager {
+    func focusAndExpose(at viewPoint: CGPoint) {
+        guard let previewLayer else { return }
+        let devicePoint = previewLayer.captureDevicePointConverted(fromLayerPoint: viewPoint)
+
+        sessionQueue.async { [weak self] in
+            guard let self, let device = self.videoDeviceInput?.device else { return }
+            do {
+                try device.lockForConfiguration()
+                if device.isFocusPointOfInterestSupported {
+                    device.focusPointOfInterest = devicePoint
+                    device.focusMode = .autoFocus
+                }
+                if device.isExposurePointOfInterestSupported {
+                    device.exposurePointOfInterest = devicePoint
+                    device.exposureMode = .continuousAutoExposure
+                }
+                device.isSubjectAreaChangeMonitoringEnabled = true
+                device.unlockForConfiguration()
+            } catch {
+                self.setErrorOnMain(error)
+            }
+        }
+    }
+
+    func beginExposureAdjustment() {
+        sessionQueue.async { [weak self] in
+            guard let self, let device = self.videoDeviceInput?.device else { return }
+            self.exposureBiasBase = device.exposureTargetBias
+        }
+    }
+
+    func adjustExposure(by normalizedDelta: CGFloat) {
+        sessionQueue.async { [weak self] in
+            guard let self, let device = self.videoDeviceInput?.device else { return }
+            let minBias = device.minExposureTargetBias
+            let maxBias = device.maxExposureTargetBias
+            let range = maxBias - minBias
+            let target = self.exposureBiasBase + Float(normalizedDelta) * range
+            let clamped = min(max(target, minBias), maxBias)
+            do {
+                try device.lockForConfiguration()
+                device.setExposureTargetBias(clamped, completionHandler: nil)
+                device.unlockForConfiguration()
+                DispatchQueue.main.async {
+                    self.exposureBias = clamped
+                }
+            } catch {
+                self.setErrorOnMain(error)
+            }
+        }
+    }
+
+    func beginZoom() {
+        sessionQueue.async { [weak self] in
+            guard let self, let device = self.videoDeviceInput?.device else { return }
+            self.zoomBaseFactor = device.videoZoomFactor
+        }
+    }
+
+    func updateZoom(by scale: CGFloat) {
+        sessionQueue.async { [weak self] in
+            guard let self, let device = self.videoDeviceInput?.device else { return }
+            let minZoom = device.minAvailableVideoZoomFactor
+            let maxZoom = device.maxAvailableVideoZoomFactor
+            let target = self.zoomBaseFactor * scale
+            let clamped = min(max(target, minZoom), maxZoom)
+            do {
+                try device.lockForConfiguration()
+                device.videoZoomFactor = clamped
+                device.unlockForConfiguration()
+                DispatchQueue.main.async {
+                    self.zoomFactor = clamped
+                }
+            } catch {
+                self.setErrorOnMain(error)
+            }
+        }
+    }
+
+    func setZoomFactor(_ factor: CGFloat) {
+        sessionQueue.async { [weak self] in
+            guard let self, let device = self.videoDeviceInput?.device else { return }
+            let minZoom = device.minAvailableVideoZoomFactor
+            let maxZoom = device.maxAvailableVideoZoomFactor
+            let clamped = min(max(factor, minZoom), maxZoom)
+            do {
+                try device.lockForConfiguration()
+                device.videoZoomFactor = clamped
+                device.unlockForConfiguration()
+                DispatchQueue.main.async {
+                    self.zoomFactor = clamped
+                }
+            } catch {
+                self.setErrorOnMain(error)
+            }
+        }
+    }
+}
+
+// MARK: - Orientation
+extension VideoRecorderManager {
+    @objc private func handleOrientationChange() {
+        updateVideoOrientation()
+    }
+
+    private func updateVideoOrientation() {
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            let orientation = self.currentVideoOrientation()
+            if let connection = self.movieOutput.connection(with: .video) {
+                connection.videoOrientation = orientation
+            }
+            if let connection = self.previewLayer?.connection {
+                connection.videoOrientation = orientation
+                if self.activePosition == .front, connection.isVideoMirroringSupported {
+                    connection.isVideoMirrored = true
+                }
+            }
+        }
+    }
+
+    private func currentVideoOrientation() -> AVCaptureVideoOrientation {
+        let interfaceOrientation = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.effectiveGeometry.interfaceOrientation ?? .portrait
+        switch interfaceOrientation {
+        case .portrait:
+            return .portrait
+        case .portraitUpsideDown:
+            return .portraitUpsideDown
+        case .landscapeLeft:
+            return .landscapeRight
+        case .landscapeRight:
+            return .landscapeLeft
+        default:
+            return .portrait
+        }
+    }
+}
+
+// MARK: - Private configuration helpers
+extension VideoRecorderManager {
+    private func configureSession() {
+        session.beginConfiguration()
+        session.sessionPreset = .high
+        defer { session.commitConfiguration() }
+
+        if let videoDeviceInput {
+            session.removeInput(videoDeviceInput)
+        }
+        if let audioDeviceInput {
+            session.removeInput(audioDeviceInput)
+        }
+
+        if session.outputs.contains(movieOutput) == false, session.canAddOutput(movieOutput) {
+            session.addOutput(movieOutput)
+        }
+
+        guard let defaultDevice = defaultDevice(for: activePosition) else {
+            setErrorOnMain(RecorderError.configurationFailed("No default camera device found."))
+            return
+        }
+
+        configureVideoInput(device: defaultDevice)
+        configureAudioInput()
+        refreshAvailableLenses()
+        isConfigured = true
+    }
+
+    private func configureVideoInput(device: AVCaptureDevice) {
+        session.beginConfiguration()
+        defer { session.commitConfiguration() }
+
+        if let videoDeviceInput {
+            session.removeInput(videoDeviceInput)
+        }
+
+        do {
+            let input = try AVCaptureDeviceInput(device: device)
+            guard session.canAddInput(input) else {
+                setErrorOnMain(RecorderError.configurationFailed("Unable to add video input."))
+                return
+            }
+            session.addInput(input)
+            videoDeviceInput = input
+
+            let option = lensOption(for: device)
+            DispatchQueue.main.async {
+                self.selectedLens = option
+                self.activePosition = option.position
+            }
+            updateZoomStops(for: device)
+            updateVideoOrientation()
+        } catch {
+            setErrorOnMain(error)
+        }
+    }
+
+    private func configureAudioInput() {
+        guard let audioDevice = AVCaptureDevice.default(for: .audio) else { return }
+        do {
+            let input = try AVCaptureDeviceInput(device: audioDevice)
+            if session.canAddInput(input) {
+                session.addInput(input)
+                audioDeviceInput = input
+            }
+        } catch {
+            setErrorOnMain(error)
+        }
+    }
+
+    private func refreshAvailableLenses() {
+        let devices = discoverDevices(for: activePosition)
+        let options = devices.map { lensOption(for: $0) }.sorted { $0.zoomHint < $1.zoomHint }
+        DispatchQueue.main.async {
+            self.availableLensOptions = options
+            if self.selectedLens == nil, let first = options.first {
+                self.selectedLens = first
+            }
+        }
+    }
+
+    private func updateZoomStops(for device: AVCaptureDevice) {
+        let minZoom = device.minAvailableVideoZoomFactor
+        let maxZoom = device.maxAvailableVideoZoomFactor
+
+        let hints = availableLensOptions
+            .filter { $0.position == activePosition }
+            .map { $0.zoomHint }
+
+        var stops = Set(hints)
+        stops.insert(1.0)
+        let filtered = stops.filter { $0 >= minZoom && $0 <= maxZoom }
+        let sorted = filtered.sorted()
+
+        DispatchQueue.main.async {
+            self.availableZoomStops = sorted
+            self.zoomFactor = device.videoZoomFactor
+            self.exposureBias = device.exposureTargetBias
+        }
+    }
+
+    private func discoverDevices(for position: AVCaptureDevice.Position) -> [AVCaptureDevice] {
+        let deviceTypes: [AVCaptureDevice.DeviceType] = [
+            .builtInTripleCamera,
+            .builtInDualWideCamera,
+            .builtInDualCamera,
+            .builtInWideAngleCamera,
+            .builtInUltraWideCamera,
+            .builtInTelephotoCamera,
+            .builtInTrueDepthCamera,
+            .continuityCamera
+        ]
+
+        let discovery = AVCaptureDevice.DiscoverySession(
+            deviceTypes: deviceTypes,
+            mediaType: .video,
+            position: position
+        )
+        return discovery.devices
+    }
+
+    private func defaultDevice(for position: AVCaptureDevice.Position) -> AVCaptureDevice? {
+        let preference: [AVCaptureDevice.DeviceType]
+        if position == .back {
+            preference = [
+                .builtInTripleCamera,
+                .builtInDualWideCamera,
+                .builtInDualCamera,
+                .builtInWideAngleCamera,
+                .builtInUltraWideCamera,
+                .builtInTelephotoCamera
+            ]
+        } else {
+            preference = [
+                .builtInTrueDepthCamera,
+                .builtInWideAngleCamera,
+                .builtInUltraWideCamera
+            ]
+        }
+
+        for type in preference {
+            if let device = AVCaptureDevice.default(type, for: .video, position: position) {
+                return device
+            }
+        }
+
+        return AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: position)
+    }
+
+    private func device(for lens: LensOption) -> AVCaptureDevice? {
+        if let device = AVCaptureDevice.default(lens.deviceType, for: .video, position: lens.position) {
+            return device
+        }
+        return discoverDevices(for: lens.position).first { $0.deviceType == lens.deviceType }
+    }
+
+    private func lensOption(for device: AVCaptureDevice) -> LensOption {
+        let label = lensLabel(for: device.deviceType)
+        let name = "\(device.position == .front ? "Front" : "Back") \(label)"
+        return LensOption(
+            id: "\(device.position.rawValue)-\(device.deviceType.rawValue)",
+            position: device.position,
+            deviceType: device.deviceType,
+            displayName: name,
+            zoomHint: zoomHint(for: device.deviceType)
+        )
+    }
+
+    private func lensLabel(for type: AVCaptureDevice.DeviceType) -> String {
+        switch type {
+        case .builtInUltraWideCamera:
+            return "Ultra Wide"
+        case .builtInWideAngleCamera:
+            return "Wide"
+        case .builtInTelephotoCamera:
+            return "Telephoto"
+        case .builtInTrueDepthCamera:
+            return "TrueDepth"
+        case .builtInDualWideCamera:
+            return "Dual Wide"
+        case .builtInDualCamera:
+            return "Dual"
+        case .builtInTripleCamera:
+            return "Triple"
+        case .continuityCamera:
+            return "Continuity"
+        default:
+            return "Camera"
+        }
+    }
+
+    private func zoomHint(for type: AVCaptureDevice.DeviceType) -> CGFloat {
+        switch type {
+        case .builtInUltraWideCamera:
+            return 0.5
+        case .builtInWideAngleCamera, .builtInTrueDepthCamera:
+            return 1.0
+        case .builtInTelephotoCamera:
+            return 2.0
+        case .builtInDualWideCamera, .builtInDualCamera, .builtInTripleCamera:
+            return 1.0
+        default:
+            return 1.0
+        }
+    }
+
+    private func makeRecordingURL() -> URL {
+        let directory = FileManager.default.temporaryDirectory
+        let filename = "video-\(UUID().uuidString).mov"
+        return directory.appendingPathComponent(filename)
+    }
+
+    private func requestPermissions() async -> Bool {
+        let videoGranted = await AVCaptureDevice.requestAccess(for: .video)
+        let audioGranted = await AVCaptureDevice.requestAccess(for: .audio)
+        if !videoGranted || !audioGranted {
+            setErrorOnMain(RecorderError.permissionDenied("Camera and microphone permission is required."))
+        }
+        return videoGranted && audioGranted
+    }
+
+    private func setErrorOnMain(_ error: Error) {
+        DispatchQueue.main.async {
+            self.errorMessage = error.localizedDescription
+            self.showError = true
+        }
+    }
+}
+
+// MARK: - AVCaptureFileOutputRecordingDelegate
+extension VideoRecorderManager: AVCaptureFileOutputRecordingDelegate {
+    func fileOutput(_ output: AVCaptureFileOutput, didStartRecordingTo fileURL: URL, from connections: [AVCaptureConnection]) {
+        DispatchQueue.main.async {
+            self.isRecording = true
+        }
+    }
+
+    func fileOutput(_ output: AVCaptureFileOutput, didFinishRecordingTo outputFileURL: URL, from connections: [AVCaptureConnection], error: Error?) {
+        DispatchQueue.main.async {
+            self.isRecording = false
+        }
+
+        if let error {
+            setErrorOnMain(RecorderError.recordingFailed(error.localizedDescription))
+            return
+        }
+
+        DispatchQueue.main.async {
+            self.lastRecordingURL = outputFileURL
+        }
+    }
+}

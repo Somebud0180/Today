@@ -24,9 +24,11 @@ struct CreateView: View {
     @Environment(\.modelContext) private var modelContext
 
     @State private var audioRecorderManager = AudioRecorderManager()
+    @State private var videoRecorderManager = VideoRecorderManager()
     @State private var transitionDirection: TransitionDirection = .forward
     
     @State private var recordedAudioURL: URL? = nil
+    @State private var recordedVideoURL: URL? = nil
     @State private var activePage: Page = .menu
     @State private var entryTitle: String = ""
     @State private var entryNote: String = ""
@@ -111,22 +113,15 @@ struct CreateView: View {
                     .transition(pageTransition)
                     
                 case .video:
-                    VStack {
-                        Spacer()
-                        Text("Video Entry Page")
-                        Spacer()
-                        Button(action: {
-                            transitionDirection = .backward
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                activePage = .menu
-                            }
-                        }) {
-                            Text("Back")
-                                .frame(maxWidth: .infinity)
-                                .font(.headline)
-                                .padding(8)
+                    VideoRecordingView(
+                        manager: videoRecorderManager,
+                        activePage: $activePage,
+                        recordedURL: $recordedVideoURL
+                    ) {
+                        transitionDirection = .backward
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            activePage = .menu
                         }
-                        .buttonStyle(.glass)
                     }
                     .transition(pageTransition)
                     
@@ -144,7 +139,12 @@ struct CreateView: View {
                     .transition(pageTransition)
                     
                 case .save:
-                    if recordedAudioURL != nil {
+                    if let activeURL = recordedVideoURL ?? recordedAudioURL {
+                        let mediaType: MediaType = recordedVideoURL != nil ? .video : .audio
+                        let fileExtension = activeURL.pathExtension.isEmpty
+                            ? (mediaType == .video ? "mov" : "m4a")
+                            : activeURL.pathExtension
+
                         VStack {
                             Spacer()
                             TextField(
@@ -163,9 +163,9 @@ struct CreateView: View {
                                 let entry = JournalEntry(
                                     title: entryTitle,
                                     note: entryNote,
-                                    mediaData: try! Data(contentsOf: recordedAudioURL!),
-                                    fileExtension: "m4a",
-                                    mediaType: .audio
+                                    mediaData: try! Data(contentsOf: activeURL),
+                                    fileExtension: fileExtension,
+                                    mediaType: mediaType
                                 )
                                 
                                 if let entry = entry {
@@ -184,6 +184,8 @@ struct CreateView: View {
                                 transitionDirection = .backward
                                 withAnimation(.easeInOut(duration: 0.3)) {
                                     recordedAudioURL = nil
+                                    recordedVideoURL = nil
+                                    activePage = .menu
                                 }
                             }) {
                                 Text("Back")
