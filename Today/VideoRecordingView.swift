@@ -42,7 +42,6 @@ struct VideoRecordingView: View {
                 }
                 
                 VStack {
-                    topControls
                     Spacer()
                     zoomStopsRow
                     bottomControls
@@ -86,24 +85,24 @@ struct VideoRecordingView: View {
         }
     }
     
-    private var topControls: some View {
-        HStack(spacing: 12) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(manager.availableLensOptions) { lens in
-                        Button(action: { manager.selectLens(lens) }) {
-                            Text(lens.displayName)
-                                .font(.caption)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                        }
-                        .buttonStyle(.glass)
-                        .tint(manager.selectedLens == lens ? .blue : .gray)
-                    }
-                }
-            }
-        }
-    }
+//    private var topControls: some View {
+//        HStack(spacing: 12) {
+//            ScrollView(.horizontal, showsIndicators: false) {
+//                HStack(spacing: 8) {
+//                    ForEach(manager.availableLensOptions) { lens in
+//                        Button(action: { manager.selectLens(lens) }) {
+//                            Text(lens.displayName)
+//                                .font(.caption)
+//                                .padding(.horizontal, 10)
+//                                .padding(.vertical, 6)
+//                        }
+//                        .buttonStyle(.glass)
+//                        .tint(manager.selectedLens == lens ? .blue : .gray)
+//                    }
+//                }
+//            }
+//        }
+//    }
     
     private var zoomStopsRow: some View {
         HStack(spacing: 12) {
