@@ -13,7 +13,7 @@ struct VideoRecordingView: View {
     @Binding var activePage: CreateView.Page
     @Binding var recordedURL: URL?
     var onBack: () -> Void
-
+    
     @State private var localRecordedURL: URL?
     @State private var focusPoint: CGPoint?
     @State private var focusVisible = false
@@ -32,7 +32,7 @@ struct VideoRecordingView: View {
                     .gesture(focusGesture(in: proxy.size))
                     .simultaneousGesture(exposureGesture(in: proxy.size))
                     .simultaneousGesture(zoomGesture)
-
+                
                 if let focusPoint, focusVisible {
                     Circle()
                         .stroke(Color.yellow, lineWidth: 2)
@@ -40,7 +40,7 @@ struct VideoRecordingView: View {
                         .position(focusPoint)
                         .transition(.opacity)
                 }
-
+                
                 VStack {
                     topControls
                     Spacer()
@@ -85,16 +85,9 @@ struct VideoRecordingView: View {
             manager.stopSession()
         }
     }
-
+    
     private var topControls: some View {
         HStack(spacing: 12) {
-            Button(action: { manager.switchCamera() }) {
-                Image(systemName: "arrow.triangle.2.circlepath.camera")
-                    .font(.system(size: 20, weight: .semibold))
-                    .padding(10)
-            }
-            .buttonStyle(.glass)
-
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(manager.availableLensOptions) { lens in
@@ -111,9 +104,16 @@ struct VideoRecordingView: View {
             }
         }
     }
-
+    
     private var zoomStopsRow: some View {
         HStack(spacing: 12) {
+            Button(action: { manager.switchCamera() }) {
+                Image(systemName: "arrow.triangle.2.circlepath.camera")
+                    .font(.title2)
+                    .padding(2)
+            }
+            .buttonStyle(.glass)
+            
             ForEach(manager.availableZoomStops, id: \ .self) { stop in
                 Button(action: { manager.setZoomFactor(stop) }) {
                     Text(zoomLabel(stop))
@@ -126,19 +126,21 @@ struct VideoRecordingView: View {
         }
         .frame(maxWidth: .infinity)
     }
-
+    
     private var bottomControls: some View {
         VStack(spacing: 16) {
             if localRecordedURL == nil {
-                Button(action: toggleRecording) {
-                    Text(manager.isRecording ? "Stop Recording" : "Start Recording")
-                        .frame(maxWidth: .infinity)
-                        .font(.headline)
-                        .padding(12)
+                HStack(spacing: 16) {
+                    Button(action: toggleRecording) {
+                        Text(manager.isRecording ? "Stop Recording" : "Start Recording")
+                            .font(.headline)
+                            .padding(.vertical, 12)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.glassProminent)
+                    .tint(.red)
                 }
-                .buttonStyle(.glassProminent)
-                .tint(.red)
-
+                
                 Button(action: {
                     manager.stopRecording()
                     onBack()
@@ -162,7 +164,7 @@ struct VideoRecordingView: View {
                         .padding(12)
                 }
                 .buttonStyle(.glassProminent)
-
+                
                 Button(action: { showDiscardConfirmation = true }) {
                     Text("Record again")
                         .frame(maxWidth: .infinity)
@@ -173,7 +175,7 @@ struct VideoRecordingView: View {
             }
         }
     }
-
+    
     private func toggleRecording() {
         if manager.isRecording {
             manager.stopRecording()
@@ -181,7 +183,7 @@ struct VideoRecordingView: View {
             manager.startRecording()
         }
     }
-
+    
     private func focusGesture(in size: CGSize) -> some Gesture {
         DragGesture(minimumDistance: 0)
             .onEnded { value in
@@ -198,7 +200,7 @@ struct VideoRecordingView: View {
                 }
             }
     }
-
+    
     private func exposureGesture(in size: CGSize) -> some Gesture {
         DragGesture(minimumDistance: 10)
             .onChanged { value in
@@ -214,7 +216,7 @@ struct VideoRecordingView: View {
                 isAdjustingExposure = false
             }
     }
-
+    
     private var zoomGesture: some Gesture {
         MagnificationGesture()
             .onChanged { value in
@@ -228,7 +230,7 @@ struct VideoRecordingView: View {
                 isZooming = false
             }
     }
-
+    
     private func zoomLabel(_ value: CGFloat) -> String {
         if value < 1 {
             return String(format: "%.1fx", value)
