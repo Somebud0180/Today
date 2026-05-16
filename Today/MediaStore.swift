@@ -97,4 +97,23 @@ struct MediaStore {
             }
         }
     }
+
+    /// Resolve a stored media filename to an absolute file URL in the current media directory.
+    /// Filenames are kept stable; paths are resolved dynamically so stored values remain valid across container moves.
+    static func urlForMediaFilename(_ filename: String) -> URL? {
+        guard !filename.isEmpty, let dir = mediaDirectory() else { return nil }
+        return dir.appendingPathComponent(filename)
+    }
+
+    /// Delete a media file by its stored filename.
+    static func deleteMedia(filename: String) {
+        guard let url = urlForMediaFilename(filename) else { return }
+        if FileManager.default.fileExists(atPath: url.path) {
+            do {
+                try FileManager.default.removeItem(at: url)
+            } catch {
+                print("MediaStore: failed to delete media at \(url): \(error)")
+            }
+        }
+    }
 }

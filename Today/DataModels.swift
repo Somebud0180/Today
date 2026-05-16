@@ -55,7 +55,8 @@ class JournalEntry: Identifiable {
         if mediaType == .video {
             if let thumbData = Self.generateThumbnailData(from: mediaURL) {
                 if let thumbURL = MediaStore.saveThumbnail(data: thumbData, entryID: id) {
-                    thumbURLString = thumbURL.absoluteString
+                    // store only the filename so paths can be resolved dynamically later
+                    thumbURLString = thumbURL.lastPathComponent
                 }
             }
         }
@@ -65,7 +66,8 @@ class JournalEntry: Identifiable {
         self.title = title
         self.note = note
         self.mediaTypeRaw = mediaType.rawValue
-        self.mediaURLString = mediaURL.absoluteString
+        // store only the filename to keep stored identifiers stable across container moves
+        self.mediaURLString = mediaURL.lastPathComponent
         self.thumbnailURLString = thumbURLString
     }
 
@@ -74,12 +76,23 @@ class JournalEntry: Identifiable {
     }
 
     var mediaURL: URL? {
-        URL(string: mediaURLString)
+        if mediaURLString.isEmpty { return nil }
+        if let maybeURL = URL(string: mediaURLString), maybeURL.scheme != nil {
+            // stored an absolute URL previously — prefer dynamic resolution by filename
+            let filename = maybeURL.lastPathComponent
+            return MediaStore.urlForMediaFilename(filename) ?? maybeURL
+        }
+        // stored as filename
+        return MediaStore.urlForMediaFilename(mediaURLString)
     }
 
     var thumbnailURL: URL? {
-        if let s = thumbnailURLString { return URL(string: s) }
-        return nil
+        guard let s = thumbnailURLString, !s.isEmpty else { return nil }
+        if let maybeURL = URL(string: s), maybeURL.scheme != nil {
+            let filename = maybeURL.lastPathComponent
+            return MediaStore.urlForMediaFilename(filename) ?? maybeURL
+        }
+        return MediaStore.urlForMediaFilename(s)
     }
 
     var videoThumbImage: Image? {
