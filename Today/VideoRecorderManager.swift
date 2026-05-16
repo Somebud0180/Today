@@ -616,6 +616,14 @@ extension VideoRecorderManager: AVCaptureFileOutputRecordingDelegate {
         }
 
         if let error {
+            let nsError = error as NSError
+            // Ignore normal stop flow errors (19914, -19431) from AVFoundation
+            if nsError.code == 19914 || nsError.code == -19431 || error.localizedDescription.lowercased().contains("recording stopped") {
+                DispatchQueue.main.async {
+                    self.lastRecordingURL = outputFileURL
+                }
+                return
+            }
             setErrorOnMain(RecorderError.recordingFailed(error.localizedDescription))
             return
         }
