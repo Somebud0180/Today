@@ -22,6 +22,7 @@ struct CreateView: View {
     }
     
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
 
     @State private var transitionDirection: TransitionDirection = .forward
     @State private var recordedAudioURL: URL? = nil
@@ -166,6 +167,7 @@ struct CreateView: View {
                                 if let entry = entry {
                                     modelContext.insert(entry)
                                     try? modelContext.save()
+                                    dismiss()
                                 }
                             }) {
                                 Text("Save Entry")

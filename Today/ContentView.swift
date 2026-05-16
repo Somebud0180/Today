@@ -77,8 +77,8 @@ struct ContentView: View {
                 )
             
             let inset: CGFloat = 6
-            let innerSize = CGSize(width: size.width - inset * 2,
-                                   height: size.height - inset * 2)
+            let innerSize = CGSize(width: size.width,
+                                   height: size.height)
             
             if let thumbnail = journalEntry.videoThumbImage {
                 thumbnail
@@ -94,7 +94,6 @@ struct ContentView: View {
             }
             
             VStack(alignment: .leading) {
-                Spacer()
                 Text(
                     journalEntry.title.isEmpty ? journalEntry.date.formatted(date: .numeric, time: .omitted) : journalEntry.title
                 )
@@ -102,6 +101,14 @@ struct ContentView: View {
                 .fontWeight(.heavy)
                 .foregroundStyle(.white.opacity(0.9))
                 .frame(maxWidth: .infinity, alignment: .leading)
+                
+                if !journalEntry.title.isEmpty {
+                    Text(journalEntry.date.formatted(date: .numeric, time: .omitted))
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.75))
+                }
+                
+                Spacer()
             }
             .padding(12)
         }
