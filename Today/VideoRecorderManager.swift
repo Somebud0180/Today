@@ -58,6 +58,11 @@ final class VideoRecorderManager: NSObject, ObservableObject {
     private weak var previewLayer: AVCaptureVideoPreviewLayer?
 
     private var zoomBaseFactor: CGFloat = 1.0
+    // zoomBaseFactor is stored in "display" zoom units (the user-facing zoom where 1.0 == wide lens)
+    
+    private func displayZoom(for device: AVCaptureDevice) -> CGFloat {
+        return zoomHint(for: device.deviceType) * device.videoZoomFactor
+    }
     private var exposureBiasBase: Float = 0
 
     override init() {
@@ -169,10 +174,11 @@ extension VideoRecorderManager {
     func setActivePosition(_ position: AVCaptureDevice.Position) {
         sessionQueue.async { [weak self] in
             guard let self else { return }
+
             DispatchQueue.main.async {
                 self.activePosition = position
             }
-            self.refreshAvailableLenses()
+            self.refreshAvailableLenses(position: position)
 
             guard let device = self.defaultDevice(for: position) else {
                 self.setErrorOnMain(RecorderError.configurationFailed("No camera available for position."))
@@ -248,23 +254,28 @@ extension VideoRecorderManager {
     func beginZoom() {
         sessionQueue.async { [weak self] in
             guard let self, let device = self.videoDeviceInput?.device else { return }
-            self.zoomBaseFactor = device.videoZoomFactor
+            // store base in display units so pinch scale is applied in user-facing zoom space
+            self.zoomBaseFactor = self.displayZoom(for: device)
         }
     }
 
     func updateZoom(by scale: CGFloat) {
         sessionQueue.async { [weak self] in
             guard let self, let device = self.videoDeviceInput?.device else { return }
-            let minZoom = device.minAvailableVideoZoomFactor
-            let maxZoom = device.maxAvailableVideoZoomFactor
-            let target = self.zoomBaseFactor * scale
-            let clamped = min(max(target, minZoom), maxZoom)
+            // compute desired display zoom, then convert to device zoom factor for this physical device
+            let desiredDisplay = self.zoomBaseFactor * scale
+            let deviceHint = self.zoomHint(for: device.deviceType)
+            let minDeviceZoom = device.minAvailableVideoZoomFactor
+            let maxDeviceZoom = device.maxAvailableVideoZoomFactor
+            var targetDeviceZoom = desiredDisplay / deviceHint
+            targetDeviceZoom = min(max(targetDeviceZoom, minDeviceZoom), maxDeviceZoom)
             do {
                 try device.lockForConfiguration()
-                device.videoZoomFactor = clamped
+                device.videoZoomFactor = targetDeviceZoom
                 device.unlockForConfiguration()
                 DispatchQueue.main.async {
-                    self.zoomFactor = clamped
+                    // publish display zoom
+                    self.zoomFactor = desiredDisplay
                 }
             } catch {
                 self.setErrorOnMain(error)
@@ -273,17 +284,21 @@ extension VideoRecorderManager {
     }
 
     func setZoomFactor(_ factor: CGFloat) {
+        // factor is a DISPLAY zoom (user-facing) where 1.0 = wide lens. Convert to device zoom.
         sessionQueue.async { [weak self] in
             guard let self, let device = self.videoDeviceInput?.device else { return }
-            let minZoom = device.minAvailableVideoZoomFactor
-            let maxZoom = device.maxAvailableVideoZoomFactor
-            let clamped = min(max(factor, minZoom), maxZoom)
+            let deviceHint = self.zoomHint(for: device.deviceType)
+            let minDeviceZoom = device.minAvailableVideoZoomFactor
+            let maxDeviceZoom = device.maxAvailableVideoZoomFactor
+            var targetDeviceZoom = factor / deviceHint
+            targetDeviceZoom = min(max(targetDeviceZoom, minDeviceZoom), maxDeviceZoom)
             do {
                 try device.lockForConfiguration()
-                device.videoZoomFactor = clamped
+                device.videoZoomFactor = targetDeviceZoom
                 device.unlockForConfiguration()
                 DispatchQueue.main.async {
-                    self.zoomFactor = clamped
+                    // publish display zoom
+                    self.zoomFactor = factor
                 }
             } catch {
                 self.setErrorOnMain(error)
@@ -307,16 +322,21 @@ extension VideoRecorderManager {
             }
             if let connection = self.previewLayer?.connection {
                 connection.videoOrientation = orientation
-                if self.activePosition == .front, connection.isVideoMirroringSupported {
-                    connection.isVideoMirrored = true
+                if connection.isVideoMirroringSupported {
+                    // Always disable automatic adjustment before manually setting mirroring
+                    if connection.responds(to: #selector(setter: AVCaptureConnection.automaticallyAdjustsVideoMirroring)) {
+                        connection.automaticallyAdjustsVideoMirroring = false
+                    }
+                    // Now set mirroring based on camera position
+                    connection.isVideoMirrored = (self.activePosition == .front)
                 }
             }
         }
     }
 
     private func currentVideoOrientation() -> AVCaptureVideoOrientation {
-        let interfaceOrientation = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.effectiveGeometry.interfaceOrientation ?? .portrait
-        switch interfaceOrientation {
+        let deviceOrientation = UIDevice.current.orientation
+        switch deviceOrientation {
         case .portrait:
             return .portrait
         case .portraitUpsideDown:
@@ -349,14 +369,23 @@ extension VideoRecorderManager {
             session.addOutput(movieOutput)
         }
 
-        guard let defaultDevice = defaultDevice(for: activePosition) else {
+        // Prefer a device whose zoomHint is 1.0 (wide lens) when available to present a familiar 1.0x start.
+        var chosenDevice: AVCaptureDevice? = nil
+        let devices = discoverDevices(for: activePosition)
+        if let wideDevice = devices.first(where: { zoomHint(for: $0.deviceType) == 1.0 }) {
+            chosenDevice = wideDevice
+        } else {
+            chosenDevice = defaultDevice(for: activePosition)
+        }
+
+        guard let defaultDevice = chosenDevice else {
             setErrorOnMain(RecorderError.configurationFailed("No default camera device found."))
             return
         }
 
         configureVideoInput(device: defaultDevice)
         configureAudioInput()
-        refreshAvailableLenses()
+        refreshAvailableLenses(position: activePosition)
         isConfigured = true
     }
 
@@ -402,11 +431,22 @@ extension VideoRecorderManager {
         }
     }
 
-    private func refreshAvailableLenses() {
-        let devices = discoverDevices(for: activePosition)
+    private func refreshAvailableLenses(position: AVCaptureDevice.Position? = nil) {
+        let pos = position ?? activePosition
+        let devices = discoverDevices(for: pos)
         let options = devices.map { lensOption(for: $0) }.sorted { $0.zoomHint < $1.zoomHint }
         DispatchQueue.main.async {
             self.availableLensOptions = options
+
+            // Prefer the currently active device's lens option if available, otherwise fall back to first
+            if let currentDevice = self.videoDeviceInput?.device {
+                let preferred = self.lensOption(for: currentDevice)
+                if let match = options.first(where: { $0.id == preferred.id }) {
+                    self.selectedLens = match
+                    return
+                }
+            }
+
             if self.selectedLens == nil, let first = options.first {
                 self.selectedLens = first
             }
@@ -417,9 +457,9 @@ extension VideoRecorderManager {
         let minZoom = device.minAvailableVideoZoomFactor
         let maxZoom = device.maxAvailableVideoZoomFactor
 
-        let hints = availableLensOptions
-            .filter { $0.position == activePosition }
-            .map { $0.zoomHint }
+        // Re-discover devices for the device's position to avoid stale availableLensOptions
+        let devicesAtPosition = discoverDevices(for: device.position)
+        let hints = devicesAtPosition.map { zoomHint(for: $0.deviceType) }
 
         var stops = Set(hints)
         stops.insert(1.0)
@@ -428,7 +468,8 @@ extension VideoRecorderManager {
 
         DispatchQueue.main.async {
             self.availableZoomStops = sorted
-            self.zoomFactor = device.videoZoomFactor
+            // publish display zoom (maps device's native zoom to user-facing zoom)
+            self.zoomFactor = self.displayZoom(for: device)
             self.exposureBias = device.exposureTargetBias
         }
     }
@@ -534,7 +575,7 @@ extension VideoRecorderManager {
         case .builtInDualWideCamera, .builtInDualCamera, .builtInTripleCamera:
             return 1.0
         default:
-            return 1.0
+            return 0.5
         }
     }
 
