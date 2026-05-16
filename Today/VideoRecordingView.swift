@@ -88,8 +88,15 @@ struct VideoRecordingView: View {
         } message: {
             Text("Discarding will permanently delete this recording.")
         }
+        .onChange(of: manager.showConfirmation) { _, newValue in
+            if newValue, let url = manager.lastRecordingURL {
+                localRecordedURL = url
+            } else {
+                localRecordedURL = nil
+            }
+        }
         .onChange(of: manager.lastRecordingURL) { _, newValue in
-            if let newValue {
+            if let newValue, manager.showConfirmation {
                 localRecordedURL = newValue
             }
         }
