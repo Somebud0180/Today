@@ -61,7 +61,7 @@ final class VideoRecorderManager: NSObject, ObservableObject {
     // zoomBaseFactor is stored in "display" zoom units (the user-facing zoom where 1.0 == wide lens)
     
     private func displayZoom(for device: AVCaptureDevice) -> CGFloat {
-        return zoomHint(for: device.deviceType) * device.videoZoomFactor
+        return zoomHint(for: device) * device.videoZoomFactor
     }
     private var exposureBiasBase: Float = 0
 
@@ -262,9 +262,9 @@ extension VideoRecorderManager {
     func updateZoom(by scale: CGFloat) {
         sessionQueue.async { [weak self] in
             guard let self, let device = self.videoDeviceInput?.device else { return }
-            // compute desired display zoom, then convert to device zoom factor for this physical device
+            // Scale the current display zoom by the gesture delta.
             let desiredDisplay = self.zoomBaseFactor * scale
-            let deviceHint = self.zoomHint(for: device.deviceType)
+            let deviceHint = self.zoomHint(for: device)
             let minDeviceZoom = device.minAvailableVideoZoomFactor
             let maxDeviceZoom = device.maxAvailableVideoZoomFactor
             var targetDeviceZoom = desiredDisplay / deviceHint
@@ -287,7 +287,7 @@ extension VideoRecorderManager {
         // factor is a DISPLAY zoom (user-facing) where 1.0 = wide lens. Convert to device zoom.
         sessionQueue.async { [weak self] in
             guard let self, let device = self.videoDeviceInput?.device else { return }
-            let deviceHint = self.zoomHint(for: device.deviceType)
+            let deviceHint = self.zoomHint(for: device)
             let minDeviceZoom = device.minAvailableVideoZoomFactor
             let maxDeviceZoom = device.maxAvailableVideoZoomFactor
             var targetDeviceZoom = factor / deviceHint
@@ -369,16 +369,9 @@ extension VideoRecorderManager {
             session.addOutput(movieOutput)
         }
 
-        // Prefer a device whose zoomHint is 1.0 (wide lens) when available to present a familiar 1.0x start.
-        var chosenDevice: AVCaptureDevice? = nil
-        let devices = discoverDevices(for: activePosition)
-        if let wideDevice = devices.first(where: { zoomHint(for: $0.deviceType) == 1.0 }) {
-            chosenDevice = wideDevice
-        } else {
-            chosenDevice = defaultDevice(for: activePosition)
-        }
-
-        guard let defaultDevice = chosenDevice else {
+        // Use the runtime-preferred default device so virtual multi-camera hardware
+        // can expose its native switch-over behavior instead of bypassing it.
+        guard let defaultDevice = defaultDevice(for: activePosition) else {
             setErrorOnMain(RecorderError.configurationFailed("No default camera device found."))
             return
         }
@@ -405,6 +398,16 @@ extension VideoRecorderManager {
             }
             session.addInput(input)
             videoDeviceInput = input
+
+            if let defaultZoom = defaultZoomFactor(for: device) {
+                do {
+                    try device.lockForConfiguration()
+                    device.videoZoomFactor = min(max(defaultZoom, device.minAvailableVideoZoomFactor), device.maxAvailableVideoZoomFactor)
+                    device.unlockForConfiguration()
+                } catch {
+                    setErrorOnMain(error)
+                }
+            }
 
             let option = lensOption(for: device)
             DispatchQueue.main.async {
@@ -456,19 +459,20 @@ extension VideoRecorderManager {
     private func updateZoomStops(for device: AVCaptureDevice) {
         let minZoom = device.minAvailableVideoZoomFactor
         let maxZoom = device.maxAvailableVideoZoomFactor
+        debugPrint("Device zoom range: \(minZoom)x - \(maxZoom)x")
 
         // Re-discover devices for the device's position to avoid stale availableLensOptions
         let devicesAtPosition = discoverDevices(for: device.position)
-        let hints = devicesAtPosition.map { zoomHint(for: $0.deviceType) }
-
-        var stops = Set(hints)
-        stops.insert(1.0)
-        let filtered = stops.filter { $0 >= minZoom && $0 <= maxZoom }
-        let sorted = filtered.sorted()
+        let options = devicesAtPosition.map { lensOption(for: $0) }.sorted { $0.zoomHint < $1.zoomHint }
+//        let hints = devicesAtPosition.map { zoomHint(for: $0.deviceType) }
+        
+        let stops = Array(Set(options.map { $0.zoomHint })).sorted()
+//        stops.insert(1.0)
+//        let filtered = stops.filter { $0 >= minZoom && $0 <= maxZoom }
+//        let sorted = filtered.sorted()
 
         DispatchQueue.main.async {
-            self.availableZoomStops = sorted
-            // publish display zoom (maps device's native zoom to user-facing zoom)
+            self.availableZoomStops = stops
             self.zoomFactor = self.displayZoom(for: device)
             self.exposureBias = device.exposureTargetBias
         }
@@ -537,7 +541,7 @@ extension VideoRecorderManager {
             position: device.position,
             deviceType: device.deviceType,
             displayName: name,
-            zoomHint: zoomHint(for: device.deviceType)
+            zoomHint: zoomHint(for: device)
         )
     }
 
@@ -564,8 +568,12 @@ extension VideoRecorderManager {
         }
     }
 
-    private func zoomHint(for type: AVCaptureDevice.DeviceType) -> CGFloat {
-        switch type {
+    /// Determines the display zoom multiplier for a concrete capture device.
+    /// Physical ultra-wide cameras stay at a 1.0 device zoom baseline, while
+    /// virtual multi-camera devices use their switch-over factors so 1.0 display
+    /// zoom maps to the familiar wide view instead of the ultra-wide baseline.
+    private func zoomHint(for device: AVCaptureDevice) -> CGFloat {
+        switch device.deviceType {
         case .builtInUltraWideCamera:
             return 0.5
         case .builtInWideAngleCamera, .builtInTrueDepthCamera:
@@ -573,9 +581,26 @@ extension VideoRecorderManager {
         case .builtInTelephotoCamera:
             return 2.0
         case .builtInDualWideCamera, .builtInDualCamera, .builtInTripleCamera:
-            return 1.0
-        default:
+            if #available(iOS 15.1, *) {
+                if let switchOver = device.virtualDeviceSwitchOverVideoZoomFactors.first?.doubleValue, switchOver > 0 {
+                    return 1.0 / CGFloat(switchOver)
+                }
+            }
             return 0.5
+        default:
+            return 1.0
+        }
+    }
+
+    private func defaultZoomFactor(for device: AVCaptureDevice) -> CGFloat? {
+        switch device.deviceType {
+        case .builtInDualWideCamera, .builtInDualCamera, .builtInTripleCamera:
+            if #available(iOS 15.1, *) {
+                return device.virtualDeviceSwitchOverVideoZoomFactors.first.map { CGFloat(truncating: $0) } ?? 2.0
+            }
+            return 2.0
+        default:
+            return nil
         }
     }
 
