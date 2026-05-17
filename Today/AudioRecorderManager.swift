@@ -182,6 +182,10 @@ class AudioRecorderManager: NSObject, ObservableObject {
             self.error = error
         }
     }
+    
+    deinit {
+        try? audioSession.setActive(false, options: .notifyOthersOnDeactivation)
+    }
 }
 
 // MARK: - Recorder
