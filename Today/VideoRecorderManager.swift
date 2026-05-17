@@ -79,6 +79,14 @@ final class VideoRecorderManager: NSObject, ObservableObject {
     deinit {
         NotificationCenter.default.removeObserver(self)
         UIDevice.current.endGeneratingDeviceOrientationNotifications()
+        session.stopRunning()
+        DispatchQueue.global(qos: .background).async {
+            do {
+                try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            } catch {
+                print("Failed to deactivate AVAudioSession: \(error)")
+            }
+        }
     }
 }
 
