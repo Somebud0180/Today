@@ -51,62 +51,70 @@ struct CreateView: View {
             ZStack {
                 switch activePage {
                 case .menu:
-                    VStack(spacing: 48) {
-                        Button(action: {
-                            transitionDirection = .forward
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                activePage = .video
-                            }
-                        }) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 24)
-                                    .fill(Color.blue)
-                                    .glassEffect(
-                                        .regular.interactive(),
-                                        in: RoundedRectangle(cornerRadius: 24)
-                                    )
-                                
-                                VStack(spacing: 24) {
-                                    Image(systemName: "video.fill")
-                                        .font(.system(size: 64))
-                                    
-                                    Text("Create Video Entry")
-                                        .font(.largeTitle)
-                                        .fontWeight(.bold)
-                                        .fontDesign(.rounded)
-                                }
-                            }
-                        }
-                        .buttonStyle(.plain)
+                    GeometryReader { proxy in
+                        let isLandscape = proxy.size.width > proxy.size.height
+                        let menuLayout: AnyLayout = isLandscape
+                            ? AnyLayout(HStackLayout(spacing: 24))
+                            : AnyLayout(VStackLayout(spacing: 48))
                         
-                        Button(action: {
-                            transitionDirection = .forward
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                activePage = .audio
-                            }
-                        }) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 24)
-                                    .fill(Color.gray)
-                                    .glassEffect(
-                                        .regular.interactive(),
-                                        in: RoundedRectangle(cornerRadius: 24)
-                                    )
-                                
-                                VStack(spacing: 24) {
-                                    Image(systemName: "mic.fill")
-                                        .font(.system(size: 64))
-                                        .foregroundStyle(.black)
+                        menuLayout {
+                            Button(action: {
+                                transitionDirection = .forward
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    activePage = .video
+                                }
+                            }) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 24)
+                                        .fill(Color.blue)
+                                        .glassEffect(
+                                            .regular.interactive(),
+                                            in: RoundedRectangle(cornerRadius: 24)
+                                        )
                                     
-                                    Text("Create Audio Entry")
-                                        .foregroundStyle(.black)
-                                        .font(.largeTitle)
-                                        .fontWeight(.bold)
-                                        .fontDesign(.rounded)
+                                    VStack(spacing: 24) {
+                                        Image(systemName: "video.fill")
+                                            .font(.system(size: 64))
+                                        
+                                        Text("Create Video Entry")
+                                            .font(.largeTitle)
+                                            .fontWeight(.bold)
+                                            .fontDesign(.rounded)
+                                    }
                                 }
                             }
+                            .buttonStyle(.plain)
+                            
+                            Button(action: {
+                                transitionDirection = .forward
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    activePage = .audio
+                                }
+                            }) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 24)
+                                        .fill(Color.gray)
+                                        .glassEffect(
+                                            .regular.interactive(),
+                                            in: RoundedRectangle(cornerRadius: 24)
+                                        )
+                                    
+                                    VStack(spacing: 24) {
+                                        Image(systemName: "mic.fill")
+                                            .font(.system(size: 64))
+                                            .foregroundStyle(.black)
+                                        
+                                        Text("Create Audio Entry")
+                                            .foregroundStyle(.black)
+                                            .font(.largeTitle)
+                                            .fontWeight(.bold)
+                                            .fontDesign(.rounded)
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                     }
                     .transition(pageTransition)
                     
