@@ -38,7 +38,7 @@ final class VideoRecorderManager: NSObject, ObservableObject {
 
     @Published private(set) var isSessionRunning = false
     @Published private(set) var isRecording = false
-    @Published private(set) var activePosition: AVCaptureDevice.Position = .back
+    @Published private(set) var activePosition: AVCaptureDevice.Position = .front
     @Published private(set) var availableLensOptions: [LensOption] = []
     @Published private(set) var selectedLens: LensOption?
     @Published private(set) var availableZoomStops: [CGFloat] = []
