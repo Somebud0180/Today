@@ -76,21 +76,23 @@ struct ContentView: View {
                     in: RoundedRectangle(cornerRadius: 16)
                 )
             
-            let inset: CGFloat = 6
-            let innerSize = CGSize(width: size.width,
-                                   height: size.height)
-            
             if let thumbnail = journalEntry.videoThumbImage {
                 thumbnail
                     .resizable()
                     .scaledToFill()
-                    .frame(width: innerSize.width, height: innerSize.height)
+                    .frame(width: size.width, height: size.height)
                     .clipped()
                     .clipShape(RoundedRectangle(cornerRadius: 10))
             } else {
                 RoundedRectangle(cornerRadius: 10)
                     .fill(Color.gray.opacity(0.2))
-                    .frame(width: innerSize.width, height: innerSize.height)
+                    .overlay {
+                        Image(systemName: "photo.on.rectangle.angled")
+                            .resizable()
+                            .scaledToFit()
+                            .padding(20)
+                    }
+                    .frame(width: size.width, height: size.height)
             }
             
             VStack(alignment: .leading) {
