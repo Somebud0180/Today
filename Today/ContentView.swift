@@ -50,7 +50,7 @@ struct ContentView: View {
                     }
                 }
             }
-            .sheet(isPresented: $isShowingCreateView) {
+            .fullScreenCover(isPresented: $isShowingCreateView) {
                 CreateView()
             }
         }

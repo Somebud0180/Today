@@ -30,6 +30,7 @@ struct CreateView: View {
     @State private var activePage: Page = .menu
     @State private var entryTitle: String = ""
     @State private var entryNote: String = ""
+    @State private var showDismissConfirmation: Bool = false
 
     private var pageTransition: AnyTransition {
         switch transitionDirection {
@@ -208,6 +209,31 @@ struct CreateView: View {
             .padding(24)
             .navigationTitle("Create Entry")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: {
+                        if activePage == .menu {
+                            dismiss()
+                        } else if !showDismissConfirmation {
+                            showDismissConfirmation = true
+                        }
+                    }) {
+                        Label("Cancel", systemImage: "chevron.left")
+                    }
+                }
+            }
+            .confirmationDialog(
+                "Are you sure you want to discard this entry?",
+                isPresented: $showDismissConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Discard Entry", role: .destructive) {
+                    dismiss()
+                }
+                Button("Keep Editing", role: .cancel) {
+                    showDismissConfirmation = false
+                }
+            }
         }
     }
 }
