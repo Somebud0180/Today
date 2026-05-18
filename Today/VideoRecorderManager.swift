@@ -57,6 +57,7 @@ final class VideoRecorderManager: NSObject, ObservableObject {
     private let movieOutput = AVCaptureMovieFileOutput()
     private weak var previewLayer: AVCaptureVideoPreviewLayer?
     private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
+    private var rotationObserverTokens: [NSKeyValueObservation] = []
 
     private var zoomBaseFactor: CGFloat = 1.0
     // zoomBaseFactor is stored in "display" zoom units (the user-facing zoom where 1.0 == wide lens)
@@ -80,6 +81,8 @@ final class VideoRecorderManager: NSObject, ObservableObject {
     deinit {
         NotificationCenter.default.removeObserver(self)
         UIDevice.current.endGeneratingDeviceOrientationNotifications()
+        rotationObserverTokens.forEach { $0.invalidate() }
+        rotationObserverTokens.removeAll()
         session.stopRunning()
         DispatchQueue.global(qos: .background).async {
             do {
@@ -329,29 +332,52 @@ extension VideoRecorderManager {
     }
 
     private func configureRotationCoordinator(for device: AVCaptureDevice) {
-        rotationCoordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: previewLayer)
+        let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: previewLayer)
+        setRotationCoordinator(coordinator)
     }
 
     private func configureRotationCoordinatorIfNeeded() {
         guard let device = videoDeviceInput?.device else { return }
-        
+
         if let rotationCoordinator,
            rotationCoordinator.device === device,
            rotationCoordinator.previewLayer === previewLayer {
             return
         }
-        
-        rotationCoordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: previewLayer)
+
+        let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: previewLayer)
+        setRotationCoordinator(coordinator)
+    }
+
+    private func setRotationCoordinator(_ coordinator: AVCaptureDevice.RotationCoordinator?) {
+        rotationObserverTokens.forEach { $0.invalidate() }
+        rotationObserverTokens.removeAll()
+        rotationCoordinator = coordinator
+
+        guard let coordinator else { return }
+
+        // Keep preview and capture rotation in sync as the coordinator updates with motion.
+        let previewObserver = coordinator.observe(\.videoRotationAngleForHorizonLevelPreview, options: [.initial, .new]) { [weak self] _, _ in
+            self?.sessionQueue.async { [weak self] in
+                self?.syncVideoRotation()
+            }
+        }
+        let captureObserver = coordinator.observe(\.videoRotationAngleForHorizonLevelCapture, options: [.new]) { [weak self] _, _ in
+            self?.sessionQueue.async { [weak self] in
+                self?.syncVideoRotation()
+            }
+        }
+        rotationObserverTokens = [previewObserver, captureObserver]
     }
 
     private func syncVideoRotation() {
         configureRotationCoordinatorIfNeeded()
-        
+
         guard let rotationCoordinator else { return }
 
         let previewAngle = rotationCoordinator.videoRotationAngleForHorizonLevelPreview
         let captureAngle = rotationCoordinator.videoRotationAngleForHorizonLevelCapture
-        
+
         if let connection = movieOutput.connection(with: .video) {
             applyVideoRotationAngle(captureAngle, to: connection)
         }
