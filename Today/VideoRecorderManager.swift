@@ -56,6 +56,7 @@ final class VideoRecorderManager: NSObject, ObservableObject {
     private var audioDeviceInput: AVCaptureDeviceInput?
     private let movieOutput = AVCaptureMovieFileOutput()
     private weak var previewLayer: AVCaptureVideoPreviewLayer?
+    private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
 
     private var zoomBaseFactor: CGFloat = 1.0
     // zoomBaseFactor is stored in "display" zoom units (the user-facing zoom where 1.0 == wide lens)
@@ -96,7 +97,11 @@ extension VideoRecorderManager {
         previewLayer = layer
         layer.session = session
         layer.videoGravity = .resizeAspectFill
-        updateVideoOrientation()
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            self.configureRotationCoordinatorIfNeeded()
+            self.syncVideoRotation()
+        }
     }
 
     func startSession() async {
@@ -138,14 +143,14 @@ extension VideoRecorderManager {
             }
             guard !self.movieOutput.isRecording else { return }
 
+            self.syncVideoRotation()
+
             let url = self.makeRecordingURL()
             self.lastRecordingURL = url
 
-            if let connection = self.movieOutput.connection(with: .video) {
-                if connection.isVideoStabilizationSupported {
-                    connection.preferredVideoStabilizationMode = .auto
-                }
-                connection.videoOrientation = self.currentVideoOrientation()
+            if let connection = self.movieOutput.connection(with: .video),
+               connection.isVideoStabilizationSupported {
+                connection.preferredVideoStabilizationMode = .auto
             }
 
             self.movieOutput.startRecording(to: url, recordingDelegate: self)
@@ -318,43 +323,53 @@ extension VideoRecorderManager {
 // MARK: - Orientation
 extension VideoRecorderManager {
     @objc private func handleOrientationChange() {
-        updateVideoOrientation()
+        sessionQueue.async { [weak self] in
+            self?.syncVideoRotation()
+        }
     }
 
-    private func updateVideoOrientation() {
-        sessionQueue.async { [weak self] in
-            guard let self else { return }
-            let orientation = self.currentVideoOrientation()
-            if let connection = self.movieOutput.connection(with: .video) {
-                connection.videoOrientation = orientation
-            }
-            if let connection = self.previewLayer?.connection {
-                connection.videoOrientation = orientation
-                if connection.isVideoMirroringSupported {
-                    // Always disable automatic adjustment before manually setting mirroring
-                    if connection.responds(to: #selector(setter: AVCaptureConnection.automaticallyAdjustsVideoMirroring)) {
-                        connection.automaticallyAdjustsVideoMirroring = false
-                    }
-                    // Now set mirroring based on camera position
-                    connection.isVideoMirrored = (self.activePosition == .front)
+    private func configureRotationCoordinator(for device: AVCaptureDevice) {
+        rotationCoordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: previewLayer)
+    }
+
+    private func configureRotationCoordinatorIfNeeded() {
+        guard let device = videoDeviceInput?.device else { return }
+        
+        if let rotationCoordinator,
+           rotationCoordinator.device === device,
+           rotationCoordinator.previewLayer === previewLayer {
+            return
+        }
+        
+        rotationCoordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: previewLayer)
+    }
+
+    private func syncVideoRotation() {
+        configureRotationCoordinatorIfNeeded()
+        
+        guard let rotationCoordinator else { return }
+
+        let previewAngle = rotationCoordinator.videoRotationAngleForHorizonLevelPreview
+        let captureAngle = rotationCoordinator.videoRotationAngleForHorizonLevelCapture
+        
+        if let connection = movieOutput.connection(with: .video) {
+            applyVideoRotationAngle(captureAngle, to: connection)
+        }
+        if let connection = previewLayer?.connection {
+            applyVideoRotationAngle(previewAngle, to: connection)
+            if connection.isVideoMirroringSupported {
+                if connection.responds(to: #selector(setter: AVCaptureConnection.automaticallyAdjustsVideoMirroring)) {
+                    connection.automaticallyAdjustsVideoMirroring = false
                 }
+                connection.isVideoMirrored = (activePosition == .front)
             }
         }
     }
 
-    private func currentVideoOrientation() -> AVCaptureVideoOrientation {
-        let deviceOrientation = UIDevice.current.orientation
-        switch deviceOrientation {
-        case .portrait:
-            return .portrait
-        case .portraitUpsideDown:
-            return .portraitUpsideDown
-        case .landscapeLeft:
-            return .landscapeRight
-        case .landscapeRight:
-            return .landscapeLeft
-        default:
-            return .portrait
+    private func applyVideoRotationAngle(_ angle: CGFloat, to connection: AVCaptureConnection) {
+        if #available(iOS 17.0, *) {
+            guard connection.isVideoRotationAngleSupported(angle) else { return }
+            connection.videoRotationAngle = angle
         }
     }
 }
@@ -422,8 +437,9 @@ extension VideoRecorderManager {
                 self.selectedLens = option
                 self.activePosition = option.position
             }
+            configureRotationCoordinator(for: device)
+            syncVideoRotation()
             updateZoomStops(for: device)
-            updateVideoOrientation()
         } catch {
             setErrorOnMain(error)
         }
