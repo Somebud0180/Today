@@ -17,8 +17,15 @@ struct JournalView: View {
     
     init(selectedEntry: JournalEntry) {
         self.selectedEntry = selectedEntry
+        
+        // Decode power frames for audio entries
+        let powerFrames = selectedEntry.decodedPowerFrames()
+        
         _videoViewModel = StateObject(wrappedValue: VideoViewModel(fileURL: selectedEntry.mediaURL!))
-        _audioViewModel = StateObject(wrappedValue: AudioViewModel(fileURL: selectedEntry.mediaURL!))
+        _audioViewModel = StateObject(wrappedValue: AudioViewModel(
+            fileURL: selectedEntry.mediaURL!,
+            preloadedPowerFrames: powerFrames
+        ))
     }
     
     var body: some View {
@@ -88,7 +95,7 @@ struct JournalView: View {
             .onDisappear { saveChanges() }
         }
     }
-
+    
     private func bindingFor<Value>(_ keyPath: ReferenceWritableKeyPath<JournalEntry, Value>) -> Binding<Value> {
         Binding(
             get: { selectedEntry[keyPath: keyPath] },
@@ -98,7 +105,7 @@ struct JournalView: View {
             }
         )
     }
-
+    
     private func saveChanges() {
         try? modelContext.save()
     }

@@ -13,6 +13,7 @@ struct AudioRecordingView: View {
     @StateObject var manager = AudioRecorderManager()
     @Binding var activePage: CreateView.Page
     @Binding var recordedURL: URL?
+    @Binding var recordedPowerFrames: [AudioRecorderManager.RecordedPowerFrame]?
     var onBack: () -> Void
     
     @State private var levels: [CGFloat] = []
@@ -22,7 +23,7 @@ struct AudioRecordingView: View {
     @State private var isPlaying: Bool = false
     @State private var showDiscardConfirmation: Bool = false
     @State private var localRecordedURL: URL? = nil
-
+    
     private var hasRecording: Bool {
         localRecordedURL != nil
     }
@@ -60,7 +61,7 @@ struct AudioRecordingView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
-
+                
                 WaveformView(levels: levels, isRecording: isRecording || isPlaying, resetToken: 0)
                     .frame(height: 120)
             }
@@ -85,6 +86,7 @@ struct AudioRecordingView: View {
                     // Back button
                     Button(action: {
                         stopRecording()
+                        recordedPowerFrames = nil
                         onBack()
                     }) {
                         Text("Back")
@@ -99,11 +101,11 @@ struct AudioRecordingView: View {
                     // Post-recording: Play/Pause, Confirm, Record again
                     Button(action: {
                         if isPlaying {
-                                    manager.pausePlayingRecording()
-                                    isPlaying = false
-                                    playbackPollTask?.cancel()
-                                    playbackPollTask = nil
-                                    // Keep last waveform levels so WaveformView can smoothly animate to idle.
+                            manager.pausePlayingRecording()
+                            isPlaying = false
+                            playbackPollTask?.cancel()
+                            playbackPollTask = nil
+                            // Keep last waveform levels so WaveformView can smoothly animate to idle.
                         } else {
                             do {
                                 try manager.resumePlayingRecording()
@@ -118,15 +120,16 @@ struct AudioRecordingView: View {
                             }
                         }
                     }) {
-                            Text(isPlaying ? "Pause" : "Play")
-                                .frame(maxWidth: .infinity)
-                                .font(.headline)
-                                .padding(12)
+                        Text(isPlaying ? "Pause" : "Play")
+                            .frame(maxWidth: .infinity)
+                            .font(.headline)
+                            .padding(12)
                     }
                     .buttonStyle(.glass)
-
+                    
                     Button(action: {
                         recordedURL = localRecordedURL
+                        recordedPowerFrames = manager.recordedPowerFrames
                         activePage = .save
                     }) {
                         Text("Confirm Recording")
@@ -136,7 +139,7 @@ struct AudioRecordingView: View {
                     }
                     .buttonStyle(.glassProminent)
                     .disabled(localRecordedURL == nil)
-
+                    
                     Button(action: {
                         showDiscardConfirmation = true
                     }) {
@@ -164,6 +167,7 @@ struct AudioRecordingView: View {
                         try manager.discardRecording()
                         // restore view state
                         recordedURL = nil
+                        recordedPowerFrames = nil
                         isPlaying = false
                         elapsedTime = 0
                         levels = []
@@ -262,19 +266,18 @@ struct AudioRecordingView: View {
                 let powerMetrics = manager.getPowerMetrics()
                 
                 if !powerMetrics.isEmpty {
-                    // Convert dBFS to linear amplitude
-                    let averageDb = powerMetrics[0].average
-                    let linearAmplitude = pow(10, averageDb / 20)
-                    let normalizedAmplitude = min(1.0, max(0.0, linearAmplitude))
-                    
+                    // Use peak dB value and normalize using shared function so playback and recording agree
+                    let metric = powerMetrics[0]
+                    let normalized = normalizeDbToLinear(metric.peak)
+
                     // Apply low-pass smoothing
                     let alpha: Float = 0.3
-                    let smoothed = smoothedLevels.last! * (1 - alpha) + Float(normalizedAmplitude) * alpha
+                    let smoothed = smoothedLevels.last! * (1 - alpha) + normalized * alpha
                     smoothedLevels.append(smoothed)
                     if smoothedLevels.count > 50 {
                         smoothedLevels.removeFirst()
                     }
-                    
+
                     // Convert to CGFloat for display
                     levels = smoothedLevels.map { CGFloat($0) }
                 }
@@ -293,7 +296,7 @@ struct AudioRecordingView: View {
             }
         }
     }
-
+    
     private func startPlaybackMetering() {
         playbackPollTask = Task {
             while !Task.isCancelled {
@@ -301,18 +304,17 @@ struct AudioRecordingView: View {
                 if !isPlaying || !manager.isPlayingRecording {
                     break
                 }
-
+                
                 let powerMetrics = manager.getPlaybackPowerMetrics()
-
+                
                 if !powerMetrics.isEmpty {
                     // For playback, manager now returns dB-style metrics (or simulated dB) so reuse same conversion
-                    let averageDb = powerMetrics[0].average
-                    let linearAmplitude = pow(10, averageDb / 20)
-                    let normalizedAmplitude = min(1.0, max(0.0, linearAmplitude))
+                    let metric = powerMetrics[0]
+                    let normalized = normalizeDbToLinear(metric.peak)
 
                     // Apply low-pass smoothing
                     let alpha: Float = 0.25
-                    let smoothed = smoothedLevels.last! * (1 - alpha) + Float(normalizedAmplitude) * alpha
+                    let smoothed = smoothedLevels.last! * (1 - alpha) + normalized * alpha
                     smoothedLevels.append(smoothed)
                     if smoothedLevels.count > 50 {
                         smoothedLevels.removeFirst()
@@ -324,11 +326,11 @@ struct AudioRecordingView: View {
                     // No metrics available - finish
                     break
                 }
-
+                
                 // Poll at ~30 FPS
                 try? await Task.sleep(nanoseconds: 33_333_333)
             }
-
+            
             // Cleanup when loop exits. Don't clear levels immediately; allow WaveformView to animate to idle.
             DispatchQueue.main.async {
                 if self.isPlaying {
@@ -360,6 +362,7 @@ struct AudioRecordingView: View {
             manager: AudioRecorderManager(),
             activePage: .constant(.audio),
             recordedURL: .constant(nil),
+            recordedPowerFrames: .constant(nil),
             onBack: { }
         )
     }
