@@ -26,7 +26,7 @@ struct CreateView: View {
     
     @State private var transitionDirection: TransitionDirection = .forward
     @State private var recordedAudioURL: URL? = nil
-    @State private var recordedAudioPowerFrames: [AudioRecorderManager.RecordedPowerFrame]? = nil
+    @State private var recordedAudioWaveform: CodableAudioWaveform? = nil
     @State private var recordedVideoURL: URL? = nil
     @State private var activePage: Page = .menu
     @State private var entryTitle: String = ""
@@ -136,7 +136,7 @@ struct CreateView: View {
                     AudioRecordingView(
                         activePage: $activePage,
                         recordedURL: $recordedAudioURL,
-                        recordedPowerFrames: $recordedAudioPowerFrames
+                        recordedWaveform: $recordedAudioWaveform
                     ) {
                         transitionDirection = .backward
                         withAnimation(.easeInOut(duration: 0.3)) {
@@ -167,31 +167,13 @@ struct CreateView: View {
                             )
                             Spacer()
                             Button(action: {
-                                // Convert audio power frames to Codable format if available
-                                var powerFrames: [CodableRecordedPowerFrame]? = nil
-                                if mediaType == .audio, let audioFrames = recordedAudioPowerFrames {
-                                    powerFrames = audioFrames.map { frame in
-                                        CodableRecordedPowerFrame(
-                                            time: frame.time,
-                                            metrics: frame.metrics.map { metric in
-                                                CodablePowerMetrics(
-                                                    channelName: metric.channelName,
-                                                    channelNumber: metric.channelNumber,
-                                                    average: metric.average,
-                                                    peak: metric.peak
-                                                )
-                                            }
-                                        )
-                                    }
-                                }
-                                
                                 let entry = JournalEntry(
                                     title: entryTitle,
                                     note: entryNote,
                                     mediaData: try! Data(contentsOf: activeURL),
                                     fileExtension: fileExtension,
                                     mediaType: mediaType,
-                                    powerFrames: powerFrames
+                                    waveform: mediaType == .audio ? recordedAudioWaveform : nil
                                 )
                                 
                                 if let entry = entry {
@@ -211,7 +193,7 @@ struct CreateView: View {
                                 transitionDirection = .backward
                                 withAnimation(.easeInOut(duration: 0.3)) {
                                     recordedAudioURL = nil
-                                    recordedAudioPowerFrames = nil
+                                    recordedAudioWaveform = nil
                                     recordedVideoURL = nil
                                     activePage = .menu
                                 }

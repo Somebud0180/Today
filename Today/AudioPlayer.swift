@@ -14,6 +14,7 @@ class AudioViewModel: ObservableObject {
     @Published private(set) var isPlayerReady = false
     @Published var isPlaying = false
     @Published var duration = 0.0
+    @Published private(set) var waveformDuration = 0.0
     @Published var currentTime = 0.0
     @Published var isScrubbing = false
     @Published private(set) var fullWaveformLevels: [CGFloat] = []
@@ -21,7 +22,6 @@ class AudioViewModel: ObservableObject {
     private var engine: AVAudioEngine?
     private var playerNode: AVAudioPlayerNode?
     private var audioFile: AVAudioFile?
-    private var meterTimer: Timer?
     private var playbackTimer: Timer?
     
     private var playbackOffset: TimeInterval = 0
@@ -32,27 +32,22 @@ class AudioViewModel: ObservableObject {
     
     @Published private(set) var waveformResetToken = 0
     
-    // For real-time metering
-    private var currentLevels: [Float] = []
-    private let levelQueue = DispatchQueue(label: "com.audio.levels")
-    
-    // Noise gate threshold in dB - suppress levels below this
-    private let noiseFloorThreshold: Float = -80
-    
     private var cancellables = Set<AnyCancellable>()
+
+    /// Pre-loaded waveform from saved data (audio-only)
+    private var savedWaveform: CodableAudioWaveform? = nil
+
+    /// Expose waveform for debugging/inspection
+    var debugWaveform: CodableAudioWaveform? { savedWaveform }
     
-    /// Pre-loaded power frames from saved data (audio-only)
-    private var savedPowerFrames: [CodableRecordedPowerFrame]? = nil
-    
-    init(fileURL: URL, preloadedPowerFrames: [CodableRecordedPowerFrame]? = nil) {
-        self.savedPowerFrames = preloadedPowerFrames
+    init(fileURL: URL, preloadedWaveform: CodableAudioWaveform? = nil) {
+        self.savedWaveform = preloadedWaveform
         self.loadAudio(fileURL: fileURL)
         self.observeAppLifecycle()
     }
     
     deinit {
         self.cancellables.forEach { $0.cancel() }
-        self.stopMeterTimer()
         self.stopPlaybackTimer()
         self.stopEngine()
     }
@@ -62,13 +57,14 @@ class AudioViewModel: ObservableObject {
             let audioFile = try AVAudioFile(forReading: fileURL)
             self.audioFile = audioFile
             self.duration = Double(audioFile.length) / audioFile.processingFormat.sampleRate
+            self.waveformDuration = self.duration
             self.currentTime = 0
             self.playbackOffset = 0
             self.setupAudioEngine()
             
-            // Load waveform from saved data or generate if not available
-            if let savedFrames = savedPowerFrames {
-                self.loadWaveformFromSavedFrames(savedFrames)
+            // Load waveform from saved data if available
+            if let savedWaveform {
+                self.loadWaveformFromSavedWaveform(savedWaveform)
             }
             
             self.isPlayerReady = true
@@ -87,9 +83,6 @@ class AudioViewModel: ObservableObject {
         // Connect player to output
         engine.connect(playerNode, to: engine.mainMixerNode, format: nil)
         
-        // Setup audio tap for real-time metering
-        setupAudioTap(playerNode: playerNode, engine: engine)
-        
         do {
             try engine.start()
             self.engine = engine
@@ -99,62 +92,14 @@ class AudioViewModel: ObservableObject {
         }
     }
     
-    private func setupAudioTap(playerNode: AVAudioPlayerNode, engine: AVAudioEngine) {
-        guard let audioFile = audioFile else { return }
-        let format = audioFile.processingFormat
-        
-        // Install a tap on the output to monitor levels
-        engine.mainMixerNode.installTap(onBus: 0, bufferSize: 4096, format: format) { [weak self] buffer, _ in
-            self?.analyzeLevels(buffer: buffer)
-        }
-    }
-    
-    private func analyzeLevels(buffer: AVAudioPCMBuffer) {
-        guard let channelData = buffer.floatChannelData else { return }
-        let frameLength = Int(buffer.frameLength)
-        let channelCount = Int(buffer.format.channelCount)
-        
-        var levels: [Float] = []
-        
-        for channel in 0..<channelCount {
-            let data = channelData[channel]
-            
-            // Find peak value for this channel (more responsive than RMS)
-            var peak: Float = 0
-            for i in 0..<frameLength {
-                let absValue = abs(data[i])
-                if absValue > peak {
-                    peak = absValue
-                }
-            }
-            
-            // Convert to dB
-            let db = peak > 0 ? 20 * log10(peak) : -160
-            
-            // Apply noise gate: suppress signals below noise floor threshold
-            let gatedDb = db < noiseFloorThreshold ? -160 : db
-            
-            // Normalize to 0...1 using the range from noise floor to 0 dB
-            let normalized = max(0, min(1, (gatedDb - noiseFloorThreshold) / (-noiseFloorThreshold)))
-            levels.append(normalized)
-        }
-        
-        levelQueue.async {
-            self.currentLevels = levels
-        }
-    }
-    
-    private func loadWaveformFromSavedFrames(_ frames: [CodableRecordedPowerFrame]) {
+    private func loadWaveformFromSavedWaveform(_ waveform: CodableAudioWaveform) {
         DispatchQueue.main.async {
-            // Convert power metrics (dBFS) to normalized levels
-            self.waveformLevels = frames.map { frame in
-                // Use the peak dB value from the first channel if available
-                if let firstMetric = frame.metrics.first {
-                    return self.normalizeDbLevel(firstMetric.peak)
-                }
-                return 0.0
-            }
-
+            let sampleDuration = waveform.sampleRateHz > 0
+                ? Double(waveform.samplesLinear.count) / Double(waveform.sampleRateHz)
+                : 0
+            let effectiveDuration = waveform.duration > 0 ? waveform.duration : sampleDuration
+            self.waveformDuration = effectiveDuration
+            self.waveformLevels = waveform.samplesLinear.map { CGFloat($0) }
             self.fullWaveformLevels = self.waveformLevels
             self.lastWaveformIndex = 0
             self.waveformResetToken += 1
@@ -163,25 +108,14 @@ class AudioViewModel: ObservableObject {
         }
     }
 
-    /// Normalize a linear peak amplitude (0..1) to 0..1 using noise floor -> 0 dB mapping
-    private func normalizeLevel(_ peak: Float) -> CGFloat {
-        let db = peak > 0 ? 20 * log10(peak) : -160
-        return normalizeDbLevel(db)
-    }
-
-    /// Normalize a dBFS value (negative -> 0 dB range) into 0..1 for waveform rendering
-    private func normalizeDbLevel(_ db: Float) -> CGFloat {
-        return CGFloat(normalizeDbToLinear(db, noiseFloorThreshold: noiseFloorThreshold))
-    }
-    
     private func refreshWaveformForCurrentTime() {
         let index = waveformIndex(for: currentTime)
         setWaveformIndex(index)
     }
     
     private func waveformIndex(for time: TimeInterval) -> Int {
-        guard duration > 0, !waveformLevels.isEmpty else { return 0 }
-        let ratio = max(0, min(1, time / duration))
+        guard waveformDuration > 0, !waveformLevels.isEmpty else { return 0 }
+        let ratio = max(0, min(1, time / waveformDuration))
         return Int(Double(waveformLevels.count) * ratio)
     }
     
@@ -266,7 +200,6 @@ class AudioViewModel: ObservableObject {
         updateCurrentTime()
         playerNode?.pause()
         isPlaying = false
-        stopMeterTimer()
         stopPlaybackTimer()
     }
     
@@ -314,7 +247,6 @@ class AudioViewModel: ObservableObject {
             playerNode.play()
             playbackOffset = currentTime
             isPlaying = true
-            startMeterTimer()
             startPlaybackTimer()
         }
     }
@@ -323,34 +255,18 @@ class AudioViewModel: ObservableObject {
         scheduleToken = UUID()
         playerNode?.stop()
         isPlaying = false
-        stopMeterTimer()
         stopPlaybackTimer()
         // Keep position at end instead of resetting
         currentTime = duration
         playbackOffset = duration
         lastWaveformIndex = waveformLevels.count
         // Don't clear audioLevels - keep waveform visible
-        levelQueue.async { [weak self] in
-            self?.currentLevels = []
-        }
-    }
-    
-    //MARK: - Audio Metering
-    private func startMeterTimer() {
-        meterTimer?.invalidate()
-        meterTimer = Timer.scheduledTimer(withTimeInterval: 0.06, repeats: true) { [weak self] _ in
-            self?.updateAudioLevels()
-        }
-    }
-    
-    private func stopMeterTimer() {
-        meterTimer?.invalidate()
-        meterTimer = nil
     }
     
     private func startPlaybackTimer() {
         playbackTimer?.invalidate()
-        playbackTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+        // Higher cadence keeps waveform progress visually in sync with playback near the end.
+        playbackTimer = Timer.scheduledTimer(withTimeInterval: 0.033, repeats: true) { [weak self] _ in
             self?.updateCurrentTime()
         }
     }
@@ -367,14 +283,11 @@ class AudioViewModel: ObservableObject {
               let playerTime = playerNode.playerTime(forNodeTime: lastRenderTime) else { return }
         
         let elapsed = Double(playerTime.sampleTime) / playerTime.sampleRate
-        currentTime = playbackOffset + elapsed
+        let updatedTime = playbackOffset + elapsed
+        currentTime = min(duration, max(0, updatedTime))
         refreshWaveformForCurrentTime()
     }
     
-    private func updateAudioLevels() {
-        guard playerNode?.isPlaying == true else { return }
-        refreshWaveformForCurrentTime()
-    }
 }
 
 struct AudioPlayerView: View {
@@ -382,6 +295,7 @@ struct AudioPlayerView: View {
     @State private var wasPlayingBeforeScrub = false
     @State private var lastScrubUpdate: TimeInterval = 0
     @State private var initialScrubPosition: CGFloat? = nil
+    @State private var debugMode: Bool = false
     
     private let scrubThrottle: TimeInterval = 0.05
     
@@ -399,10 +313,43 @@ struct AudioPlayerView: View {
                     WaveformView(
                         fullLevels: viewModel.fullWaveformLevels,
                         currentTime: viewModel.currentTime,
-                        duration: viewModel.duration,
+                        duration: viewModel.waveformDuration,
                         isPlaybackView: true
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    // Debug overlays: info
+                    if debugMode {
+                        VStack {
+                            Spacer()
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("samples: \(viewModel.fullWaveformLevels.count)")
+                                    Text(String(format: "audio: %.2f s", viewModel.duration))
+                                    Text(String(format: "wave: %.2f s", viewModel.waveformDuration))
+                                    Text("rate: \(viewModel.debugWaveform?.sampleRateHz ?? 0) Hz")
+                                }
+                                .font(.caption2)
+                                .padding(8)
+                                .background(Color.black.opacity(0.6))
+                                .cornerRadius(8)
+                                Spacer()
+                            }
+                        }
+                    }
+
+                    VStack {
+                        HStack {
+                            Spacer()
+                            Button(action: { debugMode.toggle() }) {
+                                Image(systemName: debugMode ? "ladybug.fill" : "ladybug")
+                                    .padding(8)
+                                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        Spacer()
+                    }
                 }
                 .contentShape(Rectangle())
                 .gesture(

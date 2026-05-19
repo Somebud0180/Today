@@ -13,7 +13,7 @@ struct AudioRecordingView: View {
     @StateObject var manager = AudioRecorderManager()
     @Binding var activePage: CreateView.Page
     @Binding var recordedURL: URL?
-    @Binding var recordedPowerFrames: [AudioRecorderManager.RecordedPowerFrame]?
+    @Binding var recordedWaveform: CodableAudioWaveform?
     var onBack: () -> Void
     
     @State private var levels: [CGFloat] = []
@@ -86,7 +86,7 @@ struct AudioRecordingView: View {
                     // Back button
                     Button(action: {
                         stopRecording()
-                        recordedPowerFrames = nil
+                        recordedWaveform = nil
                         onBack()
                     }) {
                         Text("Back")
@@ -129,7 +129,7 @@ struct AudioRecordingView: View {
                     
                     Button(action: {
                         recordedURL = localRecordedURL
-                        recordedPowerFrames = manager.recordedPowerFrames
+                        recordedWaveform = manager.makeRecordedWaveform()
                         activePage = .save
                     }) {
                         Text("Confirm Recording")
@@ -167,7 +167,7 @@ struct AudioRecordingView: View {
                         try manager.discardRecording()
                         // restore view state
                         recordedURL = nil
-                        recordedPowerFrames = nil
+                        recordedWaveform = nil
                         isPlaying = false
                         elapsedTime = 0
                         levels = []
@@ -263,36 +263,30 @@ struct AudioRecordingView: View {
         meterPollTask = Task {
             var updateCounter = 0
             while isRecording && !Task.isCancelled {
-                let powerMetrics = manager.getPowerMetrics()
-                
-                if !powerMetrics.isEmpty {
-                    // Use peak dB value and normalize using shared function so playback and recording agree
-                    let metric = powerMetrics[0]
-                    let normalized = normalizeDbToLinear(metric.peak)
+                let normalized = manager.latestWaveformSampleLinear
 
-                    // Apply low-pass smoothing
-                    let alpha: Float = 0.3
-                    let smoothed = smoothedLevels.last! * (1 - alpha) + normalized * alpha
-                    smoothedLevels.append(smoothed)
-                    if smoothedLevels.count > 50 {
-                        smoothedLevels.removeFirst()
-                    }
-
-                    // Convert to CGFloat for display
-                    levels = smoothedLevels.map { CGFloat($0) }
+                // Apply low-pass smoothing
+                let alpha: Float = 0.3
+                let smoothed = smoothedLevels.last! * (1 - alpha) + normalized * alpha
+                smoothedLevels.append(smoothed)
+                if smoothedLevels.count > 50 {
+                    smoothedLevels.removeFirst()
                 }
-                
+
+                // Convert to CGFloat for display
+                levels = smoothedLevels.map { CGFloat($0) }
+
                 updateCounter += 1
-                
-                // Update elapsed time every second
-                if updateCounter % 3 == 0 {
+
+                // Update elapsed time every second at 60 Hz
+                if updateCounter % 60 == 0 {
                     if case .started(let elapsed, _) = manager.recorderState {
                         elapsedTime = elapsed
                     }
                 }
-                
-                // Poll at ~30 FPS
-                try? await Task.sleep(nanoseconds: 33_333_333)
+
+                // Poll at ~60 FPS to match capture cadence
+                try? await Task.sleep(nanoseconds: 16_666_667)
             }
         }
     }
@@ -304,33 +298,27 @@ struct AudioRecordingView: View {
                 if !isPlaying || !manager.isPlayingRecording {
                     break
                 }
-                
-                let powerMetrics = manager.getPlaybackPowerMetrics()
-                
-                if !powerMetrics.isEmpty {
-                    // For playback, manager now returns dB-style metrics (or simulated dB) so reuse same conversion
-                    let metric = powerMetrics[0]
-                    let normalized = normalizeDbToLinear(metric.peak)
 
-                    // Apply low-pass smoothing
-                    let alpha: Float = 0.25
-                    let smoothed = smoothedLevels.last! * (1 - alpha) + normalized * alpha
-                    smoothedLevels.append(smoothed)
-                    if smoothedLevels.count > 50 {
-                        smoothedLevels.removeFirst()
-                    }
-
-                    // Convert to CGFloat for display
-                    levels = smoothedLevels.map { CGFloat($0) }
-                } else {
-                    // No metrics available - finish
+                let playbackTime = manager.playbackTime
+                guard let normalized = manager.waveformSampleLinear(at: playbackTime) else {
                     break
                 }
-                
-                // Poll at ~30 FPS
-                try? await Task.sleep(nanoseconds: 33_333_333)
+
+                // Apply low-pass smoothing
+                let alpha: Float = 0.25
+                let smoothed = smoothedLevels.last! * (1 - alpha) + normalized * alpha
+                smoothedLevels.append(smoothed)
+                if smoothedLevels.count > 50 {
+                    smoothedLevels.removeFirst()
+                }
+
+                // Convert to CGFloat for display
+                levels = smoothedLevels.map { CGFloat($0) }
+
+                // Poll at ~60 FPS to match capture cadence
+                try? await Task.sleep(nanoseconds: 16_666_667)
             }
-            
+
             // Cleanup when loop exits. Don't clear levels immediately; allow WaveformView to animate to idle.
             DispatchQueue.main.async {
                 if self.isPlaying {
@@ -362,7 +350,7 @@ struct AudioRecordingView: View {
             manager: AudioRecorderManager(),
             activePage: .constant(.audio),
             recordedURL: .constant(nil),
-            recordedPowerFrames: .constant(nil),
+            recordedWaveform: .constant(nil),
             onBack: { }
         )
     }

@@ -63,13 +63,6 @@ class AudioRecorderManager: NSObject, ObservableObject {
         var peak: Float
     }
 
-    /// Recorded power frames captured during a recording session.
-    /// Each frame contains the timestamp (seconds from recording start) and the power metrics for that moment.
-    struct RecordedPowerFrame {
-        var time: TimeInterval
-        var metrics: [PowerMetrics]
-    }
-    
     enum _Error: Error {
         
         case permissionDenied
@@ -156,8 +149,19 @@ class AudioRecorderManager: NSObject, ObservableObject {
     }
     
     private var recorder: AVAudioRecorder?
-    /// Power frames captured while recording. Cleared when a new recording starts or when discarded.
-    private(set) var recordedPowerFrames: [RecordedPowerFrame] = []
+    private let waveformSampleRateHz: Int = 60
+    private var waveformCancellable: AnyCancellable?
+    private(set) var recordedWaveformSamplesDb: [Float] = []
+    private(set) var recordedWaveformSamplesLinear: [Float] = []
+    private(set) var recordedWaveformDuration: TimeInterval = 0
+
+    var latestWaveformSampleLinear: Float {
+        recordedWaveformSamplesLinear.last ?? 0
+    }
+
+    var playbackTime: TimeInterval {
+        player?.currentTime ?? 0
+    }
     
     private let audioSession: AVAudioSession = AVAudioSession.sharedInstance()
     
@@ -247,15 +251,19 @@ extension AudioRecorderManager {
             throw _Error.failToStartRecording("Fail to start playing")
         }
         
+        // Clear any previous captured metrics for a fresh recording session
+        self.recordedWaveformSamplesDb = []
+        self.recordedWaveformSamplesLinear = []
+        self.recordedWaveformDuration = 0
+
         if let time  {
             self.recorderState = .reserved(time)
         } else {
-            // Clear any previous captured power frames for a fresh recording session
-            self.recordedPowerFrames = []
             self.recorderState = .started(0, self.getPowerMetrics())
         }
-        
+
         self.startTimer()
+        self.startWaveformSampling()
     }
     
     
@@ -269,6 +277,7 @@ extension AudioRecorderManager {
         }
         self.recorderState = .started(recorder.currentTime, self.getPowerMetrics())
         self.startTimer()
+        self.startWaveformSampling()
     }
     
     func pauseRecording() {
@@ -279,6 +288,7 @@ extension AudioRecorderManager {
             self.recorderState = .paused(recorder?.currentTime ?? 0, self.getPowerMetrics())
         }
         self.stopTimer()
+        self.stopWaveformSampling()
     }
     
     func stopRecording() {
@@ -286,6 +296,7 @@ extension AudioRecorderManager {
         self.recorder = nil
         self.recorderState = .stopped
         self.stopTimer()
+        self.stopWaveformSampling()
         self.preparePlayer()
     }
     
@@ -312,6 +323,7 @@ extension AudioRecorderManager {
         self.recorder = nil
         self.recorderState = .stopped
         self.stopTimer()
+        self.stopWaveformSampling()
 
         if let fileURL = self.destinationURL, FileManager.default.fileExists(atPath: fileURL.path) {
             try FileManager.default.removeItem(at: fileURL)
@@ -320,8 +332,9 @@ extension AudioRecorderManager {
         // clear player metadata
         self.player = nil
         self.recordedContentsDuration = nil
-        // clear captured power frames
-        self.recordedPowerFrames = []
+        self.recordedWaveformSamplesDb = []
+        self.recordedWaveformSamplesLinear = []
+        self.recordedWaveformDuration = 0
     }
 }
 
@@ -413,63 +426,6 @@ extension AudioRecorderManager: AVAudioPlayerDelegate {
         }
         self.error = error
         
-    }
-}
-
-// MARK: - Playback metering
-extension AudioRecorderManager {
-    /// Get power metrics for playback audio
-    /// Note: AVAudioPlayer doesn't provide real-time metering like AVAudioRecorder.
-    /// This returns simulated metrics for visualization purposes.
-    func getPlaybackPowerMetrics() -> [PowerMetrics] {
-        guard let player = self.player, player.isPlaying else {
-            return []
-        }
-
-        // Prefer using captured metrics from the recording session, if available.
-        if !self.recordedPowerFrames.isEmpty {
-            let playbackTime = player.currentTime
-
-            // Find the most recent recorded frame at or before the playback time.
-            // Iterate in reverse for efficiency assuming playback progresses forward.
-            if let frame = self.recordedPowerFrames.reversed().first(where: { $0.time <= playbackTime }) {
-                return frame.metrics
-            }
-
-            // If none found (playback earlier than first frame), return the first frame's metrics.
-            return self.recordedPowerFrames.first?.metrics ?? []
-        }
-
-        // Fallback: simulate playback metrics when no recorded metrics are available.
-        let channelCount = self.audioSettings[AVNumberOfChannelsKey] as? Int ?? 1
-
-        // Generate a realistic-looking simulated waveform for visualization
-        // Use a combination of sine waves with random variation to simulate audio
-        let time = Float(player.currentTime)
-        let baseFrequency = sin(time * 1.5) * 0.3 + 0.4
-        let variation = Float.random(in: 0...0.3)
-        let amplitude = (baseFrequency + variation).clamped(to: 0...1)
-
-        return (0..<channelCount).map { channel in
-            let channelVariance = Float.random(in: -0.05...0.05)
-            let finalAmplitude = (amplitude + channelVariance).clamped(to: 0...1)
-            // NOTE: These simulated values are in normalized linear amplitude (0..1).
-            // To keep the API consistent with recorder metrics (dBFS), we map them into a small
-            // dB range so downstream code that expects dB values can still operate.
-            let approxDb = log10(max(0.0001, finalAmplitude)) * 20
-            return PowerMetrics(
-                channelName: nil,
-                channelNumber: channel,
-                average: approxDb,
-                peak: approxDb
-            )
-        }
-    }
-}
-
-extension Comparable {
-    func clamped(to limits: ClosedRange<Self>) -> Self {
-        return min(max(self, limits.lowerBound), limits.upperBound)
     }
 }
 
@@ -617,7 +573,49 @@ extension AudioRecorderManager {
         self.timerCancellable?.cancel()
         self.timerCancellable = nil
     }
-    
+
+    private func startWaveformSampling() {
+        self.stopWaveformSampling()
+        let interval = 1.0 / Double(waveformSampleRateHz)
+        self.waveformCancellable = Timer.publish(every: interval, on: .main, in: .common).autoconnect()
+            .sink(receiveValue: { [weak self] _ in
+                self?.captureWaveformSample()
+            })
+    }
+
+    private func stopWaveformSampling() {
+        self.waveformCancellable?.cancel()
+        self.waveformCancellable = nil
+    }
+
+    private func captureWaveformSample() {
+        guard let recorder = self.recorder, recorder.isRecording, recorder.isMeteringEnabled else { return }
+        recorder.updateMeters()
+        let channelCount = self.getChannels().count
+        let peakDb = (0..<channelCount).map { recorder.peakPower(forChannel: $0) }.max() ?? -160
+        recordedWaveformSamplesDb.append(peakDb)
+        recordedWaveformSamplesLinear.append(normalizeDbToLinear(peakDb))
+        recordedWaveformDuration = recorder.currentTime
+    }
+
+    func waveformSampleLinear(at time: TimeInterval) -> Float? {
+        guard waveformSampleRateHz > 0, !recordedWaveformSamplesLinear.isEmpty else { return nil }
+        let index = Int(time * Double(waveformSampleRateHz))
+        let clampedIndex = max(0, min(index, recordedWaveformSamplesLinear.count - 1))
+        return recordedWaveformSamplesLinear[clampedIndex]
+    }
+
+    func makeRecordedWaveform() -> CodableAudioWaveform? {
+        guard !recordedWaveformSamplesDb.isEmpty else { return nil }
+        let sampleDuration = Double(recordedWaveformSamplesDb.count) / Double(waveformSampleRateHz)
+        let duration = recordedWaveformDuration > 0 ? recordedWaveformDuration : sampleDuration
+        return CodableAudioWaveform(
+            samplesDb: recordedWaveformSamplesDb,
+            samplesLinear: recordedWaveformSamplesLinear,
+            sampleRateHz: waveformSampleRateHz,
+            duration: duration
+        )
+    }
     
     func getPowerMetrics() -> [PowerMetrics] {
         guard let recorder = self.recorder else {
@@ -638,11 +636,6 @@ extension AudioRecorderManager {
             average: recorder.averagePower(forChannel: $0.1),
             peak: recorder.peakPower(forChannel: $0.1)) }
         )
-
-        // Capture the metrics with a timestamp so we can reuse them for playback visualization.
-        let currentTime = recorder.currentTime
-        let frame = RecordedPowerFrame(time: currentTime, metrics: metrics)
-        self.recordedPowerFrames.append(frame)
 
         return metrics
     }
