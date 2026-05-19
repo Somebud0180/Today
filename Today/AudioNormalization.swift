@@ -2,7 +2,7 @@ import Foundation
 import CoreGraphics
 
 /// Default noise floor threshold in dBFS used for normalization
-public let DefaultNoiseFloorThreshold: Float = -80.0
+public let DefaultNoiseFloorThreshold: Float = -50.0
 
 /// Convert a dBFS value into a 0..1 normalized linear amplitude for waveform rendering.
 /// - Parameters:

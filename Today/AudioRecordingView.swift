@@ -270,7 +270,7 @@ struct AudioRecordingView: View {
                     smoothedLevels = Array(repeating: normalized, count: 5)
                 } else {
                     // Apply low-pass smoothing
-                    let alpha: Float = 0.3
+                    let alpha: Float = 0.99
                     let smoothed = smoothedLevels.last! * (1 - alpha) + normalized * alpha
                     smoothedLevels.append(smoothed)
                     if smoothedLevels.count > 50 {

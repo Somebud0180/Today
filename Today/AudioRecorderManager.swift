@@ -171,9 +171,10 @@ class AudioRecorderManager: NSObject, ObservableObject {
     // https://developer.apple.com/documentation/avfaudio/avaudiorecorder/init(url:settings:)#Discussion
     private var audioSettings: [String: Any] = [
         AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-        AVSampleRateKey: 12000,
+        AVSampleRateKey: 22050,
+        AVEncoderBitDepthHintKey: 16,
         AVNumberOfChannelsKey: 1,
-        AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
+        AVEncoderAudioQualityKey: AVAudioQuality.max.rawValue
     ]
     
     
@@ -594,10 +595,20 @@ extension AudioRecorderManager {
     private func captureWaveformSample() {
         guard let recorder = self.recorder, recorder.isRecording, recorder.isMeteringEnabled else { return }
         recorder.updateMeters()
+        
         let channelCount = self.getChannels().count
-        let peakDb = (0..<channelCount).map { recorder.peakPower(forChannel: $0) }.max() ?? -160
-        recordedWaveformSamplesDb.append(peakDb)
-        recordedWaveformSamplesLinear.append(normalizeDbToLinear(peakDb))
+        // Capture both peak and average to get a better sense of energy
+        let peak = (0..<channelCount).map { recorder.peakPower(forChannel: $0) }.max() ?? -160
+        let avg = (0..<channelCount).map { recorder.averagePower(forChannel: $0) }.max() ?? -160
+        
+        // Use a weighted blend. This makes the waveform "body" collapse faster
+        // when the loud sound ends, because the average power drops quicker than the peak.
+        let blendedDb = (peak * 0.3) + (avg * 0.7)
+        
+        debugPrint("DEBUG: Peak: \(peak), Avg: \(avg), Blended: \(blendedDb)")
+        
+        recordedWaveformSamplesDb.append(blendedDb)
+        recordedWaveformSamplesLinear.append(normalizeDbToLinear(blendedDb))
         recordedWaveformDuration = recorder.currentTime
     }
 
@@ -611,14 +622,14 @@ extension AudioRecorderManager {
     func makeRecordedWaveform() -> CodableAudioWaveform? {
         guard !recordedWaveformSamplesDb.isEmpty else { return nil }
 
-        let (trimmedDb, trimmedLinear) = trimmedRecordedWaveformSamples()
-        guard !trimmedDb.isEmpty, !trimmedLinear.isEmpty else { return nil }
+//        let (trimmedDb, trimmedLinear) = trimmedRecordedWaveformSamples()
+//        guard !trimmedDb.isEmpty, !trimmedLinear.isEmpty else { return nil }
 
-        let sampleDuration = Double(trimmedDb.count) / Double(waveformSampleRateHz)
-        let duration = recordedWaveformDuration > 0 ? max(0, recordedWaveformDuration - Double(recordedWaveformSamplesDb.count - trimmedDb.count) / Double(waveformSampleRateHz)) : sampleDuration
+        let sampleDuration = Double(recordedWaveformSamplesDb.count) / Double(waveformSampleRateHz)
+        let duration = recordedWaveformDuration > 0 ? max(0, recordedWaveformDuration - Double(recordedWaveformSamplesDb.count - recordedWaveformSamplesDb.count) / Double(waveformSampleRateHz)) : sampleDuration
         return CodableAudioWaveform(
-            samplesDb: trimmedDb,
-            samplesLinear: trimmedLinear,
+            samplesDb: recordedWaveformSamplesDb,
+            samplesLinear: recordedWaveformSamplesLinear,
             sampleRateHz: waveformSampleRateHz,
             duration: duration
         )
