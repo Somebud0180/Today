@@ -150,6 +150,9 @@ class AudioRecorderManager: NSObject, ObservableObject {
     
     private var recorder: AVAudioRecorder?
     private let waveformSampleRateHz: Int = 60
+    /// Ignore a tiny amount of leading metering noise so the saved waveform starts on the real attack.
+    private let waveformLeadingNoiseThreshold: Float = 0.035
+    private let waveformLeadingPadSamples: Int = 1
     private var waveformCancellable: AnyCancellable?
     private(set) var recordedWaveformSamplesDb: [Float] = []
     private(set) var recordedWaveformSamplesLinear: [Float] = []
@@ -607,13 +610,37 @@ extension AudioRecorderManager {
 
     func makeRecordedWaveform() -> CodableAudioWaveform? {
         guard !recordedWaveformSamplesDb.isEmpty else { return nil }
-        let sampleDuration = Double(recordedWaveformSamplesDb.count) / Double(waveformSampleRateHz)
-        let duration = recordedWaveformDuration > 0 ? recordedWaveformDuration : sampleDuration
+
+        let (trimmedDb, trimmedLinear) = trimmedRecordedWaveformSamples()
+        guard !trimmedDb.isEmpty, !trimmedLinear.isEmpty else { return nil }
+
+        let sampleDuration = Double(trimmedDb.count) / Double(waveformSampleRateHz)
+        let duration = recordedWaveformDuration > 0 ? max(0, recordedWaveformDuration - Double(recordedWaveformSamplesDb.count - trimmedDb.count) / Double(waveformSampleRateHz)) : sampleDuration
         return CodableAudioWaveform(
-            samplesDb: recordedWaveformSamplesDb,
-            samplesLinear: recordedWaveformSamplesLinear,
+            samplesDb: trimmedDb,
+            samplesLinear: trimmedLinear,
             sampleRateHz: waveformSampleRateHz,
             duration: duration
+        )
+    }
+
+    private func trimmedRecordedWaveformSamples() -> (db: [Float], linear: [Float]) {
+        guard !recordedWaveformSamplesDb.isEmpty, recordedWaveformSamplesDb.count == recordedWaveformSamplesLinear.count else {
+            return (recordedWaveformSamplesDb, recordedWaveformSamplesLinear)
+        }
+
+        guard let firstMeaningfulIndex = recordedWaveformSamplesLinear.firstIndex(where: { $0 >= waveformLeadingNoiseThreshold }) else {
+            return (recordedWaveformSamplesDb, recordedWaveformSamplesLinear)
+        }
+
+        let trimStart = max(0, firstMeaningfulIndex - waveformLeadingPadSamples)
+        guard trimStart > 0, trimStart < recordedWaveformSamplesDb.count else {
+            return (recordedWaveformSamplesDb, recordedWaveformSamplesLinear)
+        }
+
+        return (
+            Array(recordedWaveformSamplesDb[trimStart...]),
+            Array(recordedWaveformSamplesLinear[trimStart...])
         )
     }
     

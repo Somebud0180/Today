@@ -265,12 +265,17 @@ struct AudioRecordingView: View {
             while isRecording && !Task.isCancelled {
                 let normalized = manager.latestWaveformSampleLinear
 
-                // Apply low-pass smoothing
-                let alpha: Float = 0.3
-                let smoothed = smoothedLevels.last! * (1 - alpha) + normalized * alpha
-                smoothedLevels.append(smoothed)
-                if smoothedLevels.count > 50 {
-                    smoothedLevels.removeFirst()
+                // Seed the waveform immediately on the first captured sample so it doesn't ramp in late.
+                if smoothedLevels.allSatisfy({ $0 == 0 }) {
+                    smoothedLevels = Array(repeating: normalized, count: 5)
+                } else {
+                    // Apply low-pass smoothing
+                    let alpha: Float = 0.3
+                    let smoothed = smoothedLevels.last! * (1 - alpha) + normalized * alpha
+                    smoothedLevels.append(smoothed)
+                    if smoothedLevels.count > 50 {
+                        smoothedLevels.removeFirst()
+                    }
                 }
 
                 // Convert to CGFloat for display
@@ -304,12 +309,17 @@ struct AudioRecordingView: View {
                     break
                 }
 
-                // Apply low-pass smoothing
-                let alpha: Float = 0.25
-                let smoothed = smoothedLevels.last! * (1 - alpha) + normalized * alpha
-                smoothedLevels.append(smoothed)
-                if smoothedLevels.count > 50 {
-                    smoothedLevels.removeFirst()
+                // Seed playback immediately so the waveform follows audio onset rather than easing in.
+                if smoothedLevels.allSatisfy({ $0 == 0 }) {
+                    smoothedLevels = Array(repeating: normalized, count: 5)
+                } else {
+                    // Apply low-pass smoothing
+                    let alpha: Float = 0.25
+                    let smoothed = smoothedLevels.last! * (1 - alpha) + normalized * alpha
+                    smoothedLevels.append(smoothed)
+                    if smoothedLevels.count > 50 {
+                        smoothedLevels.removeFirst()
+                    }
                 }
 
                 // Convert to CGFloat for display

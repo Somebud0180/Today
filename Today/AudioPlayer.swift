@@ -236,7 +236,13 @@ class AudioViewModel: ObservableObject {
         scheduleToken = token
         
         playerNode.stop()
-        playerNode.scheduleSegment(audioFile, startingFrame: startFrame, frameCount: frameCount, at: nil) { [weak self] in
+        playerNode.scheduleSegment(
+            audioFile,
+            startingFrame: startFrame,
+            frameCount: frameCount,
+            at: nil,
+            completionCallbackType: .dataPlayedBack
+        ) { [weak self] _ in
             DispatchQueue.main.async {
                 guard let self = self, self.scheduleToken == token else { return }
                 self.handlePlaybackEnded()
