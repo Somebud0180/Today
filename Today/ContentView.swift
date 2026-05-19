@@ -69,22 +69,15 @@ struct ContentView: View {
     
     private func gridCard(for journalEntry: JournalEntry, size: CGSize) -> some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.gray)
-                .glassEffect(
-                    .clear,
-                    in: RoundedRectangle(cornerRadius: 16)
-                )
-            
             if let thumbnail = journalEntry.videoThumbImage {
                 thumbnail
                     .resizable()
                     .scaledToFill()
                     .frame(width: size.width, height: size.height)
                     .clipped()
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
             } else {
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: 16)
                     .fill(Color.gray.opacity(0.2))
                     .overlay {
                         Image(systemName: "photo.on.rectangle.angled")
@@ -94,6 +87,13 @@ struct ContentView: View {
                     }
                     .frame(width: size.width, height: size.height)
             }
+            
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.gray)
+                .glassEffect(
+                    .regular,
+                    in: RoundedRectangle(cornerRadius: 16)
+                )
             
             VStack(alignment: .leading) {
                 Text(
