@@ -316,7 +316,6 @@ class AudioViewModel: ObservableObject {
 struct AudioPlayerView: View {
     @StateObject var viewModel: AudioViewModel
     @State private var wasPlayingBeforeScrub = false
-    @State private var lastScrubUpdate: TimeInterval = 0
     @State private var initialScrubPosition: CGFloat? = nil
 
     private let scrubThrottle: TimeInterval = 0.05
@@ -350,29 +349,18 @@ struct AudioPlayerView: View {
                                 viewModel.isScrubbing = true
                                 initialScrubPosition = value.location.x
                             }
-
+                            
                             let width = max(1, proxy.size.width)
                             let clampedX = min(max(0, value.location.x), width)
                             let percentage = 1 - (clampedX / width)
                             let targetTime =
-                                viewModel.duration * Double(percentage)
-
+                            viewModel.duration * Double(percentage)
+                            
                             viewModel.updateScrubTime(targetTime)
-
-                            // Only seek after user has moved more than a small threshold from initial position
-                            if let initialPos = initialScrubPosition,
-                                abs(value.location.x - initialPos) > 10
-                            {
-                                let now = CFAbsoluteTimeGetCurrent()
-                                if now - lastScrubUpdate >= scrubThrottle {
-                                    lastScrubUpdate = now
-                                    viewModel.seek(to: targetTime)
-                                }
-                            }
+                            viewModel.seek(to: targetTime)
                         }
                         .onEnded { _ in
                             viewModel.isScrubbing = false
-                            lastScrubUpdate = 0
                             initialScrubPosition = nil
                             if wasPlayingBeforeScrub {
                                 viewModel.play()
