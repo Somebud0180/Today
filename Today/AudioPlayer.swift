@@ -316,9 +316,7 @@ class AudioViewModel: ObservableObject {
 struct AudioPlayerView: View {
     @StateObject var viewModel: AudioViewModel
     @State private var wasPlayingBeforeScrub = false
-    @State private var initialScrubPosition: CGFloat? = nil
-
-    private let scrubThrottle: TimeInterval = 0.05
+    @State private var scrubStartTime: TimeInterval? = nil
 
     var body: some View {
         VStack {
@@ -347,21 +345,20 @@ struct AudioPlayerView: View {
                                 wasPlayingBeforeScrub = viewModel.isPlaying
                                 viewModel.pause()
                                 viewModel.isScrubbing = true
-                                initialScrubPosition = value.location.x
+                                scrubStartTime = viewModel.currentTime
                             }
-                            
+
+                            let startTime = scrubStartTime ?? viewModel.currentTime
                             let width = max(1, proxy.size.width)
-                            let clampedX = min(max(0, value.location.x), width)
-                            let percentage = 1 - (clampedX / width)
-                            let targetTime =
-                            viewModel.duration * Double(percentage)
-                            
-                            viewModel.updateScrubTime(targetTime)
+                            let timeDelta = Double(value.translation.width / width)
+                                * viewModel.duration * -1
+                            let targetTime = startTime + timeDelta
+
                             viewModel.seek(to: targetTime)
                         }
                         .onEnded { _ in
                             viewModel.isScrubbing = false
-                            initialScrubPosition = nil
+                            scrubStartTime = nil
                             if wasPlayingBeforeScrub {
                                 viewModel.play()
                             }
