@@ -19,6 +19,7 @@ struct AudioRecordingView: View {
     @State private var levels: [CGFloat] = []
     @State private var smoothedLevels: [Float] = [0, 0, 0, 0, 0]
     @State private var elapsedTime: TimeInterval = 0
+    @State private var waveformResetToken: Int = 0
     @State private var isRecording: Bool = false
     @State private var isPlaying: Bool = false
     @State private var showDiscardConfirmation: Bool = false
@@ -62,7 +63,7 @@ struct AudioRecordingView: View {
                         .foregroundStyle(.secondary)
                 }
                 
-                WaveformView(levels: levels, isRecording: isRecording || isPlaying, resetToken: 0)
+                WaveformView(levels: levels, isRecording: isRecording || isPlaying, resetToken: waveformResetToken)
                     .frame(height: 120)
             }
             .frame(maxWidth: .infinity)
@@ -220,6 +221,8 @@ struct AudioRecordingView: View {
                     recordingOption: .mono,
                     enableMetering: true
                 )
+                
+                waveformResetToken += 1
                 
                 // Haptic feedback: medium impact
                 let impactFeedback = UIImpactFeedbackGenerator(style: .medium)

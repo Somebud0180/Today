@@ -52,7 +52,8 @@ struct WaveformView: View {
             }
             .onAppear {
                 if !isPlaybackView {
-                    updateDisplayLevels(levels)
+                    // If the view appears with an existing levels buffer, seed the display with it.
+                    displayLevels = levels
                 }
             }
         }
@@ -159,14 +160,17 @@ struct WaveformView: View {
     }
     
     private func updateDisplayLevels(_ newLevels: [CGFloat]) {
+        // Only append the most recent sample to avoid duplicating entire buffers
         let maxBars = 200
         var updated = displayLevels
         
-        for level in newLevels {
-            updated.append(level)
-            if updated.count > maxBars {
-                updated.removeFirst()
-            }
+        // If the incoming array is empty, do nothing. If it contains multiple
+        // items, assume the last item represents the newest sample.
+        guard let newest = newLevels.last else { return }
+        
+        updated.append(newest)
+        if updated.count > maxBars {
+            updated.removeFirst(updated.count - maxBars)
         }
         
         withAnimation(.linear(duration: 0.06)) {
