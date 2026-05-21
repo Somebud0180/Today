@@ -176,6 +176,23 @@ class JournalEntry: Identifiable {
         }
     }
 
+    /// Returns a short centered snippet of the audio waveform for grid thumbnails.
+    func audioWaveformThumbnailLevels(maxBars: Int = 24) -> [CGFloat]? {
+        guard mediaType == .audio,
+              maxBars > 0,
+              let waveform = decodedWaveform(),
+              !waveform.samplesLinear.isEmpty else {
+            return nil
+        }
+
+        let samples = waveform.samplesLinear
+        let snippetCount = min(maxBars, samples.count)
+        let startIndex = max(0, (samples.count - snippetCount) / 2)
+        let endIndex = startIndex + snippetCount
+
+        return samples[startIndex..<endIndex].map { CGFloat($0) }
+    }
+
     private static func generateThumbnailData(from videoURL: URL) -> Data? {
         final class ThumbnailDataBox: @unchecked Sendable { var data: Data? }
 

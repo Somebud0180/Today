@@ -76,22 +76,18 @@ struct ContentView: View {
                     .frame(width: size.width, height: size.height)
                     .clipped()
                     .clipShape(RoundedRectangle(cornerRadius: 16))
-            } else {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.gray.opacity(0.2))
-                    .overlay {
-                        Image(systemName: "photo.on.rectangle.angled")
-                            .resizable()
-                            .scaledToFit()
-                            .padding(20)
-                    }
+                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
+            } else if let waveformLevels = journalEntry.audioWaveformThumbnailLevels(maxBars: max(1, Int(size.width / 7))) {
+                WaveformView(levels: waveformLevels, isThumbnailView: true)
                     .frame(width: size.width, height: size.height)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
             }
             
             RoundedRectangle(cornerRadius: 16)
-                .fill(.gray)
+                .fill(.gray.opacity(0.25))
                 .glassEffect(
-                    .regular,
+                    .clear.tint(.gray.opacity(0.25)),
                     in: RoundedRectangle(cornerRadius: 16)
                 )
             

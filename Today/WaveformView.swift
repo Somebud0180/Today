@@ -19,6 +19,7 @@ struct WaveformView: View {
     var currentTime: TimeInterval = 0
     var duration: TimeInterval = 0
     var isPlaybackView: Bool = false
+    var isThumbnailView: Bool = false
     
     @State private var displayLevels: [CGFloat] = []
     
@@ -33,12 +34,15 @@ struct WaveformView: View {
                     if isPlaybackView {
                         var ctx = context
                         drawPlaybackWaveform(&ctx, size: size)
+                    } else if isThumbnailView {
+                        var ctx = context
+                        drawThumbnailWaveform(&ctx, size: size)
                     } else {
                         var ctx = context
                         drawRecordingWaveform(&ctx, size: size)
                     }
                 }
-                .frame(height: 120)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .onChange(of: levels) { oldValue, newValue in
                 if !isPlaybackView {
@@ -155,6 +159,26 @@ struct WaveformView: View {
                 cornerSize: CGSize(width: barWidth / 2, height: barWidth / 2)
             )
             
+            context.fill(path, with: .color(.blue.opacity(0.85)))
+        }
+    }
+
+    private func drawThumbnailWaveform(_ context: inout GraphicsContext, size: CGSize) {
+        let barsToShow = max(1, Int(size.width / (barWidth + barSpacing)))
+        let source = levels.isEmpty ? Array(repeating: minAmplitude, count: barsToShow) : Array(levels.prefix(barsToShow))
+
+        for i in 0..<source.count {
+            let level = source[i]
+            let height = max(minAmplitude, level) * size.height * 0.8
+            let x = CGFloat(i) * (barWidth + barSpacing) + barSpacing
+            let y = (size.height - height) / 2
+
+            var path = Path()
+            path.addRoundedRect(
+                in: CGRect(x: x, y: y, width: barWidth, height: height),
+                cornerSize: CGSize(width: barWidth / 2, height: barWidth / 2)
+            )
+
             context.fill(path, with: .color(.blue.opacity(0.85)))
         }
     }
