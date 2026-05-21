@@ -24,6 +24,8 @@ struct CreateView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     
+    @State private var screenHasRecording: Bool = false
+    @State private var childShouldReset: Bool = false
     @State private var transitionDirection: TransitionDirection = .forward
     @State private var recordedAudioURL: URL? = nil
     @State private var recordedAudioWaveform: CodableAudioWaveform? = nil
@@ -138,7 +140,8 @@ struct CreateView: View {
                     case .video:
                         VideoRecordingView(
                             activePage: $activePage,
-                            recordedURL: $recordedVideoURL
+                            recordedURL: $recordedVideoURL,
+                            hasTemporaryRecording: $screenHasRecording
                         ) {
                             transitionDirection = .backward
                             withAnimation(.easeInOut(duration: 0.3)) {
@@ -152,7 +155,8 @@ struct CreateView: View {
                         AudioRecordingView(
                             activePage: $activePage,
                             recordedURL: $recordedAudioURL,
-                            recordedWaveform: $recordedAudioWaveform
+                            recordedWaveform: $recordedAudioWaveform,
+                            hasTemporaryRecording: $screenHasRecording
                         ) {
                             transitionDirection = .backward
                             withAnimation(.easeInOut(duration: 0.3)) {
@@ -232,9 +236,9 @@ struct CreateView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(action: {
-                        if activePage == .menu {
+                        if activePage == .menu || !screenHasRecording {
                             dismiss()
-                        } else if !showDismissConfirmation {
+                        } else {
                             showDismissConfirmation = true
                         }
                     }) {

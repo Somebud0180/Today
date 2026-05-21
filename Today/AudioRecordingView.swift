@@ -14,6 +14,7 @@ struct AudioRecordingView: View {
     @Binding var activePage: CreateView.Page
     @Binding var recordedURL: URL?
     @Binding var recordedWaveform: CodableAudioWaveform?
+    @Binding var hasTemporaryRecording: Bool
     var onBack: () -> Void
     
     @State private var levels: [CGFloat] = []
@@ -233,6 +234,7 @@ struct AudioRecordingView: View {
                 levels = []
                 smoothedLevels = [0, 0, 0, 0, 0]
                 localRecordedURL = nil
+                hasTemporaryRecording = false
                 
                 startMeterPolling()
             } catch {
@@ -249,6 +251,7 @@ struct AudioRecordingView: View {
         // Capture the finished recording URL for post-recording UI
         if let url = manager.destinationURL, FileManager.default.fileExists(atPath: url.path) {
             localRecordedURL = url
+            hasTemporaryRecording = true
         }
         
         // Haptic feedback: success notification
@@ -364,6 +367,7 @@ struct AudioRecordingView: View {
             activePage: .constant(.audio),
             recordedURL: .constant(nil),
             recordedWaveform: .constant(nil),
+            hasTemporaryRecording: .constant(false),
             onBack: { }
         )
     }

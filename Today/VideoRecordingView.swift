@@ -13,6 +13,7 @@ struct VideoRecordingView: View {
     @StateObject var videoViewModel: VideoViewModel
     @Binding var activePage: CreateView.Page
     @Binding var recordedURL: URL?
+    @Binding var hasTemporaryRecording: Bool
     var onBack: () -> Void
     
     @State private var localRecordedURL: URL?
@@ -25,11 +26,12 @@ struct VideoRecordingView: View {
     @State private var showError = false
     @State private var errorMessage = ""
     
-    init(activePage: Binding<CreateView.Page>, recordedURL: Binding<URL?>, onBack: @escaping () -> Void ) {
+    init(activePage: Binding<CreateView.Page>, recordedURL: Binding<URL?>, hasTemporaryRecording: Binding<Bool>, onBack: @escaping () -> Void ) {
         _manager = StateObject(wrappedValue: VideoRecorderManager())
         _videoViewModel = StateObject(wrappedValue: VideoViewModel(fileURL: nil))
         self._activePage = activePage
         self._recordedURL = recordedURL
+        self._hasTemporaryRecording = hasTemporaryRecording
         self.onBack = onBack
     }
 
@@ -83,6 +85,7 @@ struct VideoRecordingView: View {
             Button("Discard", role: .destructive) {
                 manager.discardRecording()
                 localRecordedURL = nil
+                hasTemporaryRecording = false
             }
             Button("Cancel", role: .cancel) { }
         } message: {
@@ -93,11 +96,13 @@ struct VideoRecordingView: View {
                 localRecordedURL = url
             } else {
                 localRecordedURL = nil
+                hasTemporaryRecording = false
             }
         }
         .onChange(of: manager.lastRecordingURL) { _, newValue in
             if let newValue, manager.showConfirmation {
                 localRecordedURL = newValue
+                hasTemporaryRecording = true
             }
         }
         .onChange(of: manager.errorMessage) { _, newValue in
@@ -273,6 +278,7 @@ struct VideoRecordingView: View {
         VideoRecordingView(
             activePage: .constant(.video),
             recordedURL: .constant(nil),
+            hasTemporaryRecording: .constant(false),
             onBack: { }
         )
     }
