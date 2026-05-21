@@ -19,7 +19,7 @@ enum MediaType: String, Codable {
 
 // MARK: - Power Metrics Codable Models
 /// Codable representation of power metrics for a single audio channel
-struct CodablePowerMetrics: Codable, Equatable, Hashable {
+struct CodablePowerMetrics: nonisolated Codable, Equatable, Hashable {
     var channelName: String?
     var channelNumber: Int
     var average: Float
@@ -27,13 +27,13 @@ struct CodablePowerMetrics: Codable, Equatable, Hashable {
 }
 
 /// Codable representation of recorded power frame with timestamp
-struct CodableRecordedPowerFrame: Codable, Equatable {
+struct CodableRecordedPowerFrame: nonisolated Codable, Equatable {
     var time: TimeInterval
     var metrics: [CodablePowerMetrics]
 }
 
 /// Codable representation of a fixed-rate audio waveform capture
-struct CodableAudioWaveform: Codable, Equatable {
+struct CodableAudioWaveform: nonisolated Codable, Equatable {
     var samplesDb: [Float]
     var samplesLinear: [Float]
     var sampleRateHz: Int
