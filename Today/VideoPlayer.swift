@@ -159,7 +159,6 @@ struct ViewfinderPlayer: View {
     var body: some View {
         WrappedVideoView(player: player, videoGravity: .resizeAspect)
             .padding(.vertical, 48)
-            .padding(.horizontal, 12)
             .mask(
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color.white)
