@@ -23,6 +23,7 @@ struct AudioRecordingView: View {
     @State private var waveformResetToken: Int = 0
     @State private var isRecording: Bool = false
     @State private var isPlaying: Bool = false
+    @State private var firstTimePlaying: Bool = true
     @State private var showDiscardConfirmation: Bool = false
     @State private var localRecordedURL: URL? = nil
     
@@ -58,22 +59,20 @@ struct AudioRecordingView: View {
                     Text("Recording...")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                } else if hasRecording {
-                    Text("Recording complete")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
                 }
                 
                 WaveformView(levels: levels, isRecording: isRecording || isPlaying, resetToken: waveformResetToken)
                     .frame(height: 120)
             }
+            .animation(.easeInOut, value: isRecording)
+            .animation(.easeInOut, value: isPlaying)
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 24)
             
             Spacer()
             
             // Bottom: Record button and Back / Post-recording controls
-            VStack(spacing: 24) {
+            VStack {
                 if !hasRecording {
                     // Record button (red circle inside white ring)
                     Button(action: toggleRecording) {
@@ -100,19 +99,21 @@ struct AudioRecordingView: View {
                     .disabled(isRecording)
                     .opacity(isRecording ? 0.5 : 1.0)
                 } else {
-                    // Post-recording: Play/Pause, Confirm, Record again
                     Button(action: {
                         if isPlaying {
                             manager.pausePlayingRecording()
                             isPlaying = false
                             playbackPollTask?.cancel()
                             playbackPollTask = nil
-                            // Keep last waveform levels so WaveformView can smoothly animate to idle.
                         } else {
+                            if firstTimePlaying {
+                                waveformResetToken += 1
+                                firstTimePlaying = false
+                            }
+                            
                             do {
                                 try manager.resumePlayingRecording()
                                 isPlaying = true
-                                // Reset smoothed levels to avoid artifacts when resuming
                                 smoothedLevels = [0, 0, 0, 0, 0]
                                 levels = []
                                 startPlaybackMetering()
@@ -153,7 +154,6 @@ struct AudioRecordingView: View {
                     .buttonStyle(.glass)
                 }
             }
-            .padding(.horizontal, 24)
         }
         .navigationTitle("Audio Entry")
         .navigationBarTitleDisplayMode(.inline)
@@ -167,10 +167,11 @@ struct AudioRecordingView: View {
                 Task {
                     do {
                         try manager.discardRecording()
-                        // restore view state
+                        localRecordedURL = nil
                         recordedURL = nil
                         recordedWaveform = nil
                         isPlaying = false
+                        firstTimePlaying = true
                         elapsedTime = 0
                         levels = []
                     } catch {
@@ -186,8 +187,8 @@ struct AudioRecordingView: View {
         .onChange(of: manager.recorderState) { oldValue, newValue in
             updateRecordingState(newValue)
         }
-        .onChange(of: manager.isPlayingRecording) { oldValue, newValue in
-            if !newValue && isPlaying {
+        .onChange(of: manager.isPlayingRecording) {
+            if !isPlaying {
                 isPlaying = false
                 playbackPollTask?.cancel()
                 playbackPollTask = nil

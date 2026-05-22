@@ -148,7 +148,6 @@ struct CreateView: View {
                                 activePage = .menu
                             }
                         }
-                        .padding(24)
                         .transition(pageTransition)
                         
                     case .audio:
@@ -206,7 +205,7 @@ struct CreateView: View {
                                     Text("Save Entry")
                                         .frame(maxWidth: .infinity)
                                         .font(.headline)
-                                        .padding(8)
+                                        .padding(12)
                                 }
                                 .buttonStyle(.glassProminent)
                                 
@@ -222,7 +221,7 @@ struct CreateView: View {
                                     Text("Back")
                                         .frame(maxWidth: .infinity)
                                         .font(.headline)
-                                        .padding(8)
+                                        .padding(12)
                                 }
                                 .buttonStyle(.glass)
                                 

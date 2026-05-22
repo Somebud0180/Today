@@ -46,7 +46,7 @@ struct VideoRecordingView: View {
                         .simultaneousGesture(exposureGesture(in: proxy.size))
                         .simultaneousGesture(zoomGesture)
                 } else {
-                    VideoPlayerView(player: videoViewModel.player)
+                    ViewfinderPlayer(player: videoViewModel.player)
                         .ignoresSafeArea()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .onAppear {
@@ -71,7 +71,7 @@ struct VideoRecordingView: View {
                     zoomStopsRow
                     bottomControls
                 }
-                .padding(16)
+                .padding(24)
             }
         }
         .navigationTitle("Video Entry")
@@ -141,21 +141,23 @@ struct VideoRecordingView: View {
     
     private var zoomStopsRow: some View {
         HStack(spacing: 12) {
-            Button(action: { manager.switchCamera() }) {
-                Image(systemName: "arrow.triangle.2.circlepath.camera")
-                    .font(.title2)
-                    .padding(2)
-            }
-            .buttonStyle(.glass)
-            
-            ForEach(manager.availableZoomStops, id: \ .self) { stop in
-                Button(action: { manager.setZoomFactor(stop) }) {
-                    Text(zoomLabel(stop))
-                        .font(.subheadline)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
+            if localRecordedURL == nil {
+                Button(action: { manager.switchCamera() }) {
+                    Image(systemName: "arrow.triangle.2.circlepath.camera")
+                        .font(.title2)
+                        .padding(2)
                 }
                 .buttonStyle(.glass)
+                
+                ForEach(manager.availableZoomStops, id: \ .self) { stop in
+                    Button(action: { manager.setZoomFactor(stop) }) {
+                        Text(zoomLabel(stop))
+                            .font(.subheadline)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                    }
+                    .buttonStyle(.glass)
+                }
             }
         }
         .frame(maxWidth: .infinity)

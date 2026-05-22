@@ -144,38 +144,26 @@ struct VideoPlayerView: View {
             
             WrappedVideoView(player: player, videoGravity: .resizeAspect)
                 .mask(
-//                    ZStack {
-//                        // vertical fade
-//                        LinearGradient(
-//                            gradient: Gradient(stops: [
-//                                .init(color: Color.white.opacity(0), location: 0),
-//                                .init(color: Color.white, location: 0.1),
-//                                .init(color: Color.white, location: 0.9),
-//                                .init(color: Color.white.opacity(0), location: 1)
-//                            ]),
-//                            startPoint: .top,
-//                            endPoint: .bottom
-//                        )
-//                        // horizontal fade multiplied with vertical fade
-//                        LinearGradient(
-//                            gradient: Gradient(stops: [
-//                                .init(color: Color.white.opacity(0), location: 0),
-//                                .init(color: Color.white, location: 0.1),
-//                                .init(color: Color.white, location: 0.9),
-//                                .init(color: Color.white.opacity(0), location: 1)
-//                            ]),
-//                            startPoint: .leading,
-//                            endPoint: .trailing
-//                        )
-//                        .blendMode(.multiply)
-//                    }
-//                        .blur(radius: 12)
                     RoundedRectangle(cornerRadius: 12)
                         .fill(Color.white)
                         .padding(16)
                 )
                 .padding(4)
         }
+    }
+}
+
+struct ViewfinderPlayer: View {
+    let player: AVPlayer
+    
+    var body: some View {
+        WrappedVideoView(player: player, videoGravity: .resizeAspect)
+            .padding(.vertical, 48)
+            .padding(.horizontal, 12)
+            .mask(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.white)
+            )
     }
 }
 
