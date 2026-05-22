@@ -51,7 +51,27 @@ struct WaveformView: View {
             }
             .onChange(of: resetToken) { _, _ in
                 if !isPlaybackView {
-                    displayLevels = []
+                    let snapshot = displayLevels
+                    let duration: TimeInterval = 0.3
+                    let fps = 60.0
+                    let totalFrames = Int(duration * fps)
+                    let frameDuration = duration / Double(totalFrames)
+                    
+                    for frame in 1...totalFrames {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + frameDuration * Double(frame)) {
+                            let progress = CGFloat(frame) / CGFloat(totalFrames)
+                            let easeOutProgress = 1 - pow(1 - progress, 3)
+                            
+                            displayLevels = snapshot.map { val in
+                                let target = minAmplitude
+                                return val - (val - target) * easeOutProgress
+                            }
+                        }
+                    }
+                    
+                    DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.05) {
+                        displayLevels = []
+                    }
                 }
             }
             .onAppear {
@@ -162,11 +182,11 @@ struct WaveformView: View {
             context.fill(path, with: .color(.blue.opacity(0.85)))
         }
     }
-
+    
     private func drawThumbnailWaveform(_ context: inout GraphicsContext, size: CGSize) {
         let barsToShow = max(1, Int(size.width / (barWidth + barSpacing)))
         let source = levels.isEmpty ? Array(repeating: minAmplitude, count: barsToShow) : Array(levels.prefix(barsToShow))
-
+        
         for i in 0..<source.count {
             let level = source[i]
             let height = max(minAmplitude, level) * size.height * 0.8
