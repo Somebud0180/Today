@@ -187,8 +187,8 @@ struct AudioRecordingView: View {
         .onChange(of: manager.recorderState) { oldValue, newValue in
             updateRecordingState(newValue)
         }
-        .onChange(of: manager.isPlayingRecording) {
-            if !manager.isPlayingRecording {
+        .onChange(of: manager.didRecordingEnd) {
+            if manager.didRecordingEnd {
                 isPlaying = false
                 playbackPollTask?.cancel()
                 playbackPollTask = nil

@@ -113,6 +113,7 @@ class AudioRecorderManager: NSObject, ObservableObject {
     
     
     private(set) var isPlayingRecording: Bool = false
+    private(set) var didRecordingEnd: Bool = false
     private(set) var recorderState: RecorderState = .stopped
     
     
@@ -346,6 +347,7 @@ extension AudioRecorderManager {
 extension AudioRecorderManager {
     private func preparePlayer() {
         if let fileURL = self.destinationURL {
+            self.didRecordingEnd = false
             self.player = try? AVAudioPlayer(contentsOf: fileURL)
             self.player?.delegate = self
         }
@@ -366,12 +368,14 @@ extension AudioRecorderManager {
             throw _Error.failToResumePlaying("Failed to resume playing recording.")
         }
         self.isPlayingRecording = true
+        self.didRecordingEnd = false
     }
     
     
     private func stopPlayingRecording() {
         self.player?.stop()
         self.isPlayingRecording = false
+        self.didRecordingEnd = true
     }
 }
 
