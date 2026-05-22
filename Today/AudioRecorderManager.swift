@@ -62,7 +62,7 @@ class AudioRecorderManager: NSObject, ObservableObject {
         var average: Float
         var peak: Float
     }
-
+    
     enum _Error: Error {
         
         case permissionDenied
@@ -157,11 +157,11 @@ class AudioRecorderManager: NSObject, ObservableObject {
     private(set) var recordedWaveformSamplesDb: [Float] = []
     private(set) var recordedWaveformSamplesLinear: [Float] = []
     private(set) var recordedWaveformDuration: TimeInterval = 0
-
+    
     var latestWaveformSampleLinear: Float {
         recordedWaveformSamplesLinear.last ?? 0
     }
-
+    
     var playbackTime: TimeInterval {
         player?.currentTime ?? 0
     }
@@ -259,13 +259,13 @@ extension AudioRecorderManager {
         self.recordedWaveformSamplesDb = []
         self.recordedWaveformSamplesLinear = []
         self.recordedWaveformDuration = 0
-
+        
         if let time  {
             self.recorderState = .reserved(time)
         } else {
             self.recorderState = .started(0, self.getPowerMetrics())
         }
-
+        
         self.startTimer()
         self.startWaveformSampling()
     }
@@ -315,24 +315,24 @@ extension AudioRecorderManager {
             throw _Error.failToDeleteRecording("Failed To delete recording.")
         }
     }
-
+    
     /// Discard the recorded file and clear internal playback metadata.
     /// This will stop any playback/recording and remove the destination file on disk.
     func discardRecording() throws {
         // stop any playing
         self.stopPlayingRecording()
-
+        
         // ensure recorder is stopped
         self.recorder?.stop()
         self.recorder = nil
         self.recorderState = .stopped
         self.stopTimer()
         self.stopWaveformSampling()
-
+        
         if let fileURL = self.destinationURL, FileManager.default.fileExists(atPath: fileURL.path) {
             try FileManager.default.removeItem(at: fileURL)
         }
-
+        
         // clear player metadata
         self.player = nil
         self.recordedContentsDuration = nil
@@ -347,6 +347,7 @@ extension AudioRecorderManager {
     private func preparePlayer() {
         if let fileURL = self.destinationURL {
             self.player = try? AVAudioPlayer(contentsOf: fileURL)
+            self.player?.delegate = self
         }
     }
     
@@ -370,7 +371,6 @@ extension AudioRecorderManager {
     
     private func stopPlayingRecording() {
         self.player?.stop()
-        self.player = nil
         self.isPlayingRecording = false
     }
 }
@@ -538,7 +538,7 @@ extension AudioRecorderManager {
         default:
             audioOrientation = .portrait
         }
-            
+        
         try audioSession.setPreferredInputOrientation(audioOrientation)
     }
 }
@@ -577,7 +577,7 @@ extension AudioRecorderManager {
         self.timerCancellable?.cancel()
         self.timerCancellable = nil
     }
-
+    
     private func startWaveformSampling() {
         self.stopWaveformSampling()
         let interval = 1.0 / Double(waveformSampleRateHz)
@@ -586,12 +586,12 @@ extension AudioRecorderManager {
                 self?.captureWaveformSample()
             })
     }
-
+    
     private func stopWaveformSampling() {
         self.waveformCancellable?.cancel()
         self.waveformCancellable = nil
     }
-
+    
     private func captureWaveformSample() {
         guard let recorder = self.recorder, recorder.isRecording, recorder.isMeteringEnabled else { return }
         recorder.updateMeters()
@@ -611,20 +611,20 @@ extension AudioRecorderManager {
         recordedWaveformSamplesLinear.append(normalizeDbToLinear(blendedDb))
         recordedWaveformDuration = recorder.currentTime
     }
-
+    
     func waveformSampleLinear(at time: TimeInterval) -> Float? {
         guard waveformSampleRateHz > 0, !recordedWaveformSamplesLinear.isEmpty else { return nil }
         let index = Int(time * Double(waveformSampleRateHz))
         let clampedIndex = max(0, min(index, recordedWaveformSamplesLinear.count - 1))
         return recordedWaveformSamplesLinear[clampedIndex]
     }
-
+    
     func makeRecordedWaveform() -> CodableAudioWaveform? {
         guard !recordedWaveformSamplesDb.isEmpty else { return nil }
-
-//        let (trimmedDb, trimmedLinear) = trimmedRecordedWaveformSamples()
-//        guard !trimmedDb.isEmpty, !trimmedLinear.isEmpty else { return nil }
-
+        
+        //        let (trimmedDb, trimmedLinear) = trimmedRecordedWaveformSamples()
+        //        guard !trimmedDb.isEmpty, !trimmedLinear.isEmpty else { return nil }
+        
         let sampleDuration = Double(recordedWaveformSamplesDb.count) / Double(waveformSampleRateHz)
         let duration = recordedWaveformDuration > 0 ? max(0, recordedWaveformDuration - Double(recordedWaveformSamplesDb.count - recordedWaveformSamplesDb.count) / Double(waveformSampleRateHz)) : sampleDuration
         return CodableAudioWaveform(
@@ -634,21 +634,21 @@ extension AudioRecorderManager {
             duration: duration
         )
     }
-
+    
     private func trimmedRecordedWaveformSamples() -> (db: [Float], linear: [Float]) {
         guard !recordedWaveformSamplesDb.isEmpty, recordedWaveformSamplesDb.count == recordedWaveformSamplesLinear.count else {
             return (recordedWaveformSamplesDb, recordedWaveformSamplesLinear)
         }
-
+        
         guard let firstMeaningfulIndex = recordedWaveformSamplesLinear.firstIndex(where: { $0 >= waveformLeadingNoiseThreshold }) else {
             return (recordedWaveformSamplesDb, recordedWaveformSamplesLinear)
         }
-
+        
         let trimStart = max(0, firstMeaningfulIndex - waveformLeadingPadSamples)
         guard trimStart > 0, trimStart < recordedWaveformSamplesDb.count else {
             return (recordedWaveformSamplesDb, recordedWaveformSamplesLinear)
         }
-
+        
         return (
             Array(recordedWaveformSamplesDb[trimStart...]),
             Array(recordedWaveformSamplesLinear[trimStart...])
@@ -674,7 +674,7 @@ extension AudioRecorderManager {
             average: recorder.averagePower(forChannel: $0.1),
             peak: recorder.peakPower(forChannel: $0.1)) }
         )
-
+        
         return metrics
     }
     

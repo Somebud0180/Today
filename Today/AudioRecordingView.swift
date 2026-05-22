@@ -188,10 +188,11 @@ struct AudioRecordingView: View {
             updateRecordingState(newValue)
         }
         .onChange(of: manager.isPlayingRecording) {
-            if !isPlaying {
+            if !manager.isPlayingRecording {
                 isPlaying = false
                 playbackPollTask?.cancel()
                 playbackPollTask = nil
+                firstTimePlaying = true
             }
         }
         .onDisappear {
@@ -271,7 +272,7 @@ struct AudioRecordingView: View {
             var updateCounter = 0
             while isRecording && !Task.isCancelled {
                 let normalized = manager.latestWaveformSampleLinear
-
+                
                 // Seed the waveform immediately on the first captured sample so it doesn't ramp in late.
                 if smoothedLevels.allSatisfy({ $0 == 0 }) {
                     smoothedLevels = Array(repeating: normalized, count: 5)
@@ -284,19 +285,19 @@ struct AudioRecordingView: View {
                         smoothedLevels.removeFirst()
                     }
                 }
-
+                
                 // Convert to CGFloat for display
                 levels = smoothedLevels.map { CGFloat($0) }
-
+                
                 updateCounter += 1
-
+                
                 // Update elapsed time every second at 60 Hz
                 if updateCounter % 60 == 0 {
                     if case .started(let elapsed, _) = manager.recorderState {
                         elapsedTime = elapsed
                     }
                 }
-
+                
                 // Poll at ~60 FPS to match capture cadence
                 try? await Task.sleep(nanoseconds: 16_666_667)
             }
@@ -310,12 +311,12 @@ struct AudioRecordingView: View {
                 if !isPlaying || !manager.isPlayingRecording {
                     break
                 }
-
+                
                 let playbackTime = manager.playbackTime
                 guard let normalized = manager.waveformSampleLinear(at: playbackTime) else {
                     break
                 }
-
+                
                 // Seed playback immediately so the waveform follows audio onset rather than easing in.
                 if smoothedLevels.allSatisfy({ $0 == 0 }) {
                     smoothedLevels = Array(repeating: normalized, count: 5)
@@ -328,14 +329,14 @@ struct AudioRecordingView: View {
                         smoothedLevels.removeFirst()
                     }
                 }
-
+                
                 // Convert to CGFloat for display
                 levels = smoothedLevels.map { CGFloat($0) }
-
+                
                 // Poll at ~60 FPS to match capture cadence
                 try? await Task.sleep(nanoseconds: 16_666_667)
             }
-
+            
             // Cleanup when loop exits. Don't clear levels immediately; allow WaveformView to animate to idle.
             DispatchQueue.main.async {
                 if self.isPlaying {
