@@ -1,4 +1,4 @@
-<img height="300" alt="Today Journal Banner" src="https://github.com/user-attachments/assets/bb4ec8bf-d857-4b13-aefe-40d3b363e79c" />
+<img height="300" alt="Today Journal Banner" src="https://github.com/user-attachments/assets/340575d5-8043-4b19-9eb3-cb3f952d7668" />
 
 # Today
 ### A multimedia journal app
