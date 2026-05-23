@@ -46,6 +46,12 @@ class VideoViewModel: ObservableObject {
         self.observeReady(item: item)
     }
     
+    func unloadVideo() {
+        self.removePlaybackObserver()
+        self.player = AVPlayer()
+        self.configurePlayer()
+    }
+    
     //MARK: - Observers
     private func observeReady(item: AVPlayerItem) {
         self.readyObserver?.invalidate()

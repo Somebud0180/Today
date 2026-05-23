@@ -59,12 +59,8 @@ struct VideoRecordingView: View {
                 VStack {
                     if manager.showConfirmation {
                         WrappedVideoView(player: videoViewModel.player, videoGravity: .resizeAspect)
-                            .mask(RoundedRectangle(cornerRadius: 12)) // Not working right now, research GeometryReader and such.
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
                             .padding(.bottom, 12)
-                            .onAppear {
-                                videoViewModel.loadVideo(fileURL: localRecordedURL)
-                                videoViewModel.play()
-                            }
                             .onTapGesture {
                                 videoViewModel.togglePlayback()
                             }
@@ -88,8 +84,6 @@ struct VideoRecordingView: View {
         .alert("Discard Recording?", isPresented: $showDiscardConfirmation) {
             Button("Discard", role: .destructive) {
                 manager.discardRecording()
-                localRecordedURL = nil
-                hasTemporaryRecording = false
             }
             Button("Cancel", role: .cancel) { }
         } message: {
@@ -98,7 +92,10 @@ struct VideoRecordingView: View {
         .onChange(of: manager.showConfirmation) { _, newValue in
             if newValue, let url = manager.lastRecordingURL {
                 localRecordedURL = url
+                videoViewModel.loadVideo(fileURL: localRecordedURL)
+                videoViewModel.play()
             } else {
+                videoViewModel.unloadVideo()
                 localRecordedURL = nil
                 hasTemporaryRecording = false
             }
