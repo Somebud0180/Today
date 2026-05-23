@@ -14,7 +14,7 @@ struct NoteCardView: View {
     @GestureState private var dragOffset: CGFloat = 0
     @GestureState private var expandedDragOffset: CGFloat = 0
     
-    private let dragThreshold: CGFloat = 50
+    private let dragThreshold: CGFloat = 32
     
     var body: some View {
         ZStack {
@@ -52,7 +52,7 @@ struct NoteCardView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.top, 12)
-                .padding(.bottom, 32)
+                .padding(.bottom, 64)
                 .background {
                     UnevenRoundedRectangle(topLeadingRadius: 12, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 12)
                         .fill(Color.gray.opacity(0.2))
@@ -60,11 +60,11 @@ struct NoteCardView: View {
                         .ignoresSafeArea(edges: .bottom)
                 }
                 .frame(maxHeight: .infinity, alignment: .bottom)
-                .offset(y: dragOffset > -dragThreshold ? dragOffset : 0)
+                .offset(y: dragOffset < dragThreshold ? dragOffset : 0)
                 .gesture(
                     DragGesture()
                         .updating($dragOffset) { value, state, _ in
-                            state = value.translation.height
+                            state = max(value.translation.height, -dragThreshold)
                         }
                         .onEnded { value in
                             let verticalDistance = value.translation.height
@@ -115,11 +115,11 @@ struct NoteCardView: View {
                 }
                 .padding(24)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                .offset(y: expandedDragOffset > dragThreshold ? expandedDragOffset : 0)
+                .offset(y: expandedDragOffset)
                 .gesture(
                     DragGesture()
                         .updating($expandedDragOffset) { value, state, _ in
-                            state = value.translation.height
+                            state = min(dragThreshold, max(0, value.translation.height))
                         }
                         .onEnded { value in
                             let verticalDistance = value.translation.height
@@ -131,6 +131,9 @@ struct NoteCardView: View {
                             }
                         }
                 )
+                .onTapGesture {
+                    isEditing = true
+                }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
