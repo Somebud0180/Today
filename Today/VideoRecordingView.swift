@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UIKit
+import AVFoundation
 
 struct VideoRecordingView: View {
     @StateObject var manager: VideoRecorderManager
@@ -45,17 +46,6 @@ struct VideoRecordingView: View {
                         .gesture(focusGesture(in: proxy.size))
                         .simultaneousGesture(exposureGesture(in: proxy.size))
                         .simultaneousGesture(zoomGesture)
-                } else {
-                    ViewfinderPlayer(player: videoViewModel.player)
-                        .ignoresSafeArea()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .onAppear {
-                            videoViewModel.loadVideo(fileURL: localRecordedURL)
-                            videoViewModel.play()
-                        }
-                        .onTapGesture {
-                            videoViewModel.togglePlayback()
-                        }
                 }
                 
                 if let focusPoint, focusVisible {
@@ -67,11 +57,25 @@ struct VideoRecordingView: View {
                 }
                 
                 VStack {
-                    Spacer()
+                    if manager.showConfirmation {
+                        WrappedVideoView(player: videoViewModel.player, videoGravity: .resizeAspect)
+                            .mask(RoundedRectangle(cornerRadius: 12)) // Not working right now, research GeometryReader and such.
+                            .padding(.bottom, 12)
+                            .onAppear {
+                                videoViewModel.loadVideo(fileURL: localRecordedURL)
+                                videoViewModel.play()
+                            }
+                            .onTapGesture {
+                                videoViewModel.togglePlayback()
+                            }
+                    } else {
+                        Spacer()
+                    }
                     zoomStopsRow
                     bottomControls
                 }
-                .padding(24)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 24)
             }
         }
         .navigationTitle("Video Entry")

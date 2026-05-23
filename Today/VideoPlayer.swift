@@ -153,19 +153,6 @@ struct VideoPlayerView: View {
     }
 }
 
-struct ViewfinderPlayer: View {
-    let player: AVPlayer
-    
-    var body: some View {
-        WrappedVideoView(player: player, videoGravity: .resizeAspect)
-            .padding(.vertical, 48)
-            .mask(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.white)
-            )
-    }
-}
-
 struct WrappedVideoView: UIViewRepresentable {
     let player: AVPlayer
     let videoGravity: AVLayerVideoGravity

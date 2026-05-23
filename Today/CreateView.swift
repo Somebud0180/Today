@@ -134,6 +134,7 @@ struct CreateView: View {
                                 }
                             }
                         }
+                        .padding(.bottom)
                         .padding(.horizontal, 24)
                         .transition(pageTransition)
                         
@@ -162,6 +163,7 @@ struct CreateView: View {
                                 activePage = .menu
                             }
                         }
+                        .padding(.bottom)
                         .padding(24)
                         .transition(pageTransition)
                         
@@ -226,40 +228,40 @@ struct CreateView: View {
                                 .buttonStyle(.glass)
                                 
                             }
+                            .padding(.bottom)
                             .padding(24)
                             .transition(pageTransition)
                         }
                     }
             }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: {
-                        if activePage == .menu || !screenHasRecording {
-                            dismiss()
-                        } else {
-                            showDismissConfirmation = true
-                        }
-                    }) {
-                        HStack {
-                            Image(systemName: "chevron.left")
-                            Text("Cancel")
-                        }
-                        .padding(.horizontal, 4)
-                    }
-                }
-            }
-            .alert(
-                "Are you sure you want to discard this entry?",
-                isPresented: $showDismissConfirmation
-            ) {
-                Button("Discard Entry", role: .destructive) {
-                    dismiss()
-                }
-                Button("Keep Editing", role: .cancel) {
-                    showDismissConfirmation = false
-                }
-            }
+//            .toolbar {
+//                ToolbarItem(placement: .navigationBarLeading) {
+//                    Button(action: {
+//                        if activePage == .menu || !screenHasRecording {
+//                            dismiss()
+//                        } else {
+//                            showDismissConfirmation = true
+//                        }
+//                    }) {
+//                        HStack {
+//                            Image(systemName: "chevron.left")
+//                            Text("Cancel")
+//                        }
+//                        .padding(.horizontal, 4)
+//                    }
+//                }
+//            }
+//            .alert(
+//                "Are you sure you want to discard this entry?",
+//                isPresented: $showDismissConfirmation
+//            ) {
+//                Button("Discard Entry", role: .destructive) {
+//                    dismiss()
+//                }
+//                Button("Keep Editing", role: .cancel) {
+//                    showDismissConfirmation = false
+//                }
+//            }
         }
     }
 }
