@@ -58,7 +58,7 @@ struct VideoRecordingView: View {
                 
                 VStack {
                     if manager.showConfirmation {
-                        WrappedVideoView(player: videoViewModel.player, videoGravity: .resizeAspect)
+                        WrappedVideoView(player: videoViewModel.player, videoGravity: .resizeAspectFill)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                             .padding(.bottom, 12)
                             .onTapGesture {
