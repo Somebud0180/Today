@@ -44,11 +44,6 @@ struct ContentView: View {
                     }
                     .navigationTitle("Today")
                     .navigationBarTitleDisplayMode(.large)
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            EditButton()
-                        }
-                    }
                 }
             }
             
