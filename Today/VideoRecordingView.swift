@@ -118,6 +118,21 @@ struct VideoRecordingView: View {
         .task {
             await manager.startSession()
         }
+        .onAppear {
+            if let recordedURL = recordedURL, localRecordedURL == nil {
+                let fileName = recordedURL.lastPathComponent
+                
+                let liveDirectory = FileManager.default.temporaryDirectory
+                let liveRestoredURL = liveDirectory.appendingPathComponent(fileName)
+                
+                if FileManager.default.fileExists(atPath: liveRestoredURL.path) {
+                    self.localRecordedURL = liveRestoredURL
+                    manager.restoreVideo(from: liveRestoredURL)
+                } else {
+                    print("DEBUG: File could not be found at live path: \(liveRestoredURL.path)")
+                }
+            }
+        }
         .onDisappear {
             manager.stopRecording()
             manager.stopSession()

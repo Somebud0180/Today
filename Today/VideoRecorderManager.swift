@@ -92,6 +92,11 @@ final class VideoRecorderManager: NSObject, ObservableObject {
             }
         }
     }
+    
+    func restoreVideo(from url: URL) {
+        lastRecordingURL = url
+        showConfirmation = true
+    }
 }
 
 // MARK: - Public session lifecycle
