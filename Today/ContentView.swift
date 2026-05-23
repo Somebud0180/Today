@@ -13,7 +13,7 @@ struct ContentView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Query private var journalEntries: [JournalEntry]
     
-    @State var isShowingCreateView: Bool = false
+    @State var tabSelection: Int = 0
     
     private let minimumCardWidth: CGFloat = 150
     private let cardAspectRatio: CGFloat = 2 / 3
@@ -21,8 +21,8 @@ struct ContentView: View {
     private let gridPadding: CGFloat = 10
     
     var body: some View {
-        TabView {
-            Tab("Home", systemImage: "note") {
+        TabView(selection: $tabSelection) {
+            Tab("Home", systemImage: "note", value: 0) {
                 NavigationStack {
                     GeometryReader { proxy in
                         ScrollView {
@@ -47,8 +47,8 @@ struct ContentView: View {
                 }
             }
             
-            Tab("Create Entry", systemImage: "note.text.badge.plus") {
-                CreateView()
+            Tab("Create Entry", systemImage: "note.text.badge.plus", value: 1) {
+                CreateView(tabSelection: $tabSelection)
             }
         }
     }

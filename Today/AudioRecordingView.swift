@@ -195,6 +195,25 @@ struct AudioRecordingView: View {
                 firstTimePlaying = true
             }
         }
+        .onAppear {
+            if let recordedURL = recordedURL, recordedWaveform != nil, localRecordedURL == nil {
+                let fileName = recordedURL.lastPathComponent
+                
+                if let liveDirectory = manager.destinationURL?.deletingLastPathComponent() {
+                    let liveRestoredURL = liveDirectory.appendingPathComponent(fileName)
+                    
+                    if FileManager.default.fileExists(atPath: liveRestoredURL.path) {
+                        self.localRecordedURL = liveRestoredURL
+                        manager.destinationURL = liveRestoredURL
+                        manager.getRecordedWaveform(from: recordedWaveform)
+                        
+                        manager.stopRecording()
+                    } else {
+                        print("DEBUG: File could not be found at live path: \(liveRestoredURL.path)")
+                    }
+                }
+            }
+        }
         .onDisappear {
             stopRecording()
             manager.pausePlayingRecording()

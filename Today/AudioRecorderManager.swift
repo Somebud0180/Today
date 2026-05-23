@@ -136,12 +136,7 @@ class AudioRecorderManager: NSObject, ObservableObject {
     
     var recordedContentsDuration: TimeInterval?
     var availableRecordingOptions: [RecordingOption] = []
-    
-    var destinationURL: URL? {
-        let directoryPath = try? FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: .documentsDirectory, create: true)
-        let fileURL = directoryPath?.appendingPathComponent("recording", conformingTo: .mpeg4Audio)
-        return fileURL
-    }
+    var destinationURL: URL?
     
     private var player: AVAudioPlayer? {
         didSet {
@@ -182,6 +177,15 @@ class AudioRecorderManager: NSObject, ObservableObject {
     private var timerCancellable: AnyCancellable?
     
     override init() {
+        let directoryPath = try? FileManager.default.url(
+            for: .documentDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        let defaultFileURL = directoryPath?.appendingPathComponent("recording.m4a", conformingTo: .mpeg4Audio)
+        self.destinationURL = defaultFileURL
+        
         super.init()
         
         do {
@@ -224,7 +228,7 @@ extension AudioRecorderManager {
             throw _Error.failToGetDestinationURL
         }
         
-        if FileManager.default.fileExists(atPath: fileURL.path()) {
+        if FileManager.default.fileExists(atPath: fileURL.path) {
             try? FileManager.default.removeItem(at: fileURL)
         }
         
@@ -623,11 +627,15 @@ extension AudioRecorderManager {
         return recordedWaveformSamplesLinear[clampedIndex]
     }
     
+    func getRecordedWaveform(from audioWaveform: CodableAudioWaveform?) {
+        guard audioWaveform != nil else { return }
+        recordedWaveformSamplesDb = audioWaveform?.samplesDb ?? []
+        recordedWaveformSamplesLinear = audioWaveform?.samplesLinear ?? []
+        recordedWaveformDuration = audioWaveform?.duration ?? 0
+    }
+    
     func makeRecordedWaveform() -> CodableAudioWaveform? {
         guard !recordedWaveformSamplesDb.isEmpty else { return nil }
-        
-        //        let (trimmedDb, trimmedLinear) = trimmedRecordedWaveformSamples()
-        //        guard !trimmedDb.isEmpty, !trimmedLinear.isEmpty else { return nil }
         
         let sampleDuration = Double(recordedWaveformSamplesDb.count) / Double(waveformSampleRateHz)
         let duration = recordedWaveformDuration > 0 ? max(0, recordedWaveformDuration - Double(recordedWaveformSamplesDb.count - recordedWaveformSamplesDb.count) / Double(waveformSampleRateHz)) : sampleDuration
