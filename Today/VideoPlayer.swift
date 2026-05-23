@@ -148,13 +148,13 @@ struct VideoPlayerView: View {
                 .ignoresSafeArea()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             
-            WrappedVideoView(player: player, videoGravity: .resizeAspect)
+            WrappedVideoView(player: player, videoGravity: .resizeAspectFill)
                 .mask(
                     RoundedRectangle(cornerRadius: 12)
                         .fill(Color.white)
-                        .padding(16)
                 )
-                .padding(4)
+                .padding(.horizontal, 44)
+                .padding(.bottom, 96)
         }
     }
 }
