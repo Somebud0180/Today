@@ -10,6 +10,7 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
     @Query private var journalEntries: [JournalEntry]
     
     @State var isShowingCreateView: Bool = false
@@ -21,23 +22,43 @@ struct ContentView: View {
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                GeometryReader { proxy in
-                    let metrics = layoutMetrics(in: proxy.size)
-                    
-                    LazyVGrid(columns: metrics.columns, spacing: gridSpacing) {
-                        ForEach(journalEntries) { journalEntry in
-                            NavigationLink {
-                                JournalView(selectedEntry: journalEntry)
-                            } label: {
-                                gridCard(for: journalEntry, size: metrics.cardSize)
+            GeometryReader { proxy in
+                VStack {
+                    ScrollView {
+                        let metrics = layoutMetrics(in: proxy.size)
+                        
+                        LazyVGrid(columns: metrics.columns, spacing: gridSpacing) {
+                            ForEach(journalEntries) { journalEntry in
+                                NavigationLink {
+                                    JournalView(selectedEntry: journalEntry)
+                                } label: {
+                                    gridCard(for: journalEntry, size: metrics.cardSize)
+                                }
                             }
                         }
+                        .padding(gridPadding)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
                     }
-                    .padding(gridPadding)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    HStack {
+                        Spacer()
+                        Button(action: {
+                            isShowingCreateView = true
+                        }) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 48))
+                        }
+                        .buttonStyle(.glassProminent)
+                        .padding()
+                        Spacer()
+                    }
+                    .ignoresSafeArea()
+                    .background(colorScheme == .dark ? Color.black.opacity(0.5) : Color.white.opacity(0.5))
+                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
+                    .frame(maxWidth: .infinity, maxHeight: 64, alignment: .top)
                 }
             }
+            .navigationTitle("Today")
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     EditButton()
