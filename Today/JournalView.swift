@@ -42,7 +42,7 @@ struct JournalView: View {
                     Spacer()
                     NoteCardView(note: bindingFor(\.note))
                 }
-                .ignoresSafeArea(.keyboard, edges: .bottom)
+                .ignoresSafeArea()
             }
             .preferredColorScheme(.dark)
             .frame(maxWidth: .infinity, maxHeight: .infinity)

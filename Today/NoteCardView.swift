@@ -33,20 +33,26 @@ struct NoteCardView: View {
             
             // Collapsed state - bottom positioned card
             if !isExpanded {
-                VStack(spacing: 0) {
+                VStack(spacing: 12) {
+                    RoundedRectangle(cornerRadius: 2.5)
+                        .fill(Color.gray.opacity(0.5))
+                        .frame(width: 40, height: 5)
+                    
                     Text(note.isEmpty ? "Enter a note..." : note)
                         .fontWeight(.medium)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(note.isEmpty ? Color.secondary : Color.white)
                         .padding(.horizontal)
-                        .padding(.top, 16)
-                        .padding(.bottom, 32)
                         .lineLimit(1)
                         .onTapGesture {
-                            isExpanded = true
-                            isEditing = true
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                isExpanded = true
+                                isEditing = true
+                            }
                         }
                 }
                 .frame(maxWidth: .infinity)
+                .padding(.top, 12)
+                .padding(.bottom, 32)
                 .background {
                     UnevenRoundedRectangle(topLeadingRadius: 12, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 12)
                         .fill(Color.gray.opacity(0.2))
@@ -80,7 +86,6 @@ struct NoteCardView: View {
             // Expanded state - centered overlay card
             if isExpanded {
                 VStack(spacing: 16) {
-                    // Drag indicator
                     VStack(spacing: 8) {
                         RoundedRectangle(cornerRadius: 2.5)
                             .fill(Color.gray.opacity(0.5))
