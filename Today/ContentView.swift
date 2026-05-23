@@ -32,6 +32,7 @@ struct ContentView: View {
                                 ForEach(journalEntries) { journalEntry in
                                     NavigationLink {
                                         JournalView(selectedEntry: journalEntry)
+                                            .toolbar(.hidden, for: .tabBar)
                                     } label: {
                                         gridCard(for: journalEntry, size: metrics.cardSize)
                                     }

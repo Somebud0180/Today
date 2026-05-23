@@ -40,26 +40,9 @@ struct JournalView: View {
                 
                 VStack {
                     Spacer()
-                    LinearGradient(
-                        colors: [.clear, .black.opacity(0.75)],
-                        startPoint: .center,
-                        endPoint: .bottom
-                    )
-                    .ignoresSafeArea()
-                    .frame(maxWidth: .infinity, maxHeight: 256, alignment: .bottom)
+                    NoteCardView(note: bindingFor(\.note))
                 }
-                
-                VStack {
-                    Spacer()
-                    TextField("Enter a note...", text: bindingFor(\.note), axis: .vertical)
-                        .fontWeight(.medium)
-                        .shadow(radius: 12)
-                        .lineLimit(5)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .frame(maxHeight: 256, alignment: .bottom)
-                        .padding()
-                }
+                .ignoresSafeArea(.keyboard, edges: .bottom)
             }
             .preferredColorScheme(.dark)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
