@@ -193,7 +193,7 @@ class JournalEntry: Identifiable {
         return samples[startIndex..<endIndex].map { CGFloat($0) }
     }
 
-    private static func generateThumbnailData(from videoURL: URL) -> Data? {
+    static func generateThumbnailData(from videoURL: URL) -> Data? {
         final class ThumbnailDataBox: @unchecked Sendable { var data: Data? }
 
         let asset = AVURLAsset(url: videoURL)
