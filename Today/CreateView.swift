@@ -24,6 +24,12 @@ struct CreateView: View {
     @Environment(\.modelContext) private var modelContext
     @Binding var tabSelection: Int
     
+    @State private var animateGradient: Bool = false
+    @State private var gradientColors: [Color] = [
+        Color.purple.opacity(0.5),
+        Color.blue.opacity(0.5)
+    ]
+    
     @State private var screenHasRecording: Bool = false
     @State private var childShouldReset: Bool = false
     @State private var transitionDirection: TransitionDirection = .forward
@@ -53,12 +59,22 @@ struct CreateView: View {
         NavigationStack {
             ZStack {
                 LinearGradient(
-                    colors: [Color.purple.opacity(0.4), Color.blue.opacity(0.4)],
+                    colors: gradientColors,
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
                 .blur(radius: 12)
+                .hueRotation(.degrees(animateGradient ? 45 : -45))
                 .ignoresSafeArea()
+                .task {
+                    // From https://www.codespeedy.com/gradient-animation-in-swiftui/
+                    withAnimation(
+                        .easeInOut(duration: 3)
+                        .repeatForever())
+                    {
+                        animateGradient.toggle()
+                    }
+                }
                 
                 switch activePage {
                 case .menu:
