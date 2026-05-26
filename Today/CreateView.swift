@@ -48,6 +48,7 @@ struct CreateView: View {
     @State private var cardOffset: CGSize = .zero
     @State private var shadowOpacity: Double = 0.0
     @State private var shadowOffsetY: CGFloat = 0.0
+    @State private var inputSectionHeight: CGFloat = 0.0
     
     private var pageTransition: AnyTransition {
         switch transitionDirection {
@@ -200,7 +201,7 @@ struct CreateView: View {
                         let width = min(proxy.size.width / 2, 220)
                         let height = width * (3 / 2)
                         
-                        VStack(spacing: 12) {
+                        ZStack {
                             if recordedVideoURL != nil || recordedAudioWaveform != nil {
                                 ZStack {
                                     if let recordedVideoURL = recordedVideoURL,
@@ -251,7 +252,12 @@ struct CreateView: View {
                                     }
                                     .padding(12)
                                 }
+                                .ignoresSafeArea(.keyboard)
                                 .frame(width: width, height: height, alignment: .center)
+                                .position(
+                                    x: proxy.size.width / 2,
+                                    y: isSaving ? proxy.size.height / 2 : (proxy.size.height / 2 - inputSectionHeight / 2 - 24)
+                                )
                                 .opacity(cardOpacity)
                                 .scaleEffect(cardScale)
                                 .offset(cardOffset)
@@ -259,83 +265,94 @@ struct CreateView: View {
                                 .onAppear(perform: showCardAnimation)
                             }
                             
-                            if !isSaving,
-                                let activeURL = recordedVideoURL ?? recordedAudioURL {
-                                let mediaType: MediaType = recordedVideoURL != nil ? .video : .audio
-                                let fileExtension = activeURL.pathExtension.isEmpty
-                                ? (mediaType == .video ? "mov" : "m4a")
-                                : activeURL.pathExtension
+                            VStack(spacing: 12) {
+                                Spacer()
                                 
-                                VStack {
-                                    Spacer()
-                                    TextField(
-                                        Date().formatted(date: .numeric, time: .omitted),
-                                        text: $entryTitle,
-                                        axis: .vertical
-                                    )
-                                    .font(.largeTitle)
+                                if !isSaving,
+                                   let activeURL = recordedVideoURL ?? recordedAudioURL {
+                                    let mediaType: MediaType = recordedVideoURL != nil ? .video : .audio
+                                    let fileExtension = activeURL.pathExtension.isEmpty
+                                    ? (mediaType == .video ? "mov" : "m4a")
+                                    : activeURL.pathExtension
                                     
-                                    TextField(
-                                        "Add a note (optional)",
-                                        text: $entryNote
-                                    )
-                                    Spacer()
-                                    Button(action: {
-                                        tempEntry = JournalEntry(
-                                            title: entryTitle,
-                                            note: entryNote,
-                                            mediaData: try! Data(contentsOf: activeURL),
-                                            fileExtension: fileExtension,
-                                            mediaType: mediaType,
-                                            waveform: mediaType == .audio ? recordedAudioWaveform : nil
+                                    VStack {
+                                        TextField(
+                                            Date().formatted(date: .numeric, time: .omitted),
+                                            text: $entryTitle,
+                                            axis: .vertical
+                                        )
+                                        .font(.largeTitle)
+                                        
+                                        TextField(
+                                            "Add a note (optional)",
+                                            text: $entryNote
                                         )
                                         
-                                        withAnimation(.easeInOut(duration: 0.3)) {
-                                            isSaving = true
-                                        }
+                                        Divider()
                                         
-                                        performSaveAnimation(proxy)
-                                    }) {
-                                        Text("Save Entry")
-                                            .frame(maxWidth: .infinity)
-                                            .font(.headline)
-                                            .padding(12)
-                                    }
-                                    .buttonStyle(.glassProminent)
-                                    
-                                    Button(action: {
-                                        transitionDirection = .backward
-                                        withAnimation(.easeInOut(duration: 0.3)) {
-                                            if recordedAudioURL != nil {
-                                                activePage = .audio
-                                            } else if recordedVideoURL != nil {
-                                                activePage = .video
-                                            } else {
-                                                recordedAudioURL = nil
-                                                recordedAudioWaveform = nil
-                                                recordedVideoURL = nil
-                                                activePage = .menu
+                                        Button(action: {
+                                            tempEntry = JournalEntry(
+                                                title: entryTitle,
+                                                note: entryNote,
+                                                mediaData: try! Data(contentsOf: activeURL),
+                                                fileExtension: fileExtension,
+                                                mediaType: mediaType,
+                                                waveform: mediaType == .audio ? recordedAudioWaveform : nil
+                                            )
+                                            
+                                            withAnimation(.easeInOut(duration: 0.3)) {
+                                                isSaving = true
                                             }
+                                            
+                                            performSaveAnimation(proxy)
+                                        }) {
+                                            Text("Save Entry")
+                                                .frame(maxWidth: .infinity)
+                                                .font(.headline)
+                                                .padding(12)
                                         }
-                                    }) {
-                                        Text("Back")
-                                            .frame(maxWidth: .infinity)
-                                            .font(.headline)
-                                            .padding(12)
+                                        .buttonStyle(.glassProminent)
+                                        
+                                        Button(action: {
+                                            transitionDirection = .backward
+                                            withAnimation(.easeInOut(duration: 0.3)) {
+                                                if recordedAudioURL != nil {
+                                                    activePage = .audio
+                                                } else if recordedVideoURL != nil {
+                                                    activePage = .video
+                                                } else {
+                                                    recordedAudioURL = nil
+                                                    recordedAudioWaveform = nil
+                                                    recordedVideoURL = nil
+                                                    activePage = .menu
+                                                }
+                                            }
+                                        }) {
+                                            Text("Back")
+                                                .frame(maxWidth: .infinity)
+                                                .font(.headline)
+                                                .padding(12)
+                                        }
+                                        .buttonStyle(.glass)
+                                        
                                     }
-                                    .buttonStyle(.glass)
-                                    
+                                    .padding(.bottom)
+                                    .padding(24)
+                                    .transition(pageTransition)
+                                    .background {
+                                        GeometryReader { proxy in
+                                            Color.clear
+                                                .blur(radius: 12)
+                                                .onAppear {
+                                                    inputSectionHeight = proxy.size.height
+                                                }
+                                        }
+                                    }
                                 }
-                                .padding(.bottom)
-                                .padding(24)
-                                .transition(pageTransition)
                             }
                         }
                     }
                     .transition(.opacity)
-                    .onAppear{
-                        debugPrint("Has videoRecordingURL: \(recordedVideoURL != nil), has audioRecordingURL: \(recordedAudioURL != nil), has recordedAudioWaveform: \(recordedAudioWaveform != nil)")
-                    }
                 }
             }
         }
