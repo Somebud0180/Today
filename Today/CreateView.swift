@@ -85,7 +85,7 @@ struct CreateView: View {
                     }
                 }
                 
-                if !isSaving {
+                if !(activePage == .save) {
                     switch activePage {
                     case .menu:
                         GeometryReader { proxy in
@@ -193,144 +193,165 @@ struct CreateView: View {
                         .transition(pageTransition)
                         
                     case .save:
-                        if let activeURL = recordedVideoURL ?? recordedAudioURL {
-                            let mediaType: MediaType = recordedVideoURL != nil ? .video : .audio
-                            let fileExtension = activeURL.pathExtension.isEmpty
-                            ? (mediaType == .video ? "mov" : "m4a")
-                            : activeURL.pathExtension
-                            
-                            VStack {
-                                Spacer()
-                                TextField(
-                                    Date().formatted(date: .numeric, time: .omitted),
-                                    text: $entryTitle,
-                                    axis: .vertical
-                                )
-                                .font(.largeTitle)
-                                
-                                TextField(
-                                    "Add a note (optional)",
-                                    text: $entryNote
-                                )
-                                Spacer()
-                                Button(action: {
-                                    tempEntry = JournalEntry(
-                                        title: entryTitle,
-                                        note: entryNote,
-                                        mediaData: try! Data(contentsOf: activeURL),
-                                        fileExtension: fileExtension,
-                                        mediaType: mediaType,
-                                        waveform: mediaType == .audio ? recordedAudioWaveform : nil
-                                    )
-                                    
-                                    withAnimation(.easeInOut(duration: 0.3)) {
-                                        isSaving = true
-                                    }
-                                }) {
-                                    Text("Save Entry")
-                                        .frame(maxWidth: .infinity)
-                                        .font(.headline)
-                                        .padding(12)
-                                }
-                                .buttonStyle(.glassProminent)
-                                
-                                Button(action: {
-                                    transitionDirection = .backward
-                                    withAnimation(.easeInOut(duration: 0.3)) {
-                                        if recordedAudioURL != nil {
-                                            activePage = .audio
-                                        } else if recordedVideoURL != nil {
-                                            activePage = .video
-                                        } else {
-                                            recordedAudioURL = nil
-                                            recordedAudioWaveform = nil
-                                            recordedVideoURL = nil
-                                            activePage = .menu
-                                        }
-                                    }
-                                }) {
-                                    Text("Back")
-                                        .frame(maxWidth: .infinity)
-                                        .font(.headline)
-                                        .padding(12)
-                                }
-                                .buttonStyle(.glass)
-                                
-                            }
-                            .padding(.bottom)
-                            .padding(24)
-                            .transition(pageTransition)
-                        }
+                        EmptyView()
                     }
                 } else {
                     GeometryReader { proxy in
-                        let width = min(proxy.size.width, 300)
+                        let width = min(proxy.size.width / 2, 220)
                         let height = width * (3 / 2)
                         
-                        if let journalEntry = tempEntry {
-                            ZStack {
-                                if let thumbnail = journalEntry.videoThumbImage {
-                                    thumbnail
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: width, height: height)
-                                        .clipped()
-                                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
-                                } else if let waveformLevels = journalEntry.audioWaveformThumbnailLevels(maxBars: max(1, Int(proxy.size.width / 7))) {
-                                    WaveformView(levels: waveformLevels, isThumbnailView: true)
-                                        .frame(width: width, height: height)
-                                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
-                                }
-                                
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(.gray.opacity(0.25))
-                                    .glassEffect(
-                                        .clear.tint(.gray.opacity(0.25)),
-                                        in: RoundedRectangle(cornerRadius: 16)
-                                    )
-                                
-                                VStack(alignment: .leading) {
-                                    Text(
-                                        journalEntry.title.isEmpty ? journalEntry.date.formatted(date: .numeric, time: .omitted) : journalEntry.title
-                                    )
-                                    .lineLimit(2)
-                                    .fontWeight(.heavy)
-                                    .foregroundStyle(.white.opacity(0.9))
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    
-                                    if !journalEntry.title.isEmpty {
-                                        Text(journalEntry.date.formatted(date: .numeric, time: .omitted))
-                                        .font(.subheadline)
-                                        .foregroundStyle(.white.opacity(0.75))
+                        VStack(spacing: 12) {
+                            if recordedVideoURL != nil || recordedAudioWaveform != nil {
+                                ZStack {
+                                    if let recordedVideoURL = recordedVideoURL,
+                                       let thumbnail = videoThumbnail(for: recordedVideoURL)
+                                    {
+                                        thumbnail
+                                            .resizable()
+                                            .scaledToFill()
+                                            .frame(width: width, height: height)
+                                            .clipped()
+                                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                                            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
+                                    } else if
+                                        let recordedAudioWaveform = recordedAudioWaveform,
+                                        let linearSample = recordedAudioWaveform.samplesLinear as? [Double],
+                                        let waveformLevels = JournalEntry.audioWaveformThumbnailLevels(linearSample, maxBars: max(1, Int(width / 7)))
+                                    {
+                                        WaveformView(levels: waveformLevels, isThumbnailView: true)
+                                            .frame(width: width, height: height)
+                                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                                            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
                                     }
                                     
-                                    Spacer()
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(.gray.opacity(0.25))
+                                        .glassEffect(
+                                            .clear.tint(.gray.opacity(0.25)),
+                                            in: RoundedRectangle(cornerRadius: 16)
+                                        )
+                                    
+                                    VStack(alignment: .leading) {
+                                        Text(
+                                            entryTitle.isEmpty ? Date().formatted(date: .numeric, time: .omitted) : entryTitle
+                                        )
+                                        .font(.title2)
+                                        .lineLimit(2)
+                                        .fontWeight(.heavy)
+                                        .foregroundStyle(.white.opacity(0.9))
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        
+                                        if !entryTitle.isEmpty {
+                                            Text(Date().formatted(date: .numeric, time: .omitted))
+                                                .font(.title3)
+                                                .foregroundStyle(.white.opacity(0.75))
+                                        }
+                                        
+                                        Spacer()
+                                    }
+                                    .padding(12)
                                 }
-                                .padding(12)
+                                .frame(width: width, height: height, alignment: .center)
+                                .opacity(cardOpacity)
+                                .scaleEffect(cardScale)
+                                .offset(cardOffset)
+                                .shadow(color: .black.opacity(shadowOpacity), radius: 10, x: 0, y: shadowOffsetY)
+                                .onAppear(perform: showCardAnimation)
                             }
-                            .frame(width: width, height: height, alignment: .center)
-                            .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
-                            .opacity(cardOpacity)
-                            .scaleEffect(cardScale)
-                            .offset(cardOffset)
-                            .shadow(color: .black.opacity(shadowOpacity), radius: 10, x: 0, y: shadowOffsetY)
-                            .onAppear {
-                                performSaveAnimation(proxy)
+                            
+                            if !isSaving,
+                                let activeURL = recordedVideoURL ?? recordedAudioURL {
+                                let mediaType: MediaType = recordedVideoURL != nil ? .video : .audio
+                                let fileExtension = activeURL.pathExtension.isEmpty
+                                ? (mediaType == .video ? "mov" : "m4a")
+                                : activeURL.pathExtension
+                                
+                                VStack {
+                                    Spacer()
+                                    TextField(
+                                        Date().formatted(date: .numeric, time: .omitted),
+                                        text: $entryTitle,
+                                        axis: .vertical
+                                    )
+                                    .font(.largeTitle)
+                                    
+                                    TextField(
+                                        "Add a note (optional)",
+                                        text: $entryNote
+                                    )
+                                    Spacer()
+                                    Button(action: {
+                                        tempEntry = JournalEntry(
+                                            title: entryTitle,
+                                            note: entryNote,
+                                            mediaData: try! Data(contentsOf: activeURL),
+                                            fileExtension: fileExtension,
+                                            mediaType: mediaType,
+                                            waveform: mediaType == .audio ? recordedAudioWaveform : nil
+                                        )
+                                        
+                                        withAnimation(.easeInOut(duration: 0.3)) {
+                                            isSaving = true
+                                        }
+                                        
+                                        performSaveAnimation(proxy)
+                                    }) {
+                                        Text("Save Entry")
+                                            .frame(maxWidth: .infinity)
+                                            .font(.headline)
+                                            .padding(12)
+                                    }
+                                    .buttonStyle(.glassProminent)
+                                    
+                                    Button(action: {
+                                        transitionDirection = .backward
+                                        withAnimation(.easeInOut(duration: 0.3)) {
+                                            if recordedAudioURL != nil {
+                                                activePage = .audio
+                                            } else if recordedVideoURL != nil {
+                                                activePage = .video
+                                            } else {
+                                                recordedAudioURL = nil
+                                                recordedAudioWaveform = nil
+                                                recordedVideoURL = nil
+                                                activePage = .menu
+                                            }
+                                        }
+                                    }) {
+                                        Text("Back")
+                                            .frame(maxWidth: .infinity)
+                                            .font(.headline)
+                                            .padding(12)
+                                    }
+                                    .buttonStyle(.glass)
+                                    
+                                }
+                                .padding(.bottom)
+                                .padding(24)
+                                .transition(pageTransition)
                             }
                         }
                     }
                     .transition(.opacity)
+                    .onAppear{
+                        debugPrint("Has videoRecordingURL: \(recordedVideoURL != nil), has audioRecordingURL: \(recordedAudioURL != nil), has recordedAudioWaveform: \(recordedAudioWaveform != nil)")
+                    }
                 }
             }
         }
     }
     
-    func performSaveAnimation(_ proxy: GeometryProxy) {
+    func videoThumbnail(for URL: URL) -> Image? {
+        let data = JournalEntry.generateThumbnailData(from: URL)
+        if let data, let uiImage = UIImage(data: data) {
+            return Image(uiImage: uiImage)
+        }
+        return nil
+    }
+    
+    func showCardAnimation() {
         cardOpacity = 0.0
         cardScale = 0.8
-        cardOffset = .zero
         shadowOpacity = 0.0
         shadowOffsetY = 0.0
         
@@ -339,6 +360,15 @@ struct CreateView: View {
             cardScale = 1.0
             shadowOpacity = 0.25
             shadowOffsetY = 5.0
+        }
+    }
+    
+    func performSaveAnimation(_ proxy: GeometryProxy) {
+        cardOffset = .zero
+        
+        withAnimation(.easeInOut(duration: 0.5)) {
+            cardScale = 1.05
+            shadowOpacity = 0.35
         }
         
         withAnimation(.easeInOut(duration: 0.5).delay(1.0)) {

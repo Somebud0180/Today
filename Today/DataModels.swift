@@ -175,6 +175,16 @@ class JournalEntry: Identifiable {
             return nil
         }
     }
+    
+    func decodedWaveform(for url: URL) -> CodableAudioWaveform? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        do {
+            return try JSONDecoder().decode(CodableAudioWaveform.self, from: data)
+        } catch {
+            print("Failed to decode waveform: \(error)")
+            return nil
+        }
+    }
 
     /// Returns a short centered snippet of the audio waveform for grid thumbnails.
     func audioWaveformThumbnailLevels(maxBars: Int = 24) -> [CGFloat]? {
@@ -192,7 +202,20 @@ class JournalEntry: Identifiable {
 
         return samples[startIndex..<endIndex].map { CGFloat($0) }
     }
-
+    
+    static func audioWaveformThumbnailLevels(_ linearSamples: [Double], maxBars: Int = 24) -> [CGFloat]? {
+        guard maxBars > 0,
+              !linearSamples.isEmpty else {
+            return nil
+        }
+        
+        let snippetCount = min(maxBars, linearSamples.count)
+        let startIndex = max(0, (linearSamples.count - snippetCount) / 2)
+        let endIndex = startIndex + snippetCount
+        
+        return linearSamples[startIndex..<endIndex].map { CGFloat($0) }
+    }
+    
     static func generateThumbnailData(from videoURL: URL) -> Data? {
         final class ThumbnailDataBox: @unchecked Sendable { var data: Data? }
 
