@@ -342,7 +342,6 @@ struct CreateView: View {
                                     .background {
                                         GeometryReader { proxy in
                                             Color.clear
-                                                .blur(radius: 12)
                                                 .onAppear {
                                                     inputSectionHeight = proxy.size.height
                                                 }
