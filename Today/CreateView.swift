@@ -41,6 +41,9 @@ struct CreateView: View {
     @State private var entryTitle: String = ""
     @State private var entryNote: String = ""
     
+    @FocusState private var titleFieldFocused: Bool
+    @FocusState private var noteFieldFocused: Bool
+    
     @State private var tempEntry: JournalEntry?
     @State private var isSaving: Bool = false
     @State private var cardOpacity: Double = 0.0
@@ -48,7 +51,12 @@ struct CreateView: View {
     @State private var cardOffset: CGSize = .zero
     @State private var shadowOpacity: Double = 0.0
     @State private var shadowOffsetY: CGFloat = 0.0
-    @State private var inputSectionHeight: CGFloat = 0.0
+    @State private var cardPositionY: CGFloat = 0.0
+    @State private var bottomSectionHeight: CGFloat = 0.0
+    @State private var saveBottomInset: CGFloat = 0.0
+    @State private var keyboardHeight: CGFloat = 0.0
+    @State private var isKeyboardVisible: Bool = false
+    @State private var saveBottomPadding: CGFloat = 0.0
     
     private var pageTransition: AnyTransition {
         switch transitionDirection {
@@ -76,6 +84,11 @@ struct CreateView: View {
                 .blur(radius: 12)
                 .hueRotation(.degrees(animateGradient ? 45 : -45))
                 .ignoresSafeArea()
+                .onTapGesture {
+                    // Dismiss keyboard when tapping outside
+                    titleFieldFocused = false
+                    noteFieldFocused = false
+                }
                 .task {
                     // From https://www.codespeedy.com/gradient-animation-in-swiftui/
                     withAnimation(
@@ -199,7 +212,8 @@ struct CreateView: View {
                 } else {
                     GeometryReader { proxy in
                         let width = min(proxy.size.width / 2, 220)
-                        let height = width * (3 / 2)
+                        let height = min(width * (3 / 2), proxy.size.height - bottomSectionHeight - keyboardHeight)
+                        let finalWidth = min(width, height * (2 / 3))
                         
                         ZStack {
                             if recordedVideoURL != nil || recordedAudioWaveform != nil {
@@ -210,17 +224,17 @@ struct CreateView: View {
                                         thumbnail
                                             .resizable()
                                             .scaledToFill()
-                                            .frame(width: width, height: height)
+                                            .frame(width: finalWidth, height: height)
                                             .clipped()
                                             .clipShape(RoundedRectangle(cornerRadius: 16))
                                             .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
                                     } else if
                                         let recordedAudioWaveform = recordedAudioWaveform,
                                         let linearSample = recordedAudioWaveform.samplesLinear as? [Double],
-                                        let waveformLevels = JournalEntry.audioWaveformThumbnailLevels(linearSample, maxBars: max(1, Int(width / 7)))
+                                        let waveformLevels = JournalEntry.audioWaveformThumbnailLevels(linearSample, maxBars: max(1, Int(finalWidth / 7)))
                                     {
                                         WaveformView(levels: waveformLevels, isThumbnailView: true)
-                                            .frame(width: width, height: height)
+                                            .frame(width: finalWidth, height: height)
                                             .clipShape(RoundedRectangle(cornerRadius: 16))
                                             .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
                                     }
@@ -253,10 +267,10 @@ struct CreateView: View {
                                     .padding(12)
                                 }
                                 .ignoresSafeArea(.keyboard)
-                                .frame(width: width, height: height, alignment: .center)
+                                .frame(width: finalWidth, height: height, alignment: .center)
                                 .position(
                                     x: proxy.size.width / 2,
-                                    y: isSaving ? proxy.size.height / 2 : (proxy.size.height / 2 - inputSectionHeight / 2 - 24)
+                                    y: getCardPosY(proxy)
                                 )
                                 .opacity(cardOpacity)
                                 .scaleEffect(cardScale)
@@ -276,17 +290,21 @@ struct CreateView: View {
                                     : activeURL.pathExtension
                                     
                                     VStack {
-                                        TextField(
-                                            Date().formatted(date: .numeric, time: .omitted),
-                                            text: $entryTitle,
-                                            axis: .vertical
-                                        )
-                                        .font(.largeTitle)
-                                        
-                                        TextField(
-                                            "Add a note (optional)",
-                                            text: $entryNote
-                                        )
+                                        VStack {
+                                            TextField(
+                                                Date().formatted(date: .numeric, time: .omitted),
+                                                text: $entryTitle,
+                                                axis: .vertical
+                                            )
+                                            .focused($titleFieldFocused)
+                                            .font(.largeTitle)
+                                            
+                                            TextField(
+                                                "Add a note (optional)",
+                                                text: $entryNote
+                                            )
+                                            .focused($noteFieldFocused)
+                                        }
                                         
                                         Divider()
                                         
@@ -336,24 +354,77 @@ struct CreateView: View {
                                         .buttonStyle(.glass)
                                         
                                     }
-                                    .padding(.bottom)
-                                    .padding(24)
-                                    .transition(pageTransition)
                                     .background {
                                         GeometryReader { proxy in
                                             Color.clear
                                                 .onAppear {
-                                                    inputSectionHeight = proxy.size.height
+                                                    bottomSectionHeight = proxy.size.height
                                                 }
                                         }
+                                    }
+                                    .padding(24)
+                                    .padding(.bottom, saveBottomPadding)
+                                    .transition(pageTransition)
+                                    .onAppear {
+                                        saveBottomInset = proxy.safeAreaInsets.bottom
                                     }
                                 }
                             }
                         }
+                        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { notification in
+                            handleKeyboardWillShow(notification)
+                        }
+                        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+                            handleKeyboardWillHide()
+                        }
                     }
+                    .ignoresSafeArea(.keyboard)
                     .transition(.opacity)
                 }
             }
+        }
+    }
+    
+    func getCardPosY(_ proxy: GeometryProxy) -> CGFloat {
+        if isSaving {
+            return proxy.size.height / 2
+        } else if isKeyboardVisible {
+            return proxy.size.height / 2 - keyboardHeight + saveBottomInset
+        }
+        return proxy.size.height / 2 - bottomSectionHeight / 2
+    }
+    
+    func handleKeyboardWillShow(_ notification: Notification) {
+        guard let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else {
+            return
+        }
+        
+        withAnimation(.easeInOut(duration: 0.3)) {
+            isKeyboardVisible = true
+            keyboardHeight = keyboardFrame.height
+        }
+        
+        recalculateSaveBottomPadding()
+    }
+    
+    func handleKeyboardWillHide() {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            isKeyboardVisible = false
+            keyboardHeight = 0
+            saveBottomPadding = 0
+        }
+    }
+    
+    func recalculateSaveBottomPadding() {
+        guard isKeyboardVisible else {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                saveBottomPadding = 0
+            }
+            return
+        }
+        
+        withAnimation(.easeInOut(duration: 0.3)) {
+            saveBottomPadding = max(0, keyboardHeight - saveBottomInset)
         }
     }
     
@@ -413,6 +484,10 @@ struct CreateView: View {
         cardOffset = .zero
         shadowOpacity = 0.0
         shadowOffsetY = 0.0
+        bottomSectionHeight = 0.0
+        keyboardHeight = 0.0
+        isKeyboardVisible = false
+        saveBottomPadding = 0.0
         
         screenHasRecording = false
         childShouldReset = false
