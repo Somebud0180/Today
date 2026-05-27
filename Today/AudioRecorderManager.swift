@@ -208,6 +208,8 @@ extension AudioRecorderManager {
     func startRecording(in time: TimeInterval?, forDuration duration: TimeInterval?, recordingOption: RecordingOption, enableMetering: Bool) async throws {
         print(#function)
         
+        try? self.audioSession.setActive(true)
+        
         guard self.recorderState == .stopped else {
             return
         }
@@ -360,17 +362,24 @@ extension AudioRecorderManager {
     func pausePlayingRecording() {
         self.player?.pause()
         self.isPlayingRecording = false
+        try? self.audioSession.setMode(.default)
+        try? self.audioSession.setActive(false)
     }
     
     func resumePlayingRecording() throws {
+        try? self.audioSession.setActive(true)
+        try? self.audioSession.setMode(.spokenAudio)
+        
         guard let player = self.player else {
             throw _Error.failToResumePlaying("Failed to prepare player")
         }
+        
         
         let result = player.play()
         if result == false {
             throw _Error.failToResumePlaying("Failed to resume playing recording.")
         }
+        
         self.isPlayingRecording = true
         self.didRecordingEnd = false
     }
@@ -380,6 +389,8 @@ extension AudioRecorderManager {
         self.player?.stop()
         self.isPlayingRecording = false
         self.didRecordingEnd = true
+        try? self.audioSession.setMode(.default)
+        try? self.audioSession.setActive(false)
     }
 }
 
@@ -469,7 +480,7 @@ extension AudioRecorderManager {
     
     
     private func configureAudioSession() throws {
-        try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothA2DP, .allowBluetoothHFP, .bluetoothHighQualityRecording])
+        try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothA2DP, .allowBluetoothHFP, .bluetoothHighQualityRecording, .interruptSpokenAudioAndMixWithOthers])
         try audioSession.setActive(true)
         
         // not required, only for retrieving the input source a little easier

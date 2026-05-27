@@ -422,6 +422,8 @@ extension VideoRecorderManager {
         if session.outputs.contains(movieOutput) == false, session.canAddOutput(movieOutput) {
             session.addOutput(movieOutput)
         }
+        
+        session.configuresApplicationAudioSessionToMixWithOthers = true
 
         // Use the runtime-preferred default device so virtual multi-camera hardware
         // can expose its native switch-over behavior instead of bypassing it.
