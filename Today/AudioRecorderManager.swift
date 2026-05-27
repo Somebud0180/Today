@@ -224,7 +224,7 @@ extension AudioRecorderManager {
         
         try await self.checkPermission()
         
-        self.stopPlayingRecording()
+        self.stopPlayingRecording(deactivateAudio: false)
         
         guard let fileURL = self.destinationURL else {
             throw _Error.failToGetDestinationURL
@@ -385,12 +385,12 @@ extension AudioRecorderManager {
     }
     
     
-    private func stopPlayingRecording() {
+    private func stopPlayingRecording(deactivateAudio: Bool = true) {
         self.player?.stop()
         self.isPlayingRecording = false
         self.didRecordingEnd = true
         try? self.audioSession.setMode(.default)
-        try? self.audioSession.setActive(false)
+        try? self.audioSession.setActive(!deactivateAudio)
     }
 }
 
@@ -480,7 +480,7 @@ extension AudioRecorderManager {
     
     
     private func configureAudioSession() throws {
-        try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothA2DP, .allowBluetoothHFP, .bluetoothHighQualityRecording, .interruptSpokenAudioAndMixWithOthers])
+        try audioSession.setCategory(.playAndRecord, mode: .default, options: [.allowAirPlay, .allowBluetoothA2DP, .allowBluetoothHFP, .bluetoothHighQualityRecording, .interruptSpokenAudioAndMixWithOthers])
         try audioSession.setActive(true)
         
         // not required, only for retrieving the input source a little easier
@@ -489,6 +489,7 @@ extension AudioRecorderManager {
               let builtInMicInput = availableInputs.first(where: { $0.portType == .builtInMic }) else {
             throw _Error.builtinMicNotFound
         }
+        
         try audioSession.setPreferredInput(builtInMicInput)
     }
     
@@ -623,8 +624,6 @@ extension AudioRecorderManager {
         // Use a weighted blend. This makes the waveform "body" collapse faster
         // when the loud sound ends, because the average power drops quicker than the peak.
         let blendedDb = (peak * 0.3) + (avg * 0.7)
-        
-        debugPrint("DEBUG: Peak: \(peak), Avg: \(avg), Blended: \(blendedDb)")
         
         recordedWaveformSamplesDb.append(blendedDb)
         recordedWaveformSamplesLinear.append(normalizeDbToLinear(blendedDb))
