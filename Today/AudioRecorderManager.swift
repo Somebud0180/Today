@@ -197,7 +197,7 @@ class AudioRecorderManager: NSObject, ObservableObject {
     }
     
     deinit {
-        try? audioSession.setActive(false, options: .notifyOthersOnDeactivation)
+        self.deactivateAudioSessionAndNotifyOthers()
     }
 }
 
@@ -208,7 +208,7 @@ extension AudioRecorderManager {
     func startRecording(in time: TimeInterval?, forDuration duration: TimeInterval?, recordingOption: RecordingOption, enableMetering: Bool) async throws {
         print(#function)
         
-        try? self.audioSession.setActive(true)
+        self.activateAudioSessionForAppAudio()
         
         guard self.recorderState == .stopped else {
             return
@@ -309,6 +309,7 @@ extension AudioRecorderManager {
         self.stopTimer()
         self.stopWaveformSampling()
         self.preparePlayer()
+        self.deactivateAudioSessionAndNotifyOthers()
     }
     
     // not used in this demo
@@ -362,18 +363,15 @@ extension AudioRecorderManager {
     func pausePlayingRecording() {
         self.player?.pause()
         self.isPlayingRecording = false
-        try? self.audioSession.setMode(.default)
-        try? self.audioSession.setActive(false)
+        self.deactivateAudioSessionAndNotifyOthers()
     }
     
     func resumePlayingRecording() throws {
-        try? self.audioSession.setActive(true)
-        try? self.audioSession.setMode(.spokenAudio)
+        self.activateAudioSessionForAppAudio()
         
         guard let player = self.player else {
             throw _Error.failToResumePlaying("Failed to prepare player")
         }
-        
         
         let result = player.play()
         if result == false {
@@ -389,8 +387,10 @@ extension AudioRecorderManager {
         self.player?.stop()
         self.isPlayingRecording = false
         self.didRecordingEnd = true
-        try? self.audioSession.setMode(.default)
-        try? self.audioSession.setActive(!deactivateAudio)
+        
+        if deactivateAudio {
+            self.deactivateAudioSessionAndNotifyOthers()
+        }
     }
 }
 
@@ -455,6 +455,14 @@ extension AudioRecorderManager: AVAudioPlayerDelegate {
 
 // MARK: - Private helpers for managing recording session / permission
 extension AudioRecorderManager {
+    private func activateAudioSessionForAppAudio() {
+        try? self.audioSession.setActive(true)
+    }
+    
+    private func deactivateAudioSessionAndNotifyOthers() {
+        try? self.audioSession.setActive(false, options: .notifyOthersOnDeactivation)
+    }
+    
     private func checkPermission() async throws {
         let permission = AVAudioApplication.shared.recordPermission
         switch permission {
@@ -481,7 +489,6 @@ extension AudioRecorderManager {
     
     private func configureAudioSession() throws {
         try audioSession.setCategory(.playAndRecord, mode: .default, options: [.allowAirPlay, .allowBluetoothA2DP, .allowBluetoothHFP, .bluetoothHighQualityRecording, .interruptSpokenAudioAndMixWithOthers])
-        try audioSession.setActive(true)
         
         // not required, only for retrieving the input source a little easier
         // when configuring for stereo
