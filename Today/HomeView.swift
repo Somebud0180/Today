@@ -31,6 +31,19 @@ struct HomeView: View {
                             } label: {
                                 gridCard(for: journalEntry, size: metrics.cardSize)
                             }
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    modelContext.delete(journalEntry)
+                                } label: {
+                                    Label("Delete Entry", systemImage: "trash")
+                                }
+                                
+                                Button(role: .close) {
+                                    // No action needed, context menu will dismiss automatically
+                                } label: {
+                                    Label("Cancel", systemImage: "xmark")
+                                }
+                            }
                         }
                     }
                     .padding(gridPadding)
