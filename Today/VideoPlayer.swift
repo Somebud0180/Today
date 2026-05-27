@@ -12,6 +12,88 @@ import AVKit
 import Combine
 
 
+enum VideoSizingBasis {
+    case width
+    case height
+}
+
+private extension AVPlayerItem {
+    func loadAspectRatio() async -> CGFloat? {
+        do {
+            let tracks = try await asset.loadTracks(withMediaType: .video)
+            guard let track = tracks.first else { return nil }
+            
+            let naturalSize = try await track.load(.naturalSize)
+            let transform = try await track.load(.preferredTransform)
+            
+            let transformedSize = naturalSize.applying(transform)
+            let absWidth = abs(transformedSize.width)
+            let absHeight = abs(transformedSize.height)
+            
+            guard absWidth > 0, absHeight > 0 else { return nil }
+            let ratio: CGFloat = absWidth / absHeight
+            return ratio
+        } catch {
+            return nil
+        }
+    }
+}
+
+private struct AspectFitSizingModifier: ViewModifier {
+    let sizingBasis: VideoSizingBasis
+    
+    func body(content: Content) -> some View {
+        switch sizingBasis {
+        case .width:
+            content.frame(maxWidth: .infinity, alignment: .center)
+        case .height:
+            content.frame(maxHeight: .infinity, alignment: .center)
+        }
+    }
+}
+
+struct AspectFitPlayerView: View {
+    let player: AVPlayer
+    var fallbackAspectRatio: CGFloat = 16.0 / 9.0
+    var videoGravity: AVLayerVideoGravity = .resizeAspect
+    
+    @State private var aspectRatio: CGFloat
+    
+    init(player: AVPlayer, fallbackAspectRatio: CGFloat = 16.0 / 9.0, videoGravity: AVLayerVideoGravity = .resizeAspect) {
+        self.player = player
+        self.fallbackAspectRatio = fallbackAspectRatio
+        self.videoGravity = videoGravity
+        _aspectRatio = State(initialValue: fallbackAspectRatio)
+    }
+
+    var body: some View {
+        WrappedVideoView(player: player, videoGravity: videoGravity)
+            .aspectRatio(aspectRatio, contentMode: .fit)
+            .onReceive(
+                NotificationCenter.default.publisher(for: NSNotification.Name("AVPlayerItemDidChange"), object: player),
+                perform: { _ in updateAspectRatio() }
+            )
+            .task {
+                await updateAspectRatio()
+            }
+    }
+    
+    private func updateAspectRatio() {
+        Task {
+            if let item = player.currentItem {
+                let ratio = await item.loadAspectRatio()
+                await MainActor.run {
+                    aspectRatio = ratio ?? fallbackAspectRatio
+                }
+            } else {
+                await MainActor.run {
+                    aspectRatio = fallbackAspectRatio
+                }
+            }
+        }
+    }
+}
+
 class VideoViewModel: ObservableObject {
     @Published private(set) var isPlayerReady = false
     @Published var isPlaying = false

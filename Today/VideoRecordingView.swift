@@ -58,12 +58,15 @@ struct VideoRecordingView: View {
                 
                 VStack {
                     if manager.showConfirmation {
-                        WrappedVideoView(player: videoViewModel.player, videoGravity: .resizeAspectFill)
+                        AspectFitPlayerView(player: videoViewModel.player)
+                            .frame(maxHeight: .infinity)
+                            .background(.black)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                             .padding(.bottom, 12)
                             .onTapGesture {
                                 videoViewModel.togglePlayback()
                             }
+                        Spacer()
                     } else {
                         Spacer()
                     }
