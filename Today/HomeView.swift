@@ -12,6 +12,7 @@ private struct ViewLayoutMetrics {
     var availableWidth: CGFloat = 0
     var columns: [GridItem] = []
     var cardSize: CGSize = .zero
+    var spacing: CGFloat = 0
 }
 
 private struct ZoomTransitionState {
@@ -31,9 +32,7 @@ struct HomeView: View {
     @GestureState private var magnifyBy = 1.0
     @State private var gridZoomStep: Int = 4
     @State private var gestureStartZoomStep: Int? = nil
-    @State private var zoomDirection: Int = -1
     @State private var continuousZoomFactor: CGFloat = 4.0
-    @State private var activeGridSpacing: CGFloat = 20
     @State private var scrollPosition: ScrollPosition = .init(idType: Date.self)
     @State private var isFollowingBottom = true
     @State private var didPerformInitialScroll = false
@@ -42,7 +41,6 @@ struct HomeView: View {
     private let gridSpacing: [CGFloat] = [4, 8, 12, 16, 20]
     private let cardAspectRatio: CGFloat = 2 / 3
     private let gridPadding: CGFloat = 10
-    private let thresholdForNextStep: CGFloat = 0.5
 
     var body: some View {
         NavigationStack {
@@ -100,36 +98,29 @@ struct HomeView: View {
                                 gestureStartZoomStep = gridZoomStep
                             }
 
-                            // Pinch out (> 1) zooms out to smaller cards / more columns.
-                            zoomDirection = value.magnification >= 1 ? -1 : 1
-
+                            // Pinch out (> 1) zooms in; pinch in (< 1) zooms out.
                             let baseStep = gestureStartZoomStep ?? gridZoomStep
-                            let rawFactor = CGFloat(baseStep) + (1.0 - value.magnification) * CGFloat(gridSpacing.count - 1)
-                            let clampedFactor = clamp(rawFactor, lower: 0, upper: CGFloat(gridSpacing.count - 1))
+                            let maxStep = CGFloat(gridSpacing.count - 1)
+                            let rawFactor = CGFloat(baseStep) + (value.magnification - 1.0) * maxStep
+                            let clampedFactor = clamp(rawFactor, lower: 0, upper: maxStep)
                             continuousZoomFactor = clampedFactor
 
-                            let liveStep = zoomDirection < 0 ? Int(ceil(clampedFactor)) : Int(floor(clampedFactor))
-                            gridZoomStep = clampStep(liveStep)
+                            let lowerStep = clampStep(Int(floor(clampedFactor)))
+                            let upperStep = clampStep(lowerStep + 1)
+                            let progress = clampedFactor - CGFloat(lowerStep)
 
-                            let nextStep = clampStep(gridZoomStep + zoomDirection)
-                            let progress = transitionProgress(currentStep: gridZoomStep, factor: clampedFactor)
-                            activeGridSpacing = interpolatedValue(
-                                from: gridSpacing[gridZoomStep],
-                                to: gridSpacing[nextStep],
-                                progress: progress
-                            )
+                            let direction = value.magnification > 1 ? "In" : "Out"
+                            debugPrint("Zooming - Direction: \(direction), Base Step: \(baseStep), Raw Factor: \(rawFactor), Clamped Factor: \(clampedFactor), Lower Step: \(lowerStep), Upper Step: \(upperStep), Progress: \(progress)")
                         }
                         .onEnded { _ in
-                            let finalStep = clampStep(Int(continuousZoomFactor.rounded()))
+                            let finalStep = clampStep(Int(round(continuousZoomFactor)))
 
                             withAnimation(.interactiveSpring(response: 0.3, dampingFraction: 0.78, blendDuration: 0.2)) {
                                 gridZoomStep = finalStep
                                 continuousZoomFactor = CGFloat(finalStep)
-                                activeGridSpacing = gridSpacing[finalStep]
                             }
 
                             gestureStartZoomStep = nil
-                            zoomDirection = -1
                         }
                 )
             }
@@ -140,7 +131,7 @@ struct HomeView: View {
 
     @ViewBuilder
     private func gridLayer(metrics: ViewLayoutMetrics) -> some View {
-        LazyVGrid(columns: metrics.columns, alignment: .center, spacing: activeGridSpacing) {
+        LazyVGrid(columns: metrics.columns, alignment: .center, spacing: metrics.spacing) {
             ForEach(journalEntries) { journalEntry in
                 NavigationLink {
                     JournalView(selectedEntry: journalEntry)
@@ -215,19 +206,13 @@ struct HomeView: View {
     // MARK: - Zoom Transition
     private func zoomTransition(in size: CGSize) -> ZoomTransitionState {
         let availableWidth = size.width - (gridPadding * 2)
-        let currentStep = clampStep(gridZoomStep)
-        let nextStep = clampStep(currentStep + zoomDirection)
-        let progress = clamp(transitionProgress(currentStep: currentStep, factor: continuousZoomFactor), lower: 0, upper: 1)
+        let maxStep = CGFloat(gridSpacing.count - 1)
+        let currentStep = clampStep(Int(floor(continuousZoomFactor)))
+        let nextStep = clampStep(Int(ceil(continuousZoomFactor)))
+        let progress = clamp(continuousZoomFactor - CGFloat(currentStep), lower: 0, upper: 1)
 
-        let currentMetrics = layoutMetrics(
-            forStep: currentStep,
-            in: size,
-            interpolatingTo: nextStep,
-            progress: progress
-        )
+        let currentMetrics = layoutMetrics(forStep: currentStep, in: size)
         let nextMetrics = layoutMetrics(forStep: nextStep, in: size)
-
-        let nextOpacity = nextStep == currentStep ? 0 : Double(progress <= thresholdForNextStep ? 0 : (progress - thresholdForNextStep) / (1 - thresholdForNextStep))
 
         return ZoomTransitionState(
             currentStep: currentStep,
@@ -235,42 +220,24 @@ struct HomeView: View {
             progress: progress,
             currentMetrics: currentMetrics,
             nextMetrics: nextMetrics,
-            currentOpacity: 1.0 - nextOpacity,
-            nextOpacity: nextOpacity
+            currentOpacity: 1.0 - Double(progress),
+            nextOpacity: Double(progress)
         )
     }
 
-    private func transitionProgress(currentStep: Int, factor: CGFloat) -> CGFloat {
-        let current = CGFloat(currentStep)
-        if zoomDirection < 0 {
-            return current - factor
-        } else {
-            return factor - current
-        }
-    }
-
     // MARK: - Layout Calculations
-    private func layoutMetrics(forStep step: Int, in size: CGSize, interpolatingTo nextStep: Int? = nil, progress: CGFloat = 0) -> ViewLayoutMetrics {
+    private func layoutMetrics(forStep step: Int, in size: CGSize) -> ViewLayoutMetrics {
         let safeStep = clampStep(step)
         let availableWidth = size.width - (gridPadding * 2)
         let columns = calculateGridColumns(availableWidth: availableWidth, forStep: safeStep)
         let cardWidth = calculateCardWidth(availableWidth: availableWidth, columns: columns, forStep: safeStep)
+        let cardHeight = cardWidth / cardAspectRatio
 
-        let finalCardWidth: CGFloat
-        if let nextStep {
-            let safeNextStep = clampStep(nextStep)
-            let nextColumns = calculateGridColumns(availableWidth: availableWidth, forStep: safeNextStep)
-            let nextCardWidth = calculateCardWidth(availableWidth: availableWidth, columns: nextColumns, forStep: safeNextStep)
-            finalCardWidth = interpolatedValue(from: cardWidth, to: nextCardWidth, progress: progress)
-        } else {
-            finalCardWidth = cardWidth
-        }
-
-        let cardHeight = finalCardWidth / cardAspectRatio
         return ViewLayoutMetrics(
             availableWidth: availableWidth,
             columns: columns,
-            cardSize: CGSize(width: finalCardWidth, height: cardHeight)
+            cardSize: CGSize(width: cardWidth, height: cardHeight),
+            spacing: gridSpacing[safeStep]
         )
     }
 
@@ -293,10 +260,6 @@ struct HomeView: View {
 
     private func clamp(_ value: CGFloat, lower: CGFloat, upper: CGFloat) -> CGFloat {
         max(lower, min(upper, value))
-    }
-
-    private func interpolatedValue(from start: CGFloat, to end: CGFloat, progress: CGFloat) -> CGFloat {
-        start + ((end - start) * clamp(progress, lower: 0, upper: 1))
     }
 
     private func chunkedEntries(_ entries: [JournalEntry], into columnCount: Int) -> [[JournalEntry]] {
