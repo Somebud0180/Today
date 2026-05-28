@@ -16,7 +16,10 @@ private struct ViewLayoutMetrics {
 
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var journalEntries: [JournalEntry]
+    @Query(sort: \JournalEntry.date, order: .forward) private var journalEntries: [JournalEntry]
+    
+    @State private var scrollPosition: ScrollPosition = .init(idType: Date.self)
+    @State private var isFollowingBottom = true
     
     private let minimumCardWidth: CGFloat = 150
     private let cardAspectRatio: CGFloat = 2 / 3
@@ -26,10 +29,9 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             GeometryReader { proxy in
-                ScrollView {
-                    let metrics = layoutMetrics(in: proxy.size)
-                    
-                    LazyVGrid(columns: metrics.columns, spacing: gridSpacing) {
+                let metrics = layoutMetrics(in: proxy.size)
+                ScrollView(.vertical, showsIndicators: true) {
+                    LazyVGrid(columns: metrics.columns, alignment: .center, spacing: gridSpacing) {
                         ForEach(journalEntries) { journalEntry in
                             NavigationLink {
                                 JournalView(selectedEntry: journalEntry)
@@ -37,6 +39,7 @@ struct HomeView: View {
                             } label: {
                                 gridCard(for: journalEntry, size: metrics.cardSize)
                             }
+                            .id(journalEntry.date)
                             .contextMenu {
                                 Button(role: .destructive) {
                                     modelContext.delete(journalEntry)
@@ -52,8 +55,40 @@ struct HomeView: View {
                             }
                         }
                     }
+                    .scrollTargetLayout()
                     .padding(gridPadding)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .frame(maxWidth: .infinity)
+                }
+                .scrollPosition($scrollPosition, anchor: .bottom)
+                .defaultScrollAnchor(.bottom, for: .initialOffset)
+                .defaultScrollAnchor(.bottom, for: .sizeChanges)
+                .onAppear {
+                    guard let lastDate = journalEntries.last?.date else { return }
+                    // Defer to next runloop to allow layout to stabilize, then jump to bottom without animation.
+                    DispatchQueue.main.async {
+                        withTransaction(.init()) {
+                            // prefer bottom alignment when jumping
+                            withTransaction(\.scrollTargetAnchor, .bottom) {
+                                scrollPosition.scrollTo(id: lastDate)
+                            }
+                        }
+                    }
+                }
+                .onChange(of: journalEntries.last?.date) { _, newDate in
+                    guard let newDate else { return }
+                    if isFollowingBottom {
+                        // Animate when new items arrive while following.
+                        withAnimation(.easeOut) {
+                            scrollPosition.scrollTo(id: newDate)
+                        }
+                    }
+                }
+                .onScrollTargetVisibilityChange(idType: Date.self, threshold: 0.6) { visibleIDs in
+                    if let lastDate = journalEntries.last?.date {
+                        isFollowingBottom = visibleIDs.contains(lastDate)
+                    } else {
+                        isFollowingBottom = true
+                    }
                 }
             }
             .navigationTitle("Today")
@@ -107,7 +142,7 @@ struct HomeView: View {
         .frame(width: size.width, height: size.height)
     }
     
-    //MARK: - Layout Calculations
+    // MARK: - Layout Calculations
     private func calculateGridColumns(availableWidth: CGFloat) -> [GridItem] {
         let columnCount = max(1, Int((availableWidth + gridSpacing) / (minimumCardWidth + gridSpacing)))
         return Array(repeating: GridItem(.flexible(), spacing: gridSpacing), count: columnCount)
@@ -119,7 +154,23 @@ struct HomeView: View {
         return max(minimumCardWidth, (availableWidth - totalSpacingWidth) / columnCount)
     }
     
-    private func layoutMetrics(in  size: CGSize) -> ViewLayoutMetrics {
+    private func chunkedEntries(_ entries: [JournalEntry], into columnCount: Int) -> [[JournalEntry]] {
+        guard columnCount > 0 else { return [entries] }
+        
+        var rows: [[JournalEntry]] = []
+        rows.reserveCapacity((entries.count + columnCount - 1) / columnCount)
+        
+        var index = 0
+        while index < entries.count {
+            let endIndex = min(index + columnCount, entries.count)
+            rows.append(Array(entries[index..<endIndex]))
+            index = endIndex
+        }
+        
+        return rows
+    }
+    
+    private func layoutMetrics(in size: CGSize) -> ViewLayoutMetrics {
         let availableWidth = size.width - (gridPadding * 2)
         let columns = calculateGridColumns(availableWidth: availableWidth)
         let cardWidth = calculateCardWidth(availableWidth: availableWidth, columns: columns)
