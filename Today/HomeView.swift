@@ -18,12 +18,16 @@ struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \JournalEntry.date, order: .forward) private var journalEntries: [JournalEntry]
     
+    @GestureState private var magnifyBy = 1.0
+    @State private var gridZoomStep: Int = 0
+    @State private var activeGridSpacing: CGFloat = 24
     @State private var scrollPosition: ScrollPosition = .init(idType: Date.self)
     @State private var isFollowingBottom = true
+    @State private var didPerformInitialScroll = false
     
-    private let minimumCardWidth: CGFloat = 150
+    private let minimumCardWidth: [CGFloat] = [150, 120, 100, 80, 60]
+    private let gridSpacing: [CGFloat] = [24, 16, 12, 8, 4]
     private let cardAspectRatio: CGFloat = 2 / 3
-    private let gridSpacing: CGFloat = 24
     private let gridPadding: CGFloat = 10
     
     var body: some View {
@@ -31,7 +35,7 @@ struct HomeView: View {
             GeometryReader { proxy in
                 let metrics = layoutMetrics(in: proxy.size)
                 ScrollView(.vertical, showsIndicators: true) {
-                    LazyVGrid(columns: metrics.columns, alignment: .center, spacing: gridSpacing) {
+                    LazyVGrid(columns: metrics.columns, alignment: .center, spacing: activeGridSpacing) {
                         ForEach(journalEntries) { journalEntry in
                             NavigationLink {
                                 JournalView(selectedEntry: journalEntry)
@@ -58,19 +62,33 @@ struct HomeView: View {
                     .scrollTargetLayout()
                     .padding(gridPadding)
                     .frame(maxWidth: .infinity)
+                    .gesture(
+                        MagnifyGesture(minimumScaleDelta: 0.1)
+                            .updating($magnifyBy) { value, gestureState, transaction in
+                                gestureState = value.magnification
+                            }
+                    )
+                    .onChange(of: magnifyBy) {
+                        let zoomChange = magnifyBy - 1.0
+                        let normalizedZoomChange = zoomChange.rounded(.toNearestOrAwayFromZero)
+                        let newZoomStep = gridZoomStep + Int(normalizedZoomChange)
+                        let normalizedNewZoomStep = max(0, min(gridSpacing.count - 1, newZoomStep))
+                        if normalizedNewZoomStep != gridZoomStep {
+                            gridZoomStep = normalizedNewZoomStep
+                            activeGridSpacing = gridSpacing[gridZoomStep]
+                        }
+                    }
                 }
                 .scrollPosition($scrollPosition, anchor: .bottom)
                 .defaultScrollAnchor(.bottom, for: .initialOffset)
-                .defaultScrollAnchor(.bottom, for: .sizeChanges)
                 .onAppear {
-                    guard let lastDate = journalEntries.last?.date else { return }
+                    guard !didPerformInitialScroll, let lastDate = journalEntries.last?.date else { return }
+                    didPerformInitialScroll = true
                     // Defer to next runloop to allow layout to stabilize, then jump to bottom without animation.
                     DispatchQueue.main.async {
-                        withTransaction(.init()) {
-                            // prefer bottom alignment when jumping
-                            withTransaction(\.scrollTargetAnchor, .bottom) {
-                                scrollPosition.scrollTo(id: lastDate)
-                            }
+                        // prefer bottom alignment when jumping
+                        withTransaction(\.scrollTargetAnchor, .bottom) {
+                            scrollPosition.scrollTo(id: lastDate)
                         }
                     }
                 }
@@ -144,14 +162,16 @@ struct HomeView: View {
     
     // MARK: - Layout Calculations
     private func calculateGridColumns(availableWidth: CGFloat) -> [GridItem] {
-        let columnCount = max(1, Int((availableWidth + gridSpacing) / (minimumCardWidth + gridSpacing)))
-        return Array(repeating: GridItem(.flexible(), spacing: gridSpacing), count: columnCount)
+        let int = gridZoomStep
+        let columnCount = max(1, Int((availableWidth + gridSpacing[int]) / (minimumCardWidth[int] + gridSpacing[int])))
+        return Array(repeating: GridItem(.flexible(), spacing: gridSpacing[int]), count: columnCount)
     }
     
     private func calculateCardWidth(availableWidth: CGFloat, columns: [GridItem]) -> CGFloat {
+        let int = gridZoomStep
         let columnCount = CGFloat(columns.count)
-        let totalSpacingWidth = (columnCount - 1) * gridSpacing
-        return max(minimumCardWidth, (availableWidth - totalSpacingWidth) / columnCount)
+        let totalSpacingWidth = (columnCount - 1) * gridSpacing[int]
+        return max(minimumCardWidth[int], (availableWidth - totalSpacingWidth) / columnCount)
     }
     
     private func chunkedEntries(_ entries: [JournalEntry], into columnCount: Int) -> [[JournalEntry]] {
