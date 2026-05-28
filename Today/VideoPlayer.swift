@@ -74,7 +74,7 @@ struct AspectFitPlayerView: View {
                 perform: { _ in updateAspectRatio() }
             )
             .task {
-                await updateAspectRatio()
+                updateAspectRatio()
             }
     }
     
