@@ -23,6 +23,8 @@ private struct ZoomTransitionState {
     var nextMetrics: ViewLayoutMetrics
     var currentOpacity: Double
     var nextOpacity: Double
+    var currentScale: CGFloat
+    var nextScale: CGFloat
 }
 
 struct HomeView: View {
@@ -51,10 +53,12 @@ struct HomeView: View {
                     ScrollView(.vertical, showsIndicators: true) {
                         ZStack(alignment: .topLeading) {
                             gridLayer(metrics: transition.currentMetrics)
+                                .scaleEffect(transition.currentScale, anchor: .center)
                                 .opacity(transition.currentOpacity)
 
                             if transition.nextStep != transition.currentStep {
                                 gridLayer(metrics: transition.nextMetrics)
+                                    .scaleEffect(transition.nextScale, anchor: .center)
                                     .opacity(transition.nextOpacity)
                             }
                         }
@@ -205,15 +209,32 @@ struct HomeView: View {
 
     // MARK: - Zoom Transition
     private func zoomTransition(in size: CGSize) -> ZoomTransitionState {
-        let availableWidth = size.width - (gridPadding * 2)
-        let maxStep = CGFloat(gridSpacing.count - 1)
         let currentStep = clampStep(Int(floor(continuousZoomFactor)))
         let nextStep = clampStep(Int(ceil(continuousZoomFactor)))
         let progress = clamp(continuousZoomFactor - CGFloat(currentStep), lower: 0, upper: 1)
-
+        
         let currentMetrics = layoutMetrics(forStep: currentStep, in: size)
         let nextMetrics = layoutMetrics(forStep: nextStep, in: size)
-
+        
+        // Calculate scaling by interpolating the physical card widths
+        let wCurrent = currentMetrics.cardSize.width
+        let wNext = nextMetrics.cardSize.width
+        
+        let currentScale: CGFloat
+        let nextScale: CGFloat
+        
+        if currentStep == nextStep {
+            currentScale = 1.0
+            nextScale = 1.0
+        } else {
+            // Find the precise geometric width midway through the gesture
+            let idealWidth = wCurrent + progress * (wNext - wCurrent)
+            
+            // Calculate how much to scale each layer to match the ideal width
+            currentScale = wCurrent > 0 ? idealWidth / wCurrent : 1.0
+            nextScale = wNext > 0 ? idealWidth / wNext : 1.0
+        }
+        
         return ZoomTransitionState(
             currentStep: currentStep,
             nextStep: nextStep,
@@ -221,7 +242,9 @@ struct HomeView: View {
             currentMetrics: currentMetrics,
             nextMetrics: nextMetrics,
             currentOpacity: 1.0 - Double(progress),
-            nextOpacity: Double(progress)
+            nextOpacity: Double(progress),
+            currentScale: currentScale,
+            nextScale: nextScale
         )
     }
 
