@@ -50,7 +50,7 @@ struct HomeView: View {
                 let transition = zoomTransition(in: proxy.size)
 
                 ZStack {
-                    ScrollView(.vertical, showsIndicators: true) {
+                    VStack {
                         ZStack(alignment: .topLeading) {
                             gridLayer(metrics: transition.currentMetrics)
                                 .scaleEffect(transition.currentScale, anchor: .center)
@@ -66,6 +66,7 @@ struct HomeView: View {
                         .padding(gridPadding)
                         .frame(maxWidth: .infinity)
                     }
+                    .blurScroll(5, blurHeight: 0.01, blurPosition: .top)
                     .scrollPosition($scrollPosition, anchor: .bottom)
                     .defaultScrollAnchor(.bottom, for: .initialOffset)
                     .onAppear {
@@ -92,6 +93,20 @@ struct HomeView: View {
                             isFollowingBottom = true
                         }
                     }
+                    
+                    VStack {
+                        Text("Today")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                        Text(Date().formatted(date: .long, time: .omitted))
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                        Spacer()
+                    }
+                    .padding(.leading, 24)
+                    .padding(.top, proxy.safeAreaInsets.top / 2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .ignoresSafeArea(edges: .top)
                 }
                 .simultaneousGesture(
                     MagnifyGesture()
@@ -128,8 +143,14 @@ struct HomeView: View {
                         }
                 )
             }
-            .navigationTitle("Today")
-            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Select") {
+                        // Edit
+                    }
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 
