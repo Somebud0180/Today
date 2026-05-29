@@ -168,22 +168,19 @@ struct HomeView: View {
                     .resizable()
                     .scaledToFill()
                     .frame(width: size.width, height: size.height)
-                    .clipped()
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
                     .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
             } else if let waveformLevels = journalEntry.audioWaveformThumbnailLevels(maxBars: max(1, Int(size.width / 7))) {
                 WaveformView(levels: waveformLevels, isThumbnailView: true)
                     .frame(width: size.width, height: size.height)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
                     .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
             }
-
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.gray.opacity(0.25))
-                .glassEffect(
-                    .clear.tint(.gray.opacity(0.25)),
-                    in: RoundedRectangle(cornerRadius: 16)
-                )
+            
+            LinearGradient(
+                colors: [.black.opacity(0.75), .black.opacity(0), .black.opacity(0)],
+                startPoint: .top,
+                endPoint: .center
+            )
+            .blur(radius: 12)
 
             VStack(alignment: .leading) {
                 Text(
@@ -204,6 +201,7 @@ struct HomeView: View {
             }
             .padding(12)
         }
+        .clipShape(RoundedRectangle(cornerRadius: 16))
         .frame(width: size.width, height: size.height)
     }
 
