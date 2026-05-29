@@ -94,7 +94,7 @@ struct HomeView: View {
                     }
                 }
                 .simultaneousGesture(
-                    MagnifyGesture(minimumScaleDelta: 0.1)
+                    MagnifyGesture()
                         .updating($magnifyBy) { value, gestureState, _ in
                             gestureState = value.magnification
 
@@ -182,24 +182,40 @@ struct HomeView: View {
             )
             .blur(radius: 12)
 
-            VStack(alignment: .leading) {
-                Text(
-                    journalEntry.title.isEmpty ? journalEntry.date.formatted(date: .numeric, time: .omitted) : journalEntry.title
-                )
-                .lineLimit(2)
-                .fontWeight(.heavy)
-                .foregroundStyle(.white.opacity(0.9))
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                if !journalEntry.title.isEmpty {
-                    Text(journalEntry.date.formatted(date: .numeric, time: .omitted))
-                        .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.75))
+            if size.width > 100 {
+                VStack(alignment: .leading) {
+                    Text(
+                        journalEntry.title.isEmpty ? journalEntry.date.formatted(date: .numeric, time: .omitted) : journalEntry.title
+                    )
+                    .lineLimit(2)
+                    .fontWeight(.heavy)
+                    .foregroundStyle(.white.opacity(0.9))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    if !journalEntry.title.isEmpty {
+                        Text(journalEntry.date.formatted(date: .numeric, time: .omitted))
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.75))
+                    }
+                    
+                    Spacer()
                 }
-
-                Spacer()
+                .padding(12)
+            } else {
+                VStack(alignment: .leading) {
+                    let date = journalEntry.date.formatted(date: .abbreviated, time: .omitted)
+                    Text(date.dropLast(6))
+                        .lineLimit(2)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.white.opacity(0.9))
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.trailing)
+                    
+                    Spacer()
+                }
+                .padding(8)
             }
-            .padding(12)
         }
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .frame(width: size.width, height: size.height)
