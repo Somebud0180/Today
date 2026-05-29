@@ -21,7 +21,6 @@ struct BlurScroll: ViewModifier {
     
     let coordinateSpaceName: String
     let viewportHeight: CGFloat
-    let topSafeInset: CGFloat
     
     @State private var scrollPosition: CGPoint = .zero
     
@@ -79,7 +78,6 @@ struct BlurScroll: ViewModifier {
                         if blurPosition == .top {
                             Color.white.frame(height: max(0, -scrollPosition.y))
                             topBlurGradient.frame(height: viewportHeight)
-                            Color.clear
                         } else {
                             Color.clear.frame(height: max(0, -scrollPosition.y))
                             bottomBlurGradient.frame(height: viewportHeight)
@@ -87,21 +85,9 @@ struct BlurScroll: ViewModifier {
                         }
                     }
                         .offset(y: scrollPosition.y > 0 ? -scrollPosition.y : 0)
+                        .blur(radius: 8)
                 )
                 .allowsHitTesting(false) // Prevents the blurred layer from intercepting your taps
-            
-            VStack {
-                Text("Today")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                Text(Date().formatted(date: .long, time: .omitted))
-                    .font(.headline)
-                    .fontWeight(.semibold)
-            }
-            .padding(.leading, 24)
-            .padding(.top, topSafeInset / 2)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .ignoresSafeArea(edges: .top)
         }
         .background(
             GeometryReader { geo in
@@ -128,18 +114,12 @@ extension View {
                     blurHeight: CGFloat = 0.15,
                     blurPosition: BlurScroll.BlurPosition = .top,
                     coordinateSpaceName: String,
-                    viewportHeight: CGFloat,
-                    topSafeInset: CGFloat) -> some View {
+                    viewportHeight: CGFloat) -> some View {
         
-        modifier(
-            BlurScroll(
-                blur: blur,
-                blurHeight: blurHeight,
-                blurPosition: blurPosition,
-                coordinateSpaceName: coordinateSpaceName,
-                viewportHeight: viewportHeight,
-                topSafeInset: topSafeInset
-            )
-        )
+        modifier(BlurScroll(blur: blur,
+                            blurHeight: blurHeight,
+                            blurPosition: blurPosition,
+                            coordinateSpaceName: coordinateSpaceName,
+                            viewportHeight: viewportHeight))
     }
 }

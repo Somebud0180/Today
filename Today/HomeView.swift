@@ -65,8 +65,10 @@ struct HomeView: View {
                         .scrollTargetLayout()
                         .padding(gridPadding)
                         .frame(maxWidth: .infinity)
+                        // 1. Modifier is applied directly to the internal grid, so the geometry tracker can move!
+                        .blurScroll(2, blurHeight: 0.05, blurPosition: .top, coordinateSpaceName: "homeScrollSpace", viewportHeight: proxy.size.height)
                     }
-                    .coordinateSpace(name: "homeScrollSpace") // Connects the tracking to BlurScroll
+                    .coordinateSpace(name: "homeScrollSpace")
                     .scrollPosition($scrollPosition, anchor: .bottom)
                     .defaultScrollAnchor(.bottom, for: .initialOffset)
                     .onAppear {
@@ -93,8 +95,21 @@ struct HomeView: View {
                             isFollowingBottom = true
                         }
                     }
+                    
+                    // 2. Title block is placed OUTSIDE the ScrollView, safely sitting on top of the blur layer
+                    VStack(alignment: .leading) {
+                        Text("Today")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                        Text(Date().formatted(date: .long, time: .omitted))
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                    }
+                    .padding(.leading, 24)
+                    .padding(.top, proxy.safeAreaInsets.top / 2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .ignoresSafeArea(edges: .top)
                 }
-                .blurScroll(5, blurHeight: 0.2, blurPosition: .top, coordinateSpaceName: "homeScrollSpace", viewportHeight: proxy.size.height, topSafeInset: proxy.safeAreaInsets.top)
                 .simultaneousGesture(
                     MagnifyGesture()
                         .updating($magnifyBy) { value, gestureState, _ in
