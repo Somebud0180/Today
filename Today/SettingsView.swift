@@ -11,7 +11,6 @@ struct SettingsView: View {
     @State var enableNotifications: Bool = false
     @State var autoPlayOnOpen: Bool = false
     @State var remindMe: Bool = true
-    // Default reminder to 8 PM
     @State var reminderTime: Date = Calendar.current.date(bySettingHour: 20, minute: 0, second: 0, of: Date()) ?? Date()
     
     var body: some View {
@@ -73,6 +72,9 @@ struct SettingsView: View {
 
 struct ExportView: View {
     @State var includedIndex: Int = 2
+    @State var timeframeIndex: Int = 0
+    @State var timeframeCustomBegin: Date = Date().addingTimeInterval(-7 * 24 * 60 * 60)
+    @State var timeframeCustomEnd: Date = Date()
     @State var organizationIndex: Int = 0
     @State var groupingIndex: Int = 0
     @State var showExportConfirmation: Bool = false
@@ -103,12 +105,29 @@ struct ExportView: View {
                     }
                 }
                 
-                Section(header: Text("What's included"), footer: Text("Pick which parts of your entries you want to export. You can choose to include either media and notes")) {
+                Section(header: Text("What's included"), footer: Text("Pick which entries and parts you want to export. You can choose to include either media and notes")) {
                     Picker("Include", selection: $includedIndex) {
                         Text("Media only").tag(0)
                         Text("Notes only").tag(1)
                         Text("Both media and notes").tag(2)
                     }
+                    
+                    Picker("From", selection: $timeframeIndex) {
+                        Text("All time").tag(0)
+                        Text("This year").tag(1)
+                        Text("This month").tag(2)
+                        Text("This week").tag(3)
+                        Text("Custom").tag(4)
+                    }
+                    
+                    Group {
+                        if timeframeIndex == 4 {
+                            DatePicker("Start date", selection: $timeframeCustomBegin, displayedComponents: [.date])
+                            
+                            DatePicker("End date", selection: $timeframeCustomBegin, displayedComponents: [.date])
+                        }
+                    }
+                    .transition(.push(from: .top))
                 }
                 
                 if includedIndex == 2 {
@@ -185,6 +204,7 @@ struct ExportView: View {
             .navigationTitle("Export Journal")
             .transition(.slide)
             .animation(.easeInOut(duration: 0.3), value: includedIndex)
+            .animation(.easeInOut(duration: 0.3), value: timeframeIndex)
             .animation(.easeInOut(duration: 0.3), value: organizationIndex)
             .animation(.easeInOut(duration: 0.3), value: groupingIndex)
             .alert("Are you sure with your export choices?", isPresented: $showExportConfirmation, actions: {
