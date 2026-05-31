@@ -23,6 +23,10 @@ struct ContentView: View {
             Tab("Create Entry", systemImage: "note.text.badge.plus", value: 1) {
                 CreateView(tabSelection: $tabSelection)
             }
+            
+            Tab("Settings", systemImage: "gearshape", value: 2) {
+                SettingsView()
+            }
         }
     }
 }
