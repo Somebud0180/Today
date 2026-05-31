@@ -8,10 +8,14 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @State var enableNotifications: Bool = false
-    @State var autoPlayOnOpen: Bool = false
-    @State var remindMeToJournal: Bool = true
-    @State var reminderTime: Date = Calendar.current.date(bySettingHour: 20, minute: 0, second: 0, of: Date()) ?? Date()
+    @AppStorage("prefersDarkMode") private var prefersDarkMode: Bool = DefaultSettings.prefersDarkMode
+    @AppStorage("enableNotifications") private var enableNotifications: Bool = DefaultSettings.enableNotifications
+    @AppStorage("autoPlayOnOpen") private var autoPlayOnOpen: Bool =
+    DefaultSettings.autoPlayOnOpen
+    @AppStorage("remindMeToJournal") private var remindMeToJournal: Bool
+    = DefaultSettings.remindMeToJournal
+    @AppStorage("reminderTime") private var reminderTime: Date =
+    DefaultSettings.reminderTime
     
     var body: some View {
         NavigationStack {
