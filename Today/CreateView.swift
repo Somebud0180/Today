@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import JournalingSuggestions
 
 private enum TransitionDirection {
     case forward
@@ -38,6 +39,7 @@ struct CreateView: View {
     @State private var recordedAudioWaveform: CodableAudioWaveform? = nil
     @State private var recordedVideoURL: URL? = nil
     @State private var activePage: Page = .menu
+    @State private var suggestionTitle: String = ""
     @State private var entryTitle: String = ""
     @State private var entryNote: String = ""
     
@@ -104,9 +106,6 @@ struct CreateView: View {
                     case .menu:
                         GeometryReader { proxy in
                             let isLandscape = proxy.size.width > proxy.size.height
-                            let menuLayout: AnyLayout = isLandscape
-                            ? AnyLayout(HStackLayout(spacing: 24))
-                            : AnyLayout(VStackLayout(spacing: 32))
                             
                             VStack {
                                 Text("What are we feeling today?")
@@ -114,66 +113,21 @@ struct CreateView: View {
                                     .fontWeight(.bold)
                                     .fontDesign(.rounded)
                                 
-                                menuLayout {
-                                    Button(action: {
-                                        transitionDirection = .forward
-                                        withAnimation(.easeInOut(duration: 0.3)) {
-                                            activePage = .video
-                                        }
-                                    }) {
-                                        ZStack {
-                                            RoundedRectangle(cornerRadius: 24)
-                                                .fill(Color.blue)
-                                                .glassEffect(
-                                                    .regular.interactive(),
-                                                    in: RoundedRectangle(cornerRadius: 24)
-                                                )
-                                            
-                                            VStack(spacing: 24) {
-                                                Image(systemName: "video.fill")
-                                                    .font(.system(size: 64))
-                                                
-                                                Text("Create Video Entry")
-                                                    .font(.largeTitle)
-                                                    .fontWeight(.bold)
-                                                    .fontDesign(.rounded)
-                                            }
-                                        }
-                                    }
-                                    .buttonStyle(.plain)
+                                if isLandscape {
+                                    journalingSuggestionsButton
                                     
-                                    Button(action: {
-                                        transitionDirection = .forward
-                                        withAnimation(.easeInOut(duration: 0.3)) {
-                                            activePage = .audio
-                                        }
-                                    }) {
-                                        ZStack {
-                                            RoundedRectangle(cornerRadius: 24)
-                                                .fill(Color.gray)
-                                                .glassEffect(
-                                                    .regular.interactive(),
-                                                    in: RoundedRectangle(cornerRadius: 24)
-                                                )
-                                            
-                                            VStack(spacing: 24) {
-                                                Image(systemName: "mic.fill")
-                                                    .font(.system(size: 64))
-                                                    .foregroundStyle(.black)
-                                                
-                                                Text("Create Audio Entry")
-                                                    .foregroundStyle(.black)
-                                                    .font(.largeTitle)
-                                                    .fontWeight(.bold)
-                                                    .fontDesign(.rounded)
-                                            }
-                                        }
+                                    HStackLayout (spacing: 24) {
+                                        createButtons
                                     }
-                                    .buttonStyle(.plain)
+                                } else {
+                                    VStackLayout(spacing: 24) {
+                                        journalingSuggestionsButton
+                                        createButtons
+                                    }
                                 }
                             }
                         }
-                        .padding(.bottom)
+                        .padding(.vertical)
                         .padding(.horizontal, 24)
                         .transition(pageTransition)
                         
@@ -385,6 +339,117 @@ struct CreateView: View {
         }
     }
     
+    var journalingSuggestionsButton: some View {
+        HStack {
+            JournalingSuggestionsPicker {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(Color.blue)
+                        .glassEffect(
+                            .regular.interactive(),
+                            in: RoundedRectangle(cornerRadius: 24)
+                        )
+                    Label(suggestionTitle.isEmpty ? "Show suggestions" : suggestionTitle, systemImage: suggestionTitle.isEmpty ? "person.fill.questionmark" : "pencil.and.scribble")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .fontDesign(.rounded)
+                        .labelStyle(CenterAlign())
+                        .padding(4)
+                        .lineLimit(3)
+                        .minimumScaleFactor(0.5)
+                        .contentTransition(.symbolEffect(.replace))
+                }
+            } onCompletion: { suggestion in
+                entryTitle = suggestion.title
+                suggestionTitle = suggestion.title
+            }
+            .buttonStyle(.plain)
+            
+            if !suggestionTitle.isEmpty {
+                Button(action: {
+                    suggestionTitle = ""
+                    entryTitle = ""
+                }) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 24)
+                            .fill(Color.blue)
+                            .glassEffect(
+                                .regular.interactive(),
+                                in: RoundedRectangle(cornerRadius: 24)
+                            )
+                        Image(systemName: "xmark")
+                            .font(.headline)
+                            .fontWeight(.heavy)
+                            .padding(8)
+                    }
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: 72)
+            }
+        }
+        .frame(maxHeight: 72)
+        .animation(.snappy(duration: 0.5), value: suggestionTitle)
+    }
+    
+    var createButtons: some View {
+        Group {
+            Button(action: {
+                transitionDirection = .forward
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    activePage = .video
+                }
+            }) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(Color.blue)
+                        .glassEffect(
+                            .regular.interactive(),
+                            in: RoundedRectangle(cornerRadius: 24)
+                        )
+                    
+                    VStack(spacing: 24) {
+                        Image(systemName: "video.fill")
+                            .font(.system(size: 64))
+                        
+                        Text("Create Video Entry")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                            .fontDesign(.rounded)
+                    }
+                }
+            }
+            
+            Button(action: {
+                transitionDirection = .forward
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    activePage = .audio
+                }
+            }) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(Color.gray)
+                        .glassEffect(
+                            .regular.interactive(),
+                            in: RoundedRectangle(cornerRadius: 24)
+                        )
+                    
+                    VStack(spacing: 24) {
+                        Image(systemName: "mic.fill")
+                            .font(.system(size: 64))
+                            .foregroundStyle(.black)
+                        
+                        Text("Create Audio Entry")
+                            .foregroundStyle(.black)
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                            .fontDesign(.rounded)
+                    }
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+    
     func getCardPosY(_ proxy: GeometryProxy) -> CGFloat {
         if isSaving {
             return proxy.size.height / 2
@@ -498,6 +563,20 @@ struct CreateView: View {
         activePage = .menu
         entryTitle = ""
         entryNote = ""
+    }
+}
+
+
+// Source - https://stackoverflow.com/a/69687031
+// Posted by Asperi
+// Retrieved 2026-06-01, License - CC BY-SA 4.0
+/// A custom label style that arranges the icon and title horizontally centered.
+struct CenterAlign: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(alignment: .center) {
+            configuration.icon
+            configuration.title
+        }
     }
 }
 
