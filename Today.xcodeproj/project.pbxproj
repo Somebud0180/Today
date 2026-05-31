@@ -416,6 +416,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Today/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Today;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Allow access to the camera to record video entries.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Allow access to the microphone to record audio with entries.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -454,6 +456,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Today/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Today;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Allow access to the camera to record video entries.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Allow access to the microphone to record audio with entries.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
