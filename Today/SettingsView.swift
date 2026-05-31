@@ -10,7 +10,7 @@ import SwiftUI
 struct SettingsView: View {
     @State var enableNotifications: Bool = false
     @State var autoPlayOnOpen: Bool = false
-    @State var remindMe: Bool = true
+    @State var remindMeToJournal: Bool = true
     @State var reminderTime: Date = Calendar.current.date(bySettingHour: 20, minute: 0, second: 0, of: Date()) ?? Date()
     
     var body: some View {
@@ -43,7 +43,7 @@ struct SettingsView: View {
                         Text("Allow notifications")
                     }
                     
-                    Toggle(isOn: $remindMe) {
+                    Toggle(isOn: $remindMeToJournal) {
                         Text("Remind me to journal")
                     }
                     .disabled(!enableNotifications)
@@ -53,7 +53,7 @@ struct SettingsView: View {
                     }, set: { newValue in
                         reminderTime = newValue
                     }), displayedComponents: .hourAndMinute)
-                    .disabled(!remindMe || !enableNotifications)
+                    .disabled(!remindMeToJournal || !enableNotifications)
                 }
                 
                 Section(header: Text("Export")) {
