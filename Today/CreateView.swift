@@ -7,7 +7,10 @@
 
 import SwiftUI
 import SwiftData
+#if canImport(JournalingSuggestions)
 import JournalingSuggestions
+#endif
+
 
 private enum TransitionDirection {
     case forward
@@ -341,6 +344,7 @@ struct CreateView: View {
     
     var journalingSuggestionsButton: some View {
         HStack {
+#if canImport(JournalingSuggestions)
             JournalingSuggestionsPicker {
                 ZStack {
                     RoundedRectangle(cornerRadius: 24)
@@ -386,6 +390,7 @@ struct CreateView: View {
                 .buttonStyle(.plain)
                 .frame(maxWidth: 72)
             }
+#endif
         }
         .frame(maxHeight: 72)
         .animation(.snappy(duration: 0.5), value: suggestionTitle)

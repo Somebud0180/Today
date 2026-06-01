@@ -27,4 +27,13 @@ struct TodayApp: App {
         }
         .modelContainer(sharedModelContainer)
     }
+    
+    func requestNotificationPermission() {
+        let center = UNUserNotificationCenter.current()
+        center.requestAuthorization { _, error in
+            if let error = error {
+                print("Error requesting permissions: \(error)")
+            }
+        }
+    }
 }
