@@ -12,6 +12,7 @@ struct OnboardingView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State var currentStep: Int = 0
     @State var animateGlyph: Bool = false
+    @State var calendarGridColumn: [GridItem] = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
     
     var body: some View {
         NavigationStack {
@@ -91,24 +92,23 @@ struct OnboardingView: View {
                         
                         VStack(spacing: 16) {
                             HStack(alignment: .bottom) {
-                                Text("Jog Book")
-                                    .font(.title)
-                                    .fontWeight(.semibold)
-                                    .lineLimit(2)
-                                    .minimumScaleFactor(0.3)
-                                    .foregroundStyle(colorScheme == .dark ? .black : .white)
-                                
-                                Spacer ()
-                                
-                                Text(Date.now, format: .dateTime.month(.abbreviated).year(.twoDigits))
-                                    .font(.title2)
-                                    .fontWeight(.medium)
-                                    .lineLimit(2)
-                                    .minimumScaleFactor(0.3)
-                                    .multilineTextAlignment(.trailing)
-                                    .foregroundStyle(.red)
-                                    .padding(.bottom, 2)
-                                
+                                Group {
+                                    Text("Jog Book")
+                                        .font(.title)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(colorScheme == .dark ? .black : .white)
+                                    
+                                    Spacer ()
+                                    
+                                    Text(Date.now, format: .dateTime.month(.abbreviated).year(.twoDigits))
+                                        .font(.title2)
+                                        .fontWeight(.medium)
+                                        .multilineTextAlignment(.trailing)
+                                        .foregroundStyle(.red)
+                                        .padding(.bottom, 2)
+                                }
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.3)
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
@@ -119,27 +119,15 @@ struct OnboardingView: View {
                             )
                             
                             
-                            Grid(alignment: .topLeading) {
-                                ForEach(0..<4, id: \.self) { row in
-                                    GridRow {
-                                        ForEach(0..<7, id: \.self) { block in
-                                            let isActive = Float.random(in: 0...2) > 0.25
-                                            RoundedRectangle(cornerRadius: 6)
-                                                .foregroundStyle(isActive ? .orange : .gray)
-                                                .aspectRatio(1, contentMode: .fit)
-                                        }
-                                    }
-                                }
+                            LazyVGrid(columns: calendarGridColumn, spacing: 8) {
+                                let daysInCurrentMonth = Calendar.current.range(of: .day, in: .month, for: Date())?.count ?? 30
                                 
-                                GridRow {
-                                    ForEach(0..<3, id: \.self) { block in
-                                        let isActive = Float.random(in: 0...2) > 0.25
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .foregroundStyle(isActive ? .orange : .gray)
-                                            .aspectRatio(1, contentMode: .fit)
-                                    }
+                                ForEach(0...daysInCurrentMonth, id: \.self) { block in
+                                    let isActive = Float.random(in: 0...2) > 0.25
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .foregroundStyle(isActive ? .orange : .gray)
+                                        .aspectRatio(1, contentMode: .fit)
                                 }
-                                .frame(maxWidth: .infinity, alignment: .leading)
                             }
                             .aspectRatio(4/3, contentMode: .fit)
                         }
@@ -152,7 +140,7 @@ struct OnboardingView: View {
                                 )
                                 
                         )
-                        .aspectRatio(3/5, contentMode: .fit)
+                        .aspectRatio(0.95, contentMode: .fit)
                         .padding(.horizontal, 32)
                         
                         Spacer()
