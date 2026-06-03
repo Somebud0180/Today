@@ -61,7 +61,7 @@ struct OnboardingView: View {
                             .symbolEffect(.variableColor.iterative.dimInactiveLayers.nonReversing, options: .repeat(.continuous))
                             .padding(32)
                             .task {
-                                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                                try? await Task.sleep(nanoseconds: 2_000_000_000)
                                 withAnimation(.bouncy){
                                     animateGlyph.toggle()
                                 }
@@ -93,7 +93,7 @@ struct OnboardingView: View {
                             HStack(alignment: .bottom) {
                                 Text("Jog Book")
                                     .font(.title)
-                                    .fontWeight(.bold)
+                                    .fontWeight(.semibold)
                                     .lineLimit(2)
                                     .minimumScaleFactor(0.3)
                                     .foregroundStyle(colorScheme == .dark ? .black : .white)
@@ -102,7 +102,7 @@ struct OnboardingView: View {
                                 
                                 Text(Date.now, format: .dateTime.month(.abbreviated).year(.twoDigits))
                                     .font(.title2)
-                                    .fontWeight(.semibold)
+                                    .fontWeight(.medium)
                                     .lineLimit(2)
                                     .minimumScaleFactor(0.3)
                                     .multilineTextAlignment(.trailing)
