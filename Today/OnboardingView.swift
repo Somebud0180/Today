@@ -220,7 +220,7 @@ struct OnboardingView: View {
                 .animation(.easeInOut(duration: 0.5), value: currentStep)
             }
             .background(
-                Image("OnboardingBackground")
+                Image("Background1")
                     .resizable()
                     .scaledToFill()
                     .ignoresSafeArea()
