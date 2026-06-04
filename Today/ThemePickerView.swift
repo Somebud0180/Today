@@ -12,7 +12,7 @@ struct ThemePickerView: View {
     @State var gridColumns: [GridItem] = [
         GridItem(.flexible(), spacing: 8),
         GridItem(.flexible(), spacing: 8),
-        ]
+    ]
     
     var body: some View {
         NavigationStack {
@@ -27,17 +27,17 @@ struct ThemePickerView: View {
                 }
                 
                 Section(header: Text("Background")) {
+                    
                     LazyVGrid(columns: gridColumns, spacing: 8) {
                         Image("Background1")
                             .resizable()
-                            .aspectRatio(9/16, contentMode: .fit)
+                            .scaledToFill()
                             .mask(RoundedRectangle(cornerRadius: 8, style: .continuous))
                             .padding(4)
                             .glassEffect(
                                 .regular.interactive().tint(.blue.opacity(0.5)),
                                 in: RoundedRectangle(cornerRadius: 12, style: .continuous)
                             )
-                        
                     }
                 }
             }
