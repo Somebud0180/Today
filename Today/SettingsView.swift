@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @AppStorage("prefersDarkMode") private var prefersDarkMode: Bool = DefaultSettings.prefersDarkMode
+    @AppStorage("prefersDarkMode") private var preferredColorScheme: PreferredColorScheme = DefaultSettings.preferredColorTheme
     @AppStorage("enableNotifications") private var enableNotifications: Bool = DefaultSettings.enableNotifications
     @AppStorage("autoPlayOnOpen") private var autoPlayOnOpen: Bool =
     DefaultSettings.autoPlayOnOpen

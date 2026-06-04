@@ -46,7 +46,7 @@ struct ContentView: View {
             
             Tab("Settings", systemImage: "gearshape", value: 2) {
                 SettingsView()
-                    .colorScheme(prefersDarkMode ? .dark : .light)
+                    .preferredColorScheme(preferredColorScheme.colorScheme)
             }
         }
     }
