@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ThemePickerView: View {
-    @AppStorage("prefersDarkMode") private var preferredColorScheme: PreferredColorScheme = DefaultSettings.preferredColorTheme
+    @AppStorage("preferredColorScheme") private var preferredColorScheme: PreferredColorScheme = DefaultSettings.preferredColorTheme
     @State var gridColumns: [GridItem] = [GridItem(.adaptive(minimum: 240, maximum: 360), spacing: 8)]
     
     var body: some View {

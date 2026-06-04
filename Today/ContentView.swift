@@ -21,7 +21,7 @@ struct ContentView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Query private var journalEntries: [JournalEntry]
     
-    @AppStorage("prefersDarkMode") private var preferredColorScheme: PreferredColorScheme = DefaultSettings.preferredColorTheme
+    @AppStorage("preferredColorScheme") private var preferredColorScheme: PreferredColorScheme = DefaultSettings.preferredColorTheme
     @AppStorage("enableNotifications") private var enableNotifications: Bool = DefaultSettings.enableNotifications
     @AppStorage("autoPlayOnOpen") private var autoPlayOnOpen: Bool =
         DefaultSettings.autoPlayOnOpen
