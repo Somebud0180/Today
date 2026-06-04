@@ -15,7 +15,16 @@ struct ThemePickerView: View {
         NavigationStack {
             Form {
                 Section(header: Text("Theme")) {
-                    Picker("Select Theme", selection: $preferredColorScheme) {
+                    Picker(
+                        "Select Theme",
+                        selection: Binding(get: {
+                            preferredColorScheme
+                        }, set: { newValue, _ in
+                            withAnimation(.easeInOut(duration: 0.5)) {
+                                preferredColorScheme = newValue
+                            }
+                        })
+                    ) {
                         ForEach(PreferredColorScheme.allCases) { scheme in
                             Text(scheme.title).tag(scheme)
                         }

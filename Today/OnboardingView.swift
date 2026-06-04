@@ -224,6 +224,7 @@ struct OnboardingView: View {
                     .resizable()
                     .scaledToFill()
                     .ignoresSafeArea()
+                    .animation(.easeInOut(duration: 0.5), value: colorScheme)
             )
         }
     }

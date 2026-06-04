@@ -28,6 +28,7 @@ private struct ZoomTransitionState {
 }
 
 struct HomeView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \JournalEntry.date, order: .forward) private var journalEntries: [JournalEntry]
     
@@ -65,7 +66,6 @@ struct HomeView: View {
                         .scrollTargetLayout()
                         .padding(gridPadding)
                         .frame(maxWidth: .infinity)
-                        // 1. Modifier is applied directly to the internal grid, so the geometry tracker can move!
                         .blurScroll(2, blurHeight: 0.05, blurPosition: .top, coordinateSpaceName: "homeScrollSpace", viewportHeight: proxy.size.height)
                     }
                     .coordinateSpace(name: "homeScrollSpace")
@@ -96,7 +96,6 @@ struct HomeView: View {
                         }
                     }
                     
-                    // 2. Title block is placed OUTSIDE the ScrollView, safely sitting on top of the blur layer
                     VStack(alignment: .leading) {
                         Text("Today")
                             .font(.largeTitle)
@@ -149,6 +148,7 @@ struct HomeView: View {
                     .resizable()
                     .scaledToFill()
                     .ignoresSafeArea()
+                    .animation(.easeInOut(duration: 0.5), value: colorScheme)
             )
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
