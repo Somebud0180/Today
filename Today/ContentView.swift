@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 
 struct DefaultSettings {
-    static let prefersDarkMode: Bool = false
+    static let preferredColorTheme: PreferredColorScheme = .system
     static let enableNotifications: Bool = true
     static let autoPlayOnOpen: Bool = false
     static let remindMeToJournal: Bool = true
@@ -21,7 +21,7 @@ struct ContentView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Query private var journalEntries: [JournalEntry]
     
-    @AppStorage("prefersDarkMode") private var prefersDarkMode: Bool = DefaultSettings.prefersDarkMode
+    @AppStorage("prefersDarkMode") private var preferredColorScheme: PreferredColorScheme = DefaultSettings.preferredColorTheme
     @AppStorage("enableNotifications") private var enableNotifications: Bool = DefaultSettings.enableNotifications
     @AppStorage("autoPlayOnOpen") private var autoPlayOnOpen: Bool =
         DefaultSettings.autoPlayOnOpen
@@ -36,12 +36,12 @@ struct ContentView: View {
         TabView(selection: $tabSelection) {
             Tab("Home", systemImage: "note", value: 0) {
                 HomeView()
-                    .colorScheme(prefersDarkMode ? .dark : .light)
+                    .preferredColorScheme(preferredColorScheme.colorScheme)
             }
             
             Tab("Create Entry", systemImage: "note.text.badge.plus", value: 1) {
                 CreateView(tabSelection: $tabSelection)
-                    .colorScheme(prefersDarkMode ? .dark : .light)
+                    .preferredColorScheme(preferredColorScheme.colorScheme)
             }
             
             Tab("Settings", systemImage: "gearshape", value: 2) {
