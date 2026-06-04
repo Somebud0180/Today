@@ -13,6 +13,7 @@ struct JournalView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject var videoViewModel: VideoViewModel
     @StateObject var audioViewModel: AudioViewModel
+    @AppStorage("autoPlayOnOpen") private var autoPlayOnOpen: Bool = DefaultSettings.autoPlayOnOpen
     let selectedEntry: JournalEntry
     
     init(selectedEntry: JournalEntry) {
@@ -68,10 +69,12 @@ struct JournalView: View {
                 }
             }
             .onAppear {
-                if selectedEntry.mediaType == .video {
-                    videoViewModel.play()
-                } else if selectedEntry.mediaType == .audio {
-                    audioViewModel.play()
+                if autoPlayOnOpen {
+                    if selectedEntry.mediaType == .video {
+                        videoViewModel.play()
+                    } else if selectedEntry.mediaType == .audio {
+                        audioViewModel.play()
+                    }
                 }
             }
             .onDisappear { saveChanges() }
