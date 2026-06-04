@@ -40,6 +40,12 @@ struct SettingsView: View {
                     Toggle(isOn: $autoPlayOnOpen) {
                         Text("Auto-play entry upon open")
                     }
+                    
+                    NavigationLink {
+                        ThemePickerView()
+                    } label: {
+                        Text("App Appearance")
+                    }
                 }
                 
                 Section(header: Text("Notifications")) {

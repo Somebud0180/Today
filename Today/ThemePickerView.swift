@@ -9,10 +9,7 @@ import SwiftUI
 
 struct ThemePickerView: View {
     @State var selectedTheme: Int = 0
-    @State var gridColumns: [GridItem] = [
-        GridItem(.flexible(), spacing: 8),
-        GridItem(.flexible(), spacing: 8),
-    ]
+    @State var gridColumns: [GridItem] = [GridItem(.adaptive(minimum: 240, maximum: 360), spacing: 8)]
     
     var body: some View {
         NavigationStack {
@@ -32,6 +29,7 @@ struct ThemePickerView: View {
                         Image("Background1")
                             .resizable()
                             .scaledToFill()
+                            .frame(maxWidth: 320, maxHeight: 320)
                             .mask(RoundedRectangle(cornerRadius: 8, style: .continuous))
                             .padding(4)
                             .glassEffect(

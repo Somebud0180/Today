@@ -144,6 +144,12 @@ struct HomeView: View {
                         }
                 )
             }
+            .background(
+                Image("Background1")
+                    .resizable()
+                    .scaledToFill()
+                    .ignoresSafeArea()
+            )
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Select") {
