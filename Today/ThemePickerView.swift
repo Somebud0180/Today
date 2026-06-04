@@ -8,17 +8,17 @@
 import SwiftUI
 
 struct ThemePickerView: View {
-    @State var selectedTheme: Int = 0
+    @AppStorage("prefersDarkMode") private var preferredColorScheme: PreferredColorScheme = DefaultSettings.preferredColorTheme
     @State var gridColumns: [GridItem] = [GridItem(.adaptive(minimum: 240, maximum: 360), spacing: 8)]
     
     var body: some View {
         NavigationStack {
             Form {
                 Section(header: Text("Theme")) {
-                    Picker("Select Theme", selection: $selectedTheme) {
-                        Text("System").tag(0)
-                        Text("Light").tag(1)
-                        Text("Dark").tag(2)
+                    Picker("Select Theme", selection: $preferredColorScheme) {
+                        ForEach(PreferredColorScheme.allCases) { scheme in
+                            Text(scheme.title).tag(scheme)
+                        }
                     }
                     .pickerStyle(.segmented)
                 }
