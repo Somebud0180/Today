@@ -31,6 +31,14 @@ struct AudioRecordingView: View {
         localRecordedURL != nil
     }
     
+    private var isLandscape: Bool {
+        if let windowSize = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+            return windowSize.screen.bounds.width > windowSize.screen.bounds.height
+        } else {
+            return false
+        }
+    }
+    
     @State private var recordingTask: Task<Void, Never>?
     @State private var meterPollTask: Task<Void, Never>?
     @State private var playbackPollTask: Task<Void, Never>?
@@ -41,117 +49,26 @@ struct AudioRecordingView: View {
     private let barSpacing: CGFloat = 3
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Top: Stopwatch
-            VStack(spacing: 16) {
-                Text(formatTime(elapsedTime))
-                    .font(.system(size: 48, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.primary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 24)
-            
-            Spacer()
-            
-            // Center: Waveform
-            VStack(spacing: 24) {
-                if isRecording {
-                    Text("Recording...")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+        Group {
+            if isLandscape {
+                HStack {
+                    VStack(spacing: 0) {
+                        stopwatchView()
+                        Spacer()
+                        waveformView()
+                    }
+                    
+                    VStack(spacing: 0) {
+                        buttonView()
+                    }
                 }
-                
-                WaveformView(levels: levels, isRecording: isRecording || isPlaying, resetToken: waveformResetToken)
-                    .frame(height: 120)
-            }
-            .animation(.easeInOut, value: isRecording)
-            .animation(.easeInOut, value: isPlaying)
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, 24)
-            
-            Spacer()
-            
-            // Bottom: Record button and Back / Post-recording controls
-            VStack {
-                if !hasRecording {
-                    // Record button (red circle inside white ring)
-                    Button(action: toggleRecording) {
-                        Text(isRecording ? "Stop Recording" : "Start Recording")
-                            .frame(maxWidth: .infinity)
-                            .font(.headline)
-                            .padding(12)
-                    }
-                    .buttonStyle(.glassProminent)
-                    .tint(.red)
-                    
-                    // Back button
-                    Button(action: {
-                        stopRecording()
-                        recordedWaveform = nil
-                        onBack()
-                    }) {
-                        Text("Back")
-                            .frame(maxWidth: .infinity)
-                            .font(.headline)
-                            .padding(12)
-                    }
-                    .buttonStyle(.glass)
-                    .disabled(isRecording)
-                    .opacity(isRecording ? 0.5 : 1.0)
-                } else {
-                    Button(action: {
-                        if isPlaying {
-                            manager.pausePlayingRecording()
-                            isPlaying = false
-                            playbackPollTask?.cancel()
-                            playbackPollTask = nil
-                        } else {
-                            if firstTimePlaying {
-                                waveformResetToken += 1
-                                firstTimePlaying = false
-                            }
-                            
-                            do {
-                                try manager.resumePlayingRecording()
-                                isPlaying = true
-                                smoothedLevels = [0, 0, 0, 0, 0]
-                                levels = []
-                                startPlaybackMetering()
-                            } catch {
-                                errorMessage = "Failed to play recording: \(error.localizedDescription)"
-                                showError = true
-                            }
-                        }
-                    }) {
-                        Text(isPlaying ? "Pause" : "Play")
-                            .frame(maxWidth: .infinity)
-                            .font(.headline)
-                            .padding(12)
-                    }
-                    .buttonStyle(.glass)
-                    
-                    Button(action: {
-                        recordedURL = localRecordedURL
-                        recordedWaveform = manager.makeRecordedWaveform()
-                        activePage = .save
-                    }) {
-                        Text("Confirm Recording")
-                            .frame(maxWidth: .infinity)
-                            .font(.headline)
-                            .padding(12)
-                    }
-                    .buttonStyle(.glassProminent)
-                    .disabled(localRecordedURL == nil)
-                    
-                    Button(action: {
-                        showDiscardConfirmation = true
-                    }) {
-                        Text("Record again")
-                            .frame(maxWidth: .infinity)
-                            .font(.headline)
-                            .padding(12)
-                    }
-                    .buttonStyle(.glass)
+            } else {
+                VStack(spacing: 0) {
+                    stopwatchView()
+                    Spacer()
+                    waveformView()
+                    Spacer()
+                    buttonView()
                 }
             }
         }
@@ -217,6 +134,118 @@ struct AudioRecordingView: View {
         .onDisappear {
             stopRecording()
             manager.pausePlayingRecording()
+        }
+    }
+    
+    func stopwatchView() -> some View {
+        VStack(spacing: 16) {
+            Text(formatTime(elapsedTime))
+                .font(.system(size: 48, weight: .bold, design: .monospaced))
+                .foregroundStyle(.primary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+    }
+    
+    func waveformView() -> some View {
+        VStack(spacing: 24) {
+            if isRecording {
+                Text("Recording...")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            
+            WaveformView(levels: levels, isRecording: isRecording || isPlaying, resetToken: waveformResetToken)
+                .frame(height: 120)
+        }
+        .animation(.easeInOut, value: isRecording)
+        .animation(.easeInOut, value: isPlaying)
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 24)
+    }
+    
+    func buttonView() -> some View {
+        VStack {
+            if !hasRecording {
+                // Record button (red circle inside white ring)
+                Button(action: toggleRecording) {
+                    Text(isRecording ? "Stop Recording" : "Start Recording")
+                        .frame(maxWidth: .infinity)
+                        .font(.headline)
+                        .padding(12)
+                }
+                .buttonStyle(.glassProminent)
+                .tint(.red)
+                
+                // Back button
+                Button(action: {
+                    stopRecording()
+                    recordedWaveform = nil
+                    onBack()
+                }) {
+                    Text("Back")
+                        .frame(maxWidth: .infinity)
+                        .font(.headline)
+                        .padding(12)
+                }
+                .buttonStyle(.glass)
+                .disabled(isRecording)
+                .opacity(isRecording ? 0.5 : 1.0)
+            } else {
+                Button(action: {
+                    if isPlaying {
+                        manager.pausePlayingRecording()
+                        isPlaying = false
+                        playbackPollTask?.cancel()
+                        playbackPollTask = nil
+                    } else {
+                        if firstTimePlaying {
+                            waveformResetToken += 1
+                            firstTimePlaying = false
+                        }
+                        
+                        do {
+                            try manager.resumePlayingRecording()
+                            isPlaying = true
+                            smoothedLevels = [0, 0, 0, 0, 0]
+                            levels = []
+                            startPlaybackMetering()
+                        } catch {
+                            errorMessage = "Failed to play recording: \(error.localizedDescription)"
+                            showError = true
+                        }
+                    }
+                }) {
+                    Text(isPlaying ? "Pause" : "Play")
+                        .frame(maxWidth: .infinity)
+                        .font(.headline)
+                        .padding(12)
+                }
+                .buttonStyle(.glass)
+                
+                Button(action: {
+                    recordedURL = localRecordedURL
+                    recordedWaveform = manager.makeRecordedWaveform()
+                    activePage = .save
+                }) {
+                    Text("Confirm Recording")
+                        .frame(maxWidth: .infinity)
+                        .font(.headline)
+                        .padding(12)
+                }
+                .buttonStyle(.glassProminent)
+                .disabled(localRecordedURL == nil)
+                
+                Button(action: {
+                    showDiscardConfirmation = true
+                }) {
+                    Text("Record again")
+                        .frame(maxWidth: .infinity)
+                        .font(.headline)
+                        .padding(12)
+                }
+                .buttonStyle(.glass)
+            }
         }
     }
     
