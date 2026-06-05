@@ -54,21 +54,6 @@ struct BlurScroll: ViewModifier {
         ZStack(alignment: .top) {
             // Layer 1: Sharp Content View
             content
-                .mask(
-                    VStack(spacing: 0) {
-                        if blurPosition == .top {
-                            Color.clear.frame(height: max(0, -scrollPosition.y))
-                            topSharpGradient.frame(height: viewportHeight)
-                            Color.white // Keep the rest of the list visible
-                        } else {
-                            Color.white.frame(height: max(0, -scrollPosition.y))
-                            bottomSharpGradient.frame(height: viewportHeight)
-                            Color.clear
-                        }
-                    }
-                    // Pulls the mask up if the user elastically overscrolls at the edges
-                        .offset(y: scrollPosition.y > 0 ? -scrollPosition.y : 0)
-                )
             
             // Layer 2: Photographic Focus-Blur View
             content
@@ -76,19 +61,25 @@ struct BlurScroll: ViewModifier {
                 .mask(
                     VStack(spacing: 0) {
                         if blurPosition == .top {
-                            Color.white.frame(height: max(0, -scrollPosition.y))
+                            Color.white
                             topBlurGradient.frame(height: viewportHeight)
+                            Color.clear.frame(height: max(0, scrollPosition.y))
                         } else {
                             Color.clear.frame(height: max(0, -scrollPosition.y))
                             bottomBlurGradient.frame(height: viewportHeight)
                             Color.white
                         }
                     }
-                        .offset(y: scrollPosition.y > 0 ? -scrollPosition.y : 0)
+                        .offset(y: scrollPosition.y < 200 ? -scrollPosition.y - 256 : 0)
+                        .onChange(of: scrollPosition.y) { newValue in
+                            // Debug print to observe scroll position changes
+                            print("Scroll Position Y: \(newValue)")
+                        }
                         .blur(radius: 8)
                 )
                 .allowsHitTesting(false) // Prevents the blurred layer from intercepting your taps
         }
+        .ignoresSafeArea()
         .background(
             GeometryReader { geo in
                 Color.clear
