@@ -29,21 +29,9 @@ struct BlurScroll: ViewModifier {
         let fadeOffset = 0.05 // 5% smooth transition zone
         let safeBlurHeight = max(0.0, min(1.0, blurHeight))
         
-        // --- Explicit Top Gradients ---
-        let topSharpGradient = LinearGradient(stops: [
-            .init(color: .clear, location: safeBlurHeight - fadeOffset),
-            .init(color: .white, location: safeBlurHeight)
-        ], startPoint: .top, endPoint: .bottom)
-        
         let topBlurGradient = LinearGradient(stops: [
             .init(color: .white, location: safeBlurHeight - fadeOffset),
             .init(color: .clear, location: safeBlurHeight)
-        ], startPoint: .top, endPoint: .bottom)
-        
-        // --- Explicit Bottom Gradients ---
-        let bottomSharpGradient = LinearGradient(stops: [
-            .init(color: .white, location: 1.0 - safeBlurHeight),
-            .init(color: .clear, location: 1.0 - safeBlurHeight + fadeOffset)
         ], startPoint: .top, endPoint: .bottom)
         
         let bottomBlurGradient = LinearGradient(stops: [
@@ -71,10 +59,6 @@ struct BlurScroll: ViewModifier {
                         }
                     }
                         .offset(y: scrollPosition.y < 200 ? -scrollPosition.y - 256 : 0)
-                        .onChange(of: scrollPosition.y) { newValue in
-                            // Debug print to observe scroll position changes
-                            print("Scroll Position Y: \(newValue)")
-                        }
                         .blur(radius: 8)
                 )
                 .allowsHitTesting(false) // Prevents the blurred layer from intercepting your taps
