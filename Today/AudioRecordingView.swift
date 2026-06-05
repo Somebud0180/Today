@@ -26,17 +26,10 @@ struct AudioRecordingView: View {
     @State private var firstTimePlaying: Bool = true
     @State private var showDiscardConfirmation: Bool = false
     @State private var localRecordedURL: URL? = nil
+    @State private var isLandscape: Bool = false
     
     private var hasRecording: Bool {
         localRecordedURL != nil
-    }
-    
-    private var isLandscape: Bool {
-        if let windowSize = UIApplication.shared.connectedScenes.first as? UIWindowScene {
-            return windowSize.screen.bounds.width > windowSize.screen.bounds.height
-        } else {
-            return false
-        }
     }
     
     @State private var recordingTask: Task<Void, Never>?
@@ -135,6 +128,17 @@ struct AudioRecordingView: View {
             stopRecording()
             manager.pausePlayingRecording()
         }
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear {
+                        isLandscape = proxy.size.width > proxy.size.height
+                    }
+                    .onChange(of: proxy.size) {
+                        isLandscape = proxy.size.width > proxy.size.height
+                    }
+            }
+        )
     }
     
     func stopwatchView() -> some View {
