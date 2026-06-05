@@ -40,10 +40,10 @@ struct BlurScroll: ViewModifier {
         ], startPoint: .top, endPoint: .bottom)
         
         ZStack(alignment: .top) {
-            // Layer 1: Sharp Content View
+            // Main content
             content
             
-            // Layer 2: Photographic Focus-Blur View
+            // Blurred overlay (copy of main content)
             content
                 .blur(radius: blur)
                 .mask(
@@ -61,7 +61,7 @@ struct BlurScroll: ViewModifier {
                         .offset(y: scrollPosition.y < 200 ? -scrollPosition.y - 256 : 0)
                         .blur(radius: 8)
                 )
-                .allowsHitTesting(false) // Prevents the blurred layer from intercepting your taps
+                .allowsHitTesting(false)
         }
         .ignoresSafeArea()
         .background(
