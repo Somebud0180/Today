@@ -168,175 +168,80 @@ struct CreateView: View {
                     }
                 } else {
                     GeometryReader { proxy in
-                        let width = min(proxy.size.width / 2, 220)
-                        let height = min(width * (3 / 2), proxy.size.height - bottomSectionHeight - keyboardHeight)
-                        let finalWidth = min(width, height * (2 / 3))
+                        let isLandscape = proxy.size.width > proxy.size.height
                         
-                        ZStack {
-                            if recordedVideoURL != nil || recordedAudioWaveform != nil {
-                                ZStack {
-                                    if let recordedVideoURL = recordedVideoURL,
-                                       let thumbnail = videoThumbnail(for: recordedVideoURL)
-                                    {
-                                        thumbnail
-                                            .resizable()
-                                            .scaledToFill()
-                                            .frame(width: finalWidth, height: height)
-                                            .clipped()
-                                            .clipShape(RoundedRectangle(cornerRadius: 16))
-                                            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
-                                    } else if
-                                        let recordedAudioWaveform = recordedAudioWaveform,
-                                        let linearSample = recordedAudioWaveform.samplesLinear as? [Double],
-                                        let waveformLevels = JournalEntry.audioWaveformThumbnailLevels(linearSample, maxBars: max(1, Int(finalWidth / 7)))
-                                    {
-                                        WaveformView(levels: waveformLevels, isThumbnailView: true)
-                                            .frame(width: finalWidth, height: height)
-                                            .clipShape(RoundedRectangle(cornerRadius: 16))
-                                            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
-                                    }
-                                    
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .fill(.gray.opacity(0.25))
-                                        .glassEffect(
-                                            .clear.tint(.gray.opacity(0.25)),
-                                            in: RoundedRectangle(cornerRadius: 16)
-                                        )
-                                    
-                                    VStack(alignment: .leading) {
-                                        Text(
-                                            entryTitle.isEmpty ? Date().formatted(date: .numeric, time: .omitted) : entryTitle
-                                        )
-                                        .font(.title2)
-                                        .lineLimit(2)
-                                        .fontWeight(.heavy)
-                                        .foregroundStyle(.white.opacity(0.9))
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        
-                                        if !entryTitle.isEmpty {
-                                            Text(Date().formatted(date: .numeric, time: .omitted))
-                                                .font(.title3)
-                                                .foregroundStyle(.white.opacity(0.75))
-                                        }
-                                        
-                                        Spacer()
-                                    }
-                                    .padding(12)
-                                }
-                                .ignoresSafeArea(.keyboard)
-                                .frame(width: finalWidth, height: height, alignment: .center)
-                                .position(
-                                    x: proxy.size.width / 2,
-                                    y: getCardPosY(proxy)
-                                )
-                                .opacity(cardOpacity)
-                                .scaleEffect(cardScale)
-                                .offset(cardOffset)
-                                .shadow(color: .black.opacity(shadowOpacity), radius: 10, x: 0, y: shadowOffsetY)
-                                .onAppear(perform: showCardAnimation)
-                            }
+                        if isLandscape {
+                            let width = min(proxy.size.width / 2, 220)
+                            let height = min(width * (3 / 2), proxy.size.height - 44)
+                            let finalWidth = min(width, height * (2 / 3))
                             
-                            VStack(spacing: 12) {
-                                Spacer()
+                            HStack {
+                                previewCard(finalWidth: finalWidth, height: height, proxy: proxy, isLandscape: isLandscape)
                                 
-                                if !isSaving,
-                                   let activeURL = recordedVideoURL ?? recordedAudioURL {
-                                    let mediaType: MediaType = recordedVideoURL != nil ? .video : .audio
-                                    let fileExtension = activeURL.pathExtension.isEmpty
-                                    ? (mediaType == .video ? "mov" : "m4a")
-                                    : activeURL.pathExtension
-                                    
-                                    VStack {
-                                        VStack {
-                                            TextField(
-                                                Date().formatted(date: .numeric, time: .omitted),
-                                                text: $entryTitle,
-                                                axis: .vertical
-                                            )
-                                            .focused($titleFieldFocused)
-                                            .font(.largeTitle)
-                                            
-                                            TextField(
-                                                "Add a note (optional)",
-                                                text: $entryNote
-                                            )
-                                            .focused($noteFieldFocused)
-                                        }
+                                Spacer(minLength: 0)
+                                
+                                VStack(spacing: 12) {
+                                    if !isSaving,
+                                       let activeURL = recordedVideoURL ?? recordedAudioURL {
+                                        let mediaType: MediaType = recordedVideoURL != nil ? .video : .audio
+                                        let fileExtension = activeURL.pathExtension.isEmpty
+                                        ? (mediaType == .video ? "mov" : "m4a")
+                                        : activeURL.pathExtension
                                         
-                                        Divider()
-                                        
-                                        Button(action: {
-                                            tempEntry = JournalEntry(
-                                                title: entryTitle,
-                                                note: entryNote,
-                                                mediaData: try! Data(contentsOf: activeURL),
-                                                fileExtension: fileExtension,
-                                                mediaType: mediaType,
-                                                waveform: mediaType == .audio ? recordedAudioWaveform : nil
-                                            )
-                                            
-                                            withAnimation(.easeInOut(duration: 0.3)) {
-                                                isSaving = true
-                                            }
-                                            
-                                            performSaveAnimation(proxy)
-                                        }) {
-                                            Text("Save Entry")
-                                                .frame(maxWidth: .infinity)
-                                                .font(.headline)
-                                                .padding(12)
-                                        }
-                                        .buttonStyle(.glassProminent)
-                                        
-                                        Button(action: {
-                                            transitionDirection = .backward
-                                            withAnimation(.easeInOut(duration: 0.3)) {
-                                                if recordedAudioURL != nil {
-                                                    activePage = .audio
-                                                } else if recordedVideoURL != nil {
-                                                    activePage = .video
-                                                } else {
-                                                    recordedAudioURL = nil
-                                                    recordedAudioWaveform = nil
-                                                    recordedVideoURL = nil
-                                                    activePage = .menu
-                                                }
-                                            }
-                                        }) {
-                                            Text("Back")
-                                                .frame(maxWidth: .infinity)
-                                                .font(.headline)
-                                                .padding(12)
-                                        }
-                                        .buttonStyle(.glass)
-                                        
-                                    }
-                                    .background {
-                                        GeometryReader { proxy in
-                                            Color.clear
-                                                .onAppear {
-                                                    bottomSectionHeight = proxy.size.height
-                                                }
-                                        }
-                                    }
-                                    .padding(24)
-                                    .padding(.bottom, saveBottomPadding)
-                                    .transition(pageTransition)
-                                    .onAppear {
-                                        saveBottomInset = proxy.safeAreaInsets.bottom
+                                        saveFields(activeURL: activeURL, fileExtension: fileExtension, mediaType: mediaType, proxy: proxy)
+                                            .padding(24)
+                                            .transition(.opacity)
                                     }
                                 }
                             }
-                        }
-                        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { notification in
-                            handleKeyboardWillShow(notification)
-                        }
-                        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-                            handleKeyboardWillHide()
+                        } else {
+                            let width = min(proxy.size.width / 2, 220)
+                            let height = min(width * (3 / 2), proxy.size.height - bottomSectionHeight - keyboardHeight)
+                            let finalWidth = min(width, height * (2 / 3))
+                            
+                            ZStack {
+                                if recordedVideoURL != nil || recordedAudioWaveform != nil {
+                                    previewCard(finalWidth: finalWidth, height: height, proxy: proxy, isLandscape: isLandscape)
+                                }
+                                
+                                VStack(spacing: 12) {
+                                    Spacer()
+                                    
+                                    if !isSaving,
+                                       let activeURL = recordedVideoURL ?? recordedAudioURL {
+                                        let mediaType: MediaType = recordedVideoURL != nil ? .video : .audio
+                                        let fileExtension = activeURL.pathExtension.isEmpty
+                                        ? (mediaType == .video ? "mov" : "m4a")
+                                        : activeURL.pathExtension
+                                        
+                                        saveFields(activeURL: activeURL, fileExtension: fileExtension, mediaType: mediaType, proxy: proxy)
+                                            .background {
+                                                GeometryReader { proxy in
+                                                    Color.clear
+                                                        .onAppear {
+                                                            bottomSectionHeight = proxy.size.height
+                                                        }
+                                                }
+                                            }
+                                            .padding(24)
+                                            .padding(.bottom, saveBottomPadding)
+                                            .transition(.opacity)
+                                            .onAppear {
+                                                saveBottomInset = proxy.safeAreaInsets.bottom
+                                            }
+                                    }
+                                }
+                            }
+                            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { notification in
+                                handleKeyboardWillShow(notification)
+                            }
+                            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+                                handleKeyboardWillHide()
+                            }
                         }
                     }
                     .ignoresSafeArea(.keyboard)
-                    .transition(.opacity)
+                    .transition(pageTransition)
                 }
             }
         }
@@ -453,6 +358,138 @@ struct CreateView: View {
             }
         }
         .buttonStyle(.plain)
+    }
+    
+    func previewCard(finalWidth: CGFloat, height: CGFloat, proxy: GeometryProxy, isLandscape: Bool) -> some View {
+        ZStack {
+            if let recordedVideoURL = recordedVideoURL,
+               let thumbnail = videoThumbnail(for: recordedVideoURL)
+            {
+                thumbnail
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: finalWidth, height: height)
+                    .clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
+            } else if
+                let recordedAudioWaveform = recordedAudioWaveform,
+                let linearSample = recordedAudioWaveform.samplesLinear as? [Double],
+                let waveformLevels = JournalEntry.audioWaveformThumbnailLevels(linearSample, maxBars: max(1, Int(finalWidth / 7)))
+            {
+                WaveformView(levels: waveformLevels, isThumbnailView: true)
+                    .frame(width: finalWidth, height: height)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
+            }
+            
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.gray.opacity(0.25))
+                .glassEffect(
+                    .clear.tint(.gray.opacity(0.25)),
+                    in: RoundedRectangle(cornerRadius: 16)
+                )
+            
+            VStack(alignment: .leading) {
+                Text(
+                    entryTitle.isEmpty ? Date().formatted(date: .numeric, time: .omitted) : entryTitle
+                )
+                .font(.title2)
+                .lineLimit(2)
+                .fontWeight(.heavy)
+                .foregroundStyle(.white.opacity(0.9))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                
+                if !entryTitle.isEmpty {
+                    Text(Date().formatted(date: .numeric, time: .omitted))
+                        .font(.title3)
+                        .foregroundStyle(.white.opacity(0.75))
+                }
+                
+                Spacer()
+            }
+            .padding(12)
+        }
+        .ignoresSafeArea(.keyboard)
+        .frame(width: finalWidth, height: height, alignment: .center)
+        .position(
+            x: isLandscape ? (proxy.size.width / 4) : (proxy.size.width / 2),
+            y: isLandscape ? (proxy.size.height / 2) : getCardPosY(proxy)
+        )
+        .opacity(cardOpacity)
+        .scaleEffect(cardScale)
+        .offset(cardOffset)
+        .shadow(color: .black.opacity(shadowOpacity), radius: 10, x: 0, y: shadowOffsetY)
+        .onAppear(perform: showCardAnimation)
+    }
+    
+    func saveFields(activeURL: URL, fileExtension: String, mediaType: MediaType, proxy: GeometryProxy) -> some View {
+        VStack {
+            VStack {
+                TextField(
+                    Date().formatted(date: .numeric, time: .omitted),
+                    text: $entryTitle,
+                    axis: .vertical
+                )
+                .focused($titleFieldFocused)
+                .font(.largeTitle)
+                
+                TextField(
+                    "Add a note (optional)",
+                    text: $entryNote
+                )
+                .focused($noteFieldFocused)
+            }
+            
+            Divider()
+            
+            Button(action: {
+                tempEntry = JournalEntry(
+                    title: entryTitle,
+                    note: entryNote,
+                    mediaData: try! Data(contentsOf: activeURL),
+                    fileExtension: fileExtension,
+                    mediaType: mediaType,
+                    waveform: mediaType == .audio ? recordedAudioWaveform : nil
+                )
+                
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    isSaving = true
+                }
+                
+                performSaveAnimation(proxy)
+            }) {
+                Text("Save Entry")
+                    .frame(maxWidth: .infinity)
+                    .font(.headline)
+                    .padding(12)
+            }
+            .buttonStyle(.glassProminent)
+            
+            Button(action: {
+                transitionDirection = .backward
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    if recordedAudioURL != nil {
+                        activePage = .audio
+                    } else if recordedVideoURL != nil {
+                        activePage = .video
+                    } else {
+                        recordedAudioURL = nil
+                        recordedAudioWaveform = nil
+                        recordedVideoURL = nil
+                        activePage = .menu
+                    }
+                }
+            }) {
+                Text("Back")
+                    .frame(maxWidth: .infinity)
+                    .font(.headline)
+                    .padding(12)
+            }
+            .buttonStyle(.glass)
+            
+        }
+
     }
     
     func getCardPosY(_ proxy: GeometryProxy) -> CGFloat {
