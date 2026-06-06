@@ -26,6 +26,7 @@ struct VideoRecordingView: View {
     @State private var showDiscardConfirmation = false
     @State private var showError = false
     @State private var errorMessage = ""
+    @State private var isLandscape: Bool = false
     
     init(activePage: Binding<CreateView.Page>, recordedURL: Binding<URL?>, hasTemporaryRecording: Binding<Bool>, onBack: @escaping () -> Void ) {
         _manager = StateObject(wrappedValue: VideoRecorderManager())
@@ -137,6 +138,17 @@ struct VideoRecordingView: View {
             manager.stopRecording()
             manager.stopSession()
         }
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear {
+                        isLandscape = proxy.size.width > proxy.size.height
+                    }
+                    .onChange(of: proxy.size) {
+                        isLandscape = proxy.size.width > proxy.size.height
+                    }
+            }
+        )
     }
     
 //    private var topControls: some View {
