@@ -68,7 +68,7 @@ struct HomeView: View {
                         .scrollTargetLayout()
                         .padding(gridPadding)
                         .frame(maxWidth: .infinity)
-                        .blurScroll(2, blurHeight: 0.05, blurPosition: .top, coordinateSpaceName: "homeScrollSpace", viewportHeight: proxy.size.height)
+                        .blurScroll(2, blurHeight: 0.08, blurPosition: .top, coordinateSpaceName: "homeScrollSpace", viewportHeight: proxy.size.height)
                     }
                     .coordinateSpace(name: "homeScrollSpace")
                     .scrollPosition($scrollPosition, anchor: .bottom)

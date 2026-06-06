@@ -26,7 +26,7 @@ struct BlurScroll: ViewModifier {
     
     func body(content: Content) -> some View {
         
-        let fadeOffset = 0.05 // 5% smooth transition zone
+        let fadeOffset = 0.1
         let safeBlurHeight = max(0.0, min(1.0, blurHeight))
         
         let topBlurGradient = LinearGradient(stops: [
