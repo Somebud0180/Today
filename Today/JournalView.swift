@@ -10,6 +10,7 @@ import SwiftData
 
 struct JournalView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
     @StateObject var videoViewModel: VideoViewModel
     @StateObject var audioViewModel: AudioViewModel
@@ -47,12 +48,18 @@ struct JournalView: View {
                 }
                 .ignoresSafeArea()
             }
-            .preferredColorScheme(.dark)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background {
                 GeometryReader { proxy in
-                    Rectangle()
-                        .fill(Color.black)
+                    Color.gray.opacity(0.8)
+                        .background(
+                            Image("Background1")
+                            .resizable()
+                            .scaledToFill()
+                            .blur(radius: 24)
+                            .ignoresSafeArea()
+                            .animation(.easeInOut(duration: 0.5), value: colorScheme)
+                            )
                         .ignoresSafeArea()
                         .onAppear {
                             isLandscape = proxy.size.width > proxy.size.height
