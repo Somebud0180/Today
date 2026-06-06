@@ -39,6 +39,9 @@ struct VideoRecordingView: View {
 
     var body: some View {
         GeometryReader { proxy in
+            let isLandscape = proxy.size.width > proxy.size.height
+            let adaptiveLayout = isLandscape ? AnyLayout(HStackLayout(spacing: 0)) : AnyLayout(VStackLayout())
+            
             ZStack {
                 if !manager.showConfirmation {
                     CameraPreviewView(manager: manager)
@@ -57,7 +60,7 @@ struct VideoRecordingView: View {
                         .transition(.opacity)
                 }
                 
-                VStack {
+                adaptiveLayout {
                     if manager.showConfirmation {
                         AspectFitPlayerView(player: videoViewModel.player)
                             .frame(maxHeight: .infinity)
@@ -67,12 +70,17 @@ struct VideoRecordingView: View {
                             .onTapGesture {
                                 videoViewModel.togglePlayback()
                             }
-                        Spacer()
-                    } else {
-                        Spacer()
                     }
-                    zoomStopsRow
-                    bottomControls
+                    
+                    Spacer()
+                    
+                    adaptiveLayout {
+                        Spacer()
+                        
+                        zoomStopsRow(isLandscape: isLandscape)
+                        
+                        bottomControls(isLandscape: isLandscape)
+                    }
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 24)
@@ -170,17 +178,16 @@ struct VideoRecordingView: View {
 //        }
 //    }
     
-    private var zoomStopsRow: some View {
-        HStack(spacing: 12) {
+    private func zoomStopsRow(isLandscape: Bool) -> some View {
+        let adaptiveLayout = isLandscape ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 12))
+        
+        return adaptiveLayout {
             if localRecordedURL == nil {
-                Button(action: { manager.switchCamera() }) {
-                    Image(systemName: "arrow.triangle.2.circlepath.camera")
-                        .font(.title2)
-                        .padding(2)
-                }
-                .buttonStyle(.glass)
+                let sortedZoomStops = isLandscape ? manager.availableZoomStops.sorted(by: >) : manager.availableZoomStops.sorted(by: <)
                 
-                ForEach(manager.availableZoomStops, id: \ .self) { stop in
+                Spacer()
+                
+                ForEach(sortedZoomStops, id: \ .self) { stop in
                     Button(action: { manager.setZoomFactor(stop) }) {
                         Text(zoomLabel(stop))
                             .font(.subheadline)
@@ -189,72 +196,108 @@ struct VideoRecordingView: View {
                     }
                     .buttonStyle(.glass)
                 }
+                
+                Spacer()
             }
         }
-        .frame(maxWidth: .infinity)
     }
     
-    private var bottomControls: some View {
-        VStack(spacing: 16) {
+    private func bottomControls(isLandscape: Bool) -> some View {
+        Group {
             if !manager.showConfirmation {
-                HStack(spacing: 0) {
-                    Button(action: {
-                        manager.stopRecording()
-                        onBack()
-                    }) {
-                        Label("Back", systemImage: "chevron.left")
-                            .labelStyle(.iconOnly)
-                            .font(.title)
-                            .frame(width: 64, height: 64)
-                            .glassEffect(
-                                .regular.interactive(),
-                                in: Circle()
-                            )
-                            .contentShape(Circle())
+                if isLandscape {
+                    VStack(spacing: 0) {
+                        flipButton
+                        Spacer()
+                        recordButton
+                        Spacer()
+                        backButton
                     }
-                    .buttonStyle(.plain)
-                    .disabled(manager.isRecording)
-                    .opacity(manager.isRecording ? 0.5 : 1.0)
-                    .padding(.trailing, -64)
-                    
-                    Spacer()
-                    
-                    Button(action: toggleRecording) {
-                        Circle()
-                            .fill(manager.isRecording ? Color.red : Color.white)
-                            .padding(8)
-                            .glassEffect(
-                                .regular.interactive(),
-                                in: Circle()
-                            )
+                } else {
+                    HStack(spacing: 0) {
+                        backButton
+                        Spacer()
+                        recordButton
+                        Spacer()
+                        flipButton
                     }
-                    .buttonStyle(.plain)
-                    .frame(width: 72, height: 72)
-                    
-                    Spacer()
                 }
             } else {
-                Button(action: {
-                    recordedURL = localRecordedURL
-                    activePage = .save
-                }) {
-                    Text("Confirm Recording")
-                        .frame(maxWidth: .infinity)
-                        .font(.headline)
-                        .padding(12)
+                VStack(spacing: 16) {
+                    Button(action: {
+                        recordedURL = localRecordedURL
+                        activePage = .save
+                    }) {
+                        Text("Confirm Recording")
+                            .frame(maxWidth: .infinity)
+                            .font(.headline)
+                            .padding(12)
+                    }
+                    .buttonStyle(.glassProminent)
+                    
+                    Button(action: { showDiscardConfirmation = true }) {
+                        Text("Record again")
+                            .frame(maxWidth: .infinity)
+                            .font(.headline)
+                            .padding(12)
+                    }
+                    .buttonStyle(.glass)
                 }
-                .buttonStyle(.glassProminent)
-                
-                Button(action: { showDiscardConfirmation = true }) {
-                    Text("Record again")
-                        .frame(maxWidth: .infinity)
-                        .font(.headline)
-                        .padding(12)
-                }
-                .buttonStyle(.glass)
             }
         }
     }
+    
+    private var backButton: some View {
+        Button(action: {
+            manager.stopRecording()
+            onBack()
+        }) {
+            Label("Back", systemImage: "chevron.left")
+                .labelStyle(.iconOnly)
+                .font(.title)
+                .frame(width: 64, height: 64)
+                .glassEffect(
+                    .regular.interactive(),
+                    in: Circle()
+                )
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .disabled(manager.isRecording)
+        .opacity(manager.isRecording ? 0.5 : 1.0)
+    }
+    
+    private var recordButton: some View {
+        Button(action: toggleRecording) {
+            Circle()
+                .fill(manager.isRecording ? Color.red : Color.white)
+                .padding(8)
+                .glassEffect(
+                    .regular.interactive(),
+                    in: Circle()
+                )
+        }
+        .buttonStyle(.plain)
+        .frame(width: 72, height: 72)
+    }
+    
+    private var flipButton: some View {
+        Button(action: { manager.switchCamera() }) {
+            Label("Flip Camera", systemImage: "arrow.triangle.2.circlepath.camera")
+                .labelStyle(.iconOnly)
+                .font(.title)
+                .frame(width: 64, height: 64)
+                .glassEffect(
+                    .regular.interactive(),
+                    in: Circle()
+                )
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .disabled(manager.isRecording)
+        .opacity(manager.isRecording ? 0.5 : 1.0)
+    }
+    
     
     private func toggleRecording() {
         if manager.isRecording {
