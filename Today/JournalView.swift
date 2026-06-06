@@ -14,6 +14,8 @@ struct JournalView: View {
     @StateObject var videoViewModel: VideoViewModel
     @StateObject var audioViewModel: AudioViewModel
     @AppStorage("autoPlayOnOpen") private var autoPlayOnOpen: Bool = DefaultSettings.autoPlayOnOpen
+    
+    @State private var isLandscape: Bool = false
     let selectedEntry: JournalEntry
     
     init(selectedEntry: JournalEntry) {
@@ -41,16 +43,24 @@ struct JournalView: View {
                 
                 VStack {
                     Spacer()
-                    NoteCardView(note: bindingFor(\.note))
+                    NoteCardView(note: bindingFor(\.note), isLandscape: $isLandscape)
                 }
                 .ignoresSafeArea()
             }
             .preferredColorScheme(.dark)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background {
-                Rectangle()
-                    .fill(Color.black)
-                    .ignoresSafeArea()
+                GeometryReader { proxy in
+                    Rectangle()
+                        .fill(Color.black)
+                        .ignoresSafeArea()
+                        .onAppear {
+                            isLandscape = proxy.size.width > proxy.size.height
+                        }
+                        .onChange(of: proxy.size) {
+                            isLandscape = proxy.size.width > proxy.size.height
+                        }
+                }
             }
             .navigationTitle(selectedEntry.title.isEmpty ? selectedEntry.date.formatted(date: .numeric, time: .omitted) : selectedEntry.title)
             .navigationBarTitleDisplayMode(.inline)

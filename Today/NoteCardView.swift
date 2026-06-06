@@ -9,6 +9,7 @@ import SwiftUI
 
 struct NoteCardView: View {
     @Binding var note: String
+    @Binding var isLandscape: Bool
     @State private var isExpanded: Bool = false
     @FocusState private var isEditing: Bool
     @GestureState private var dragOffset: CGFloat = 0
@@ -52,14 +53,14 @@ struct NoteCardView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.top, 12)
-                .padding(.bottom, 64)
+                .padding(.bottom, isLandscape ? 44 : 64)
                 .background {
-                    UnevenRoundedRectangle(topLeadingRadius: 12, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 12)
+                    UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 16)
                         .fill(Color.gray.opacity(0.2))
-                        .glassEffect(.regular.interactive(), in: UnevenRoundedRectangle(topLeadingRadius: 12, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 12))
+                        .glassEffect(.regular.interactive(), in: UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 16))
                         .ignoresSafeArea(edges: .bottom)
                 }
-                .frame(maxHeight: .infinity, alignment: .bottom)
+                .frame(maxWidth: isLandscape ? 512 : nil, maxHeight: .infinity, alignment: .bottom)
                 .offset(y: dragOffset < dragThreshold ? dragOffset : 0)
                 .gesture(
                     DragGesture()
@@ -113,7 +114,8 @@ struct NoteCardView: View {
                         .fill(Color.gray.opacity(0.2))
                         .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 16))
                 }
-                .padding(24)
+                .padding(isLandscape ? 72 : 24)
+                .padding(.horizontal, isLandscape ? 72 : 0)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 .offset(y: expandedDragOffset)
                 .gesture(
@@ -142,13 +144,14 @@ struct NoteCardView: View {
 
 #Preview {
     @Previewable @State var note = "This is a sample note that can be expanded by tapping or swiping upwards."
+    @Previewable @State var isLandscape = false
     
     ZStack {
         Color.black.ignoresSafeArea()
         
         VStack {
             Spacer()
-            NoteCardView(note: $note)
+            NoteCardView(note: $note, isLandscape: $isLandscape)
         }
     }
 }
