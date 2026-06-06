@@ -192,13 +192,13 @@ struct VideoRecordingView: View {
                         Text(zoomLabel(stop))
                             .font(.subheadline)
                             .padding(16)
+                            .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
                     .glassEffect(
                         .regular.interactive(),
                         in: Circle()
                     )
-                    .contentShape(Circle())
                 }
                 
                 Spacer()
@@ -259,7 +259,7 @@ struct VideoRecordingView: View {
             Label("Back", systemImage: "chevron.left")
                 .labelStyle(.iconOnly)
                 .font(.title)
-                .frame(width: 64, height: 64)
+                .frame(width: 44, height: 44)
                 .glassEffect(
                     .regular.interactive(),
                     in: Circle()
@@ -290,7 +290,7 @@ struct VideoRecordingView: View {
             Label("Flip Camera", systemImage: "arrow.triangle.2.circlepath.camera")
                 .labelStyle(.iconOnly)
                 .font(.title)
-                .frame(width: 64, height: 64)
+                .frame(width: 44, height: 44)
                 .glassEffect(
                     .regular.interactive(),
                     in: Circle()
