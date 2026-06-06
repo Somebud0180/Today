@@ -197,29 +197,42 @@ struct VideoRecordingView: View {
     private var bottomControls: some View {
         VStack(spacing: 16) {
             if !manager.showConfirmation {
-                HStack(spacing: 16) {
-                    Button(action: toggleRecording) {
-                        Text(manager.isRecording ? "Stop Recording" : "Start Recording")
-                            .font(.headline)
-                            .padding(.vertical, 12)
-                            .frame(maxWidth: .infinity)
+                HStack(spacing: 0) {
+                    Button(action: {
+                        manager.stopRecording()
+                        onBack()
+                    }) {
+                        Label("Back", systemImage: "chevron.left")
+                            .labelStyle(.iconOnly)
+                            .font(.title)
+                            .frame(width: 64, height: 64)
+                            .glassEffect(
+                                .regular.interactive(),
+                                in: Circle()
+                            )
+                            .contentShape(Circle())
                     }
-                    .buttonStyle(.glassProminent)
-                    .tint(.red)
+                    .buttonStyle(.plain)
+                    .disabled(manager.isRecording)
+                    .opacity(manager.isRecording ? 0.5 : 1.0)
+                    .padding(.trailing, -64)
+                    
+                    Spacer()
+                    
+                    Button(action: toggleRecording) {
+                        Circle()
+                            .fill(manager.isRecording ? Color.red : Color.white)
+                            .padding(8)
+                            .glassEffect(
+                                .regular.interactive(),
+                                in: Circle()
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: 72, height: 72)
+                    
+                    Spacer()
                 }
-                
-                Button(action: {
-                    manager.stopRecording()
-                    onBack()
-                }) {
-                    Text("Back")
-                        .frame(maxWidth: .infinity)
-                        .font(.headline)
-                        .padding(12)
-                }
-                .buttonStyle(.glass)
-                .disabled(manager.isRecording)
-                .opacity(manager.isRecording ? 0.5 : 1.0)
             } else {
                 Button(action: {
                     recordedURL = localRecordedURL
