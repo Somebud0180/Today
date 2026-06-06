@@ -191,10 +191,14 @@ struct VideoRecordingView: View {
                     Button(action: { manager.setZoomFactor(stop) }) {
                         Text(zoomLabel(stop))
                             .font(.subheadline)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
+                            .padding(16)
                     }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.plain)
+                    .glassEffect(
+                        .regular.interactive(),
+                        in: Circle()
+                    )
+                    .contentShape(Circle())
                 }
                 
                 Spacer()
