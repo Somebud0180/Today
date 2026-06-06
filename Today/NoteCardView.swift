@@ -65,7 +65,7 @@ struct NoteCardView: View {
                 .gesture(
                     DragGesture()
                         .updating($dragOffset) { value, state, _ in
-                            state = max(value.translation.height, -dragThreshold)
+                            state = min(max(value.translation.height, -dragThreshold), 0)
                         }
                         .onEnded { value in
                             let verticalDistance = value.translation.height
