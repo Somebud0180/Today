@@ -32,6 +32,7 @@ struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \JournalEntry.date, order: .forward) private var journalEntries: [JournalEntry]
     
+    @Namespace private var namespace
     @GestureState private var magnifyBy = 1.0
     @State private var gridZoomStep: Int = 4
     @State private var gestureStartZoomStep: Int? = nil
@@ -39,6 +40,7 @@ struct HomeView: View {
     @State private var scrollPosition: ScrollPosition = .init(idType: Date.self)
     @State private var isFollowingBottom = true
     @State private var didPerformInitialScroll = false
+    
     
     private let minimumCardWidth: [CGFloat] = [60, 80, 100, 120, 150]
     private let gridSpacing: [CGFloat] = [4, 8, 12, 16, 20]
@@ -168,8 +170,10 @@ struct HomeView: View {
                 NavigationLink {
                     JournalView(selectedEntry: journalEntry)
                         .toolbar(.hidden, for: .tabBar)
+                        .navigationTransition(.zoom(sourceID: journalEntry, in: namespace))
                 } label: {
                     gridCard(for: journalEntry, size: metrics.cardSize)
+                        .matchedTransitionSource(id: journalEntry, in: namespace)
                 }
                 .id(journalEntry.date)
                 .contextMenu {
