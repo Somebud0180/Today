@@ -23,12 +23,9 @@ struct ContentView: View {
     
     @AppStorage("preferredColorScheme") private var preferredColorScheme: PreferredColorScheme = DefaultSettings.preferredColorTheme
     @AppStorage("enableNotifications") private var enableNotifications: Bool = DefaultSettings.enableNotifications
-    @AppStorage("autoPlayOnOpen") private var autoPlayOnOpen: Bool =
-        DefaultSettings.autoPlayOnOpen
-    @AppStorage("remindMeToJournal") private var remindMeToJournal: Bool
-        = DefaultSettings.remindMeToJournal
-    @AppStorage("reminderTime") private var reminderTime: Date =
-        DefaultSettings.reminderTime
+    @AppStorage("autoPlayOnOpen") private var autoPlayOnOpen: Bool = DefaultSettings.autoPlayOnOpen
+    @AppStorage("remindMeToJournal") private var remindMeToJournal: Bool = DefaultSettings.remindMeToJournal
+    @AppStorage("reminderTime") private var reminderTime: Date = DefaultSettings.reminderTime
     
     @State var tabSelection: Int = 0
     
@@ -47,6 +44,13 @@ struct ContentView: View {
             Tab("Settings", systemImage: "gearshape", value: 2) {
                 SettingsView()
                     .preferredColorScheme(preferredColorScheme.colorScheme)
+            }
+        }
+        .onAppear {
+            UNUserNotificationCenter.current().getNotificationSettings() { settings in
+                DispatchQueue.main.async {
+                    enableNotifications = settings.alertSetting == .enabled
+                }
             }
         }
     }

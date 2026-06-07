@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UserNotifications
 
 struct SettingsView: View {
     @AppStorage("preferredColorScheme") private var preferredColorScheme: PreferredColorScheme = DefaultSettings.preferredColorTheme
@@ -49,14 +50,19 @@ struct SettingsView: View {
                 }
                 
                 Section(header: Text("Notifications")) {
-                    Toggle(isOn: $enableNotifications) {
-                        Text("Allow notifications")
-                    }
+                    notificationsButton
                     
                     Toggle(isOn: $remindMeToJournal) {
                         Text("Remind me to journal")
                     }
                     .disabled(!enableNotifications)
+                    .onChange(of: remindMeToJournal) {
+                        if remindMeToJournal {
+                            NotificationsManager.registerReminderNotification(reminderTime)
+                        } else {
+                            NotificationsManager.unregisterReminderNotifications()
+                        }
+                    }
                     
                     DatePicker("Reminder time", selection: Binding(get: {
                         reminderTime
@@ -64,6 +70,11 @@ struct SettingsView: View {
                         reminderTime = newValue
                     }), displayedComponents: .hourAndMinute)
                     .disabled(!remindMeToJournal || !enableNotifications)
+                    .onChange(of: reminderTime) {
+                        if remindMeToJournal {
+                            NotificationsManager.registerReminderNotification(reminderTime)
+                        }
+                    }
                 }
                 
                 Section(header: Text("Export")) {
@@ -76,6 +87,33 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+    
+    private var notificationsButton: some View {
+        if !enableNotifications {
+            return Button("Enable Notifications") {
+                UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { success, error in
+                    if success {
+                        enableNotifications = true
+                        
+                        if remindMeToJournal {
+                            NotificationsManager.registerReminderNotification(reminderTime)
+                        }
+                    } else if let error {
+                        print(error.localizedDescription)
+                    }
+                }
+            }
+        } else {
+            return Button("Manage Notifications") {
+                Task {
+                    if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
+                        // Ask the system to open that URL.
+                        await UIApplication.shared.open(url)
+                    }
+                }
+            }
         }
     }
 }

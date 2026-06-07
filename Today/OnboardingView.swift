@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UserNotifications
 
 struct OnboardingView: View {
     @Environment(\.dismiss) var dismiss
@@ -13,6 +14,11 @@ struct OnboardingView: View {
     @State var currentStep: Int = 0
     @State var animateGlyph: Bool = false
     @State var calendarGridColumn: [GridItem] = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
+    @State var showNotificaitonsSheet: Bool = false
+    
+    @AppStorage("enableNotifications") private var enableNotifications: Bool = DefaultSettings.enableNotifications
+    @AppStorage("remindMeToJournal") private var remindMeToJournal: Bool = DefaultSettings.remindMeToJournal
+    @AppStorage("reminderTime") private var reminderTime: Date = DefaultSettings.reminderTime
     
     var body: some View {
         NavigationStack {
@@ -40,7 +46,7 @@ struct OnboardingView: View {
                         Button("Continue") {
                             currentStep += 1
                         }
-                        .buttonStyle(RoundGlassButton())
+                        .buttonStyle(RoundProminentButton())
                         .font(.title2)
                         .fontWeight(.semibold)
                         
@@ -74,7 +80,7 @@ struct OnboardingView: View {
                         Button("Continue") {
                             currentStep += 1
                         }
-                        .buttonStyle(RoundGlassButton())
+                        .buttonStyle(RoundProminentButton())
                         .font(.title2)
                         .fontWeight(.semibold)
                         
@@ -148,7 +154,7 @@ struct OnboardingView: View {
                         Button("Continue") {
                             currentStep += 1
                         }
-                        .buttonStyle(RoundGlassButton())
+                        .buttonStyle(RoundProminentButton())
                         .font(.title2)
                         .fontWeight(.semibold)
                         
@@ -194,6 +200,13 @@ struct OnboardingView: View {
                         
                         Spacer()
                         
+                        Button("Get Reminders") {
+                            showNotificaitonsSheet = true
+                        }
+                        .buttonStyle(RoundProminentButton())
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        
                         Button("Continue") {
                             currentStep += 1
                         }
@@ -211,13 +224,18 @@ struct OnboardingView: View {
                         Button("Continue") {
                             dismiss()
                         }
-                        .buttonStyle(RoundGlassButton())
+                        .buttonStyle(RoundProminentButton())
                         .font(.title2)
                         .fontWeight(.semibold)
                     }
                 }
                 .padding(16)
                 .animation(.easeInOut(duration: 0.5), value: currentStep)
+            }
+            .sheet(isPresented: $showNotificaitonsSheet) {
+                notificationsSheet
+                    .presentationBackgroundInteraction(.disabled)
+                    .presentationDetents([.fraction(0.3)])
             }
             .background(
                 Image("Background1")
@@ -228,9 +246,82 @@ struct OnboardingView: View {
             )
         }
     }
+    
+    var notificationsSheet: some View {
+        VStack(spacing: 16) {
+            RoundedRectangle(cornerRadius: 3)
+                .frame(width: 44, height: 6)
+            
+            Button(enableNotifications ? "Manage Notifications" : "Allow Notifications") {
+                if enableNotifications {
+                    Task {
+                        if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
+                            // Ask the system to open that URL.
+                            await UIApplication.shared.open(url)
+                        }
+                    }
+                } else {
+                    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { success, error in
+                        if success {
+                            enableNotifications = true
+                        } else if let error {
+                            print(error.localizedDescription)
+                        }
+                    }
+                }
+            }
+            .buttonStyle(RoundProminentButton())
+            .font(.title2)
+            .fontWeight(.semibold)
+            
+            Divider()
+            
+            Group {
+                Toggle(isOn: $remindMeToJournal) {
+                    Text("Remind me to journal")
+                }
+                .onChange(of: remindMeToJournal) {
+                    if remindMeToJournal {
+                        NotificationsManager.registerReminderNotification(reminderTime)
+                    } else {
+                        NotificationsManager.unregisterReminderNotifications()
+                    }
+                }
+                
+                DatePicker("Reminder time", selection: Binding(get: {
+                    reminderTime
+                }, set: { newValue in
+                    reminderTime = newValue
+                    NotificationsManager.registerReminderNotification(reminderTime)
+                }), displayedComponents: .hourAndMinute)
+                .onChange(of: reminderTime) {
+                    if remindMeToJournal {
+                        NotificationsManager.registerReminderNotification(reminderTime)
+                    }
+                }
+            }
+            .disabled(!enableNotifications)
+            
+            Spacer()
+        }
+        .padding(16)
+    }
 }
 
 struct RoundGlassButton: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .padding(.vertical, 8)
+            .glassEffect(
+                .regular.interactive(),
+                in: Capsule()
+            )
+            .contentShape(Capsule())
+    }
+}
+
+struct RoundProminentButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .frame(maxWidth: .infinity, minHeight: 44)
