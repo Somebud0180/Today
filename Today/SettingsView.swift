@@ -10,12 +10,9 @@ import UserNotifications
 
 struct SettingsView: View {
     @AppStorage("preferredColorScheme") private var preferredColorScheme: PreferredColorScheme = DefaultSettings.preferredColorTheme
-    @AppStorage("autoPlayOnOpen") private var autoPlayOnOpen: Bool =
-    DefaultSettings.autoPlayOnOpen
-    @AppStorage("remindMeToJournal") private var remindMeToJournal: Bool
-    = DefaultSettings.remindMeToJournal
-    @AppStorage("reminderTime") private var reminderTime: Date =
-    DefaultSettings.reminderTime
+    @AppStorage("autoPlayOnOpen") private var autoPlayOnOpen: Bool = DefaultSettings.autoPlayOnOpen
+    @AppStorage("remindMeToJournal") private var remindMeToJournal: Bool = DefaultSettings.remindMeToJournal
+    @AppStorage("reminderTime") private var reminderTime: Date = DefaultSettings.reminderTime
     
     @State var authorizationStatus: UNAuthorizationStatus = .notDetermined
     
@@ -65,11 +62,7 @@ struct SettingsView: View {
                         }
                     }
                     
-                    DatePicker("Reminder time", selection: Binding(get: {
-                        reminderTime
-                    }, set: { newValue in
-                        reminderTime = newValue
-                    }), displayedComponents: .hourAndMinute)
+                    DatePicker("Reminder time", selection: $reminderTime, displayedComponents: .hourAndMinute)
                     .disabled(!remindMeToJournal || authorizationStatus != .authorized)
                     .onChange(of: reminderTime) {
                         if remindMeToJournal {
