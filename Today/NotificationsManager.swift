@@ -6,12 +6,22 @@
 //
 //  Referenced from https://www.hackingwithswift.com/books/ios-swiftui/scheduling-local-notifications
 //  Scheduling local notifications by Paul Hudson
+//
+//  Additional reference from
+//  https://www.createwithswift.com/notifications-tutorial-creating-and-scheduling-user-notifications-with-async-await/
+//  Creating and Scheduling Local Notifications with async/await by Tiago Gomes Pereira
 
 import Foundation
 import UserNotifications
 
 struct NotificationsManager {
     static func registerReminderNotification(_ reminderTime: Date) {
+        // Create the date components for the notification trigger
+        var dateComponents = DateComponents()
+        dateComponents.calendar = Calendar.current
+        dateComponents.hour = Calendar.current.component(.hour, from: reminderTime)
+        dateComponents.minute = Calendar.current.component(.minute, from: reminderTime)
+        
         // Remove existing notifications to avoid duplicates
         unregisterReminderNotifications()
         
@@ -21,7 +31,8 @@ struct NotificationsManager {
         content.body = "It's time for your daily journal, spend some time in the app."
         content.sound = UNNotificationSound.default
         
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: reminderTime.timeIntervalSinceNow, repeats: true)
+        // Create the notification trigger
+        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
         
         // Choose a random identifier
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
