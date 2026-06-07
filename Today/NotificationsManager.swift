@@ -33,4 +33,11 @@ struct NotificationsManager {
     static func unregisterReminderNotifications() {
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
     }
+    
+    static func notificatonPermissionStatus() async -> UNAuthorizationStatus {
+        let current = UNUserNotificationCenter.current()
+        let settings = await current.notificationSettings()
+        
+        return settings.authorizationStatus
+    }
 }

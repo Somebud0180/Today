@@ -10,13 +10,14 @@ import UserNotifications
 
 struct SettingsView: View {
     @AppStorage("preferredColorScheme") private var preferredColorScheme: PreferredColorScheme = DefaultSettings.preferredColorTheme
-    @AppStorage("enableNotifications") private var enableNotifications: Bool = DefaultSettings.enableNotifications
     @AppStorage("autoPlayOnOpen") private var autoPlayOnOpen: Bool =
     DefaultSettings.autoPlayOnOpen
     @AppStorage("remindMeToJournal") private var remindMeToJournal: Bool
     = DefaultSettings.remindMeToJournal
     @AppStorage("reminderTime") private var reminderTime: Date =
     DefaultSettings.reminderTime
+    
+    @State var authorizationStatus: UNAuthorizationStatus = .notDetermined
     
     var body: some View {
         NavigationStack {
@@ -55,7 +56,7 @@ struct SettingsView: View {
                     Toggle(isOn: $remindMeToJournal) {
                         Text("Remind me to journal")
                     }
-                    .disabled(!enableNotifications)
+                    .disabled(authorizationStatus != .authorized)
                     .onChange(of: remindMeToJournal) {
                         if remindMeToJournal {
                             NotificationsManager.registerReminderNotification(reminderTime)
@@ -69,7 +70,7 @@ struct SettingsView: View {
                     }, set: { newValue in
                         reminderTime = newValue
                     }), displayedComponents: .hourAndMinute)
-                    .disabled(!remindMeToJournal || !enableNotifications)
+                    .disabled(!remindMeToJournal || authorizationStatus != .authorized)
                     .onChange(of: reminderTime) {
                         if remindMeToJournal {
                             NotificationsManager.registerReminderNotification(reminderTime)
@@ -87,16 +88,20 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                Task {
+                    authorizationStatus = await NotificationsManager.notificatonPermissionStatus()
+                }
+            }
         }
     }
     
     private var notificationsButton: some View {
-        if !enableNotifications {
+        if authorizationStatus == .notDetermined {
             return Button("Enable Notifications") {
                 UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { success, error in
                     if success {
-                        enableNotifications = true
-                        
+                        authorizationStatus = .authorized
                         if remindMeToJournal {
                             NotificationsManager.registerReminderNotification(reminderTime)
                         }

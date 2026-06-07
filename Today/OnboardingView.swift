@@ -15,8 +15,8 @@ struct OnboardingView: View {
     @State var animateGlyph: Bool = false
     @State var calendarGridColumn: [GridItem] = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
     @State var showNotificaitonsSheet: Bool = false
+    @State var authorizationStatus: UNAuthorizationStatus = .notDetermined
     
-    @AppStorage("enableNotifications") private var enableNotifications: Bool = DefaultSettings.enableNotifications
     @AppStorage("remindMeToJournal") private var remindMeToJournal: Bool = DefaultSettings.remindMeToJournal
     @AppStorage("reminderTime") private var reminderTime: Date = DefaultSettings.reminderTime
     
@@ -244,6 +244,11 @@ struct OnboardingView: View {
                     .ignoresSafeArea()
                     .animation(.easeInOut(duration: 0.5), value: colorScheme)
             )
+            .onAppear {
+                Task {
+                    authorizationStatus = await NotificationsManager.notificatonPermissionStatus()
+                }
+            }
         }
     }
     
@@ -252,8 +257,8 @@ struct OnboardingView: View {
             RoundedRectangle(cornerRadius: 3)
                 .frame(width: 44, height: 6)
             
-            Button(enableNotifications ? "Manage Notifications" : "Allow Notifications") {
-                if enableNotifications {
+            Button(authorizationStatus != .notDetermined ? "Manage Notifications" : "Allow Notifications") {
+                if authorizationStatus != .notDetermined {
                     Task {
                         if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
                             // Ask the system to open that URL.
@@ -263,7 +268,7 @@ struct OnboardingView: View {
                 } else {
                     UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { success, error in
                         if success {
-                            enableNotifications = true
+                            authorizationStatus = .authorized
                         } else if let error {
                             print(error.localizedDescription)
                         }
@@ -300,7 +305,7 @@ struct OnboardingView: View {
                     }
                 }
             }
-            .disabled(!enableNotifications)
+            .disabled(authorizationStatus != .authorized)
             
             Spacer()
         }

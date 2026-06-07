@@ -10,7 +10,6 @@ import SwiftData
 
 struct DefaultSettings {
     static let preferredColorTheme: PreferredColorScheme = .system
-    static let enableNotifications: Bool = true
     static let autoPlayOnOpen: Bool = false
     static let remindMeToJournal: Bool = true
     static let reminderTime: Date = Calendar.current.date(bySettingHour: 20, minute: 0, second: 0, of: Date()) ?? Date()
@@ -22,7 +21,6 @@ struct ContentView: View {
     @Query private var journalEntries: [JournalEntry]
     
     @AppStorage("preferredColorScheme") private var preferredColorScheme: PreferredColorScheme = DefaultSettings.preferredColorTheme
-    @AppStorage("enableNotifications") private var enableNotifications: Bool = DefaultSettings.enableNotifications
     @AppStorage("autoPlayOnOpen") private var autoPlayOnOpen: Bool = DefaultSettings.autoPlayOnOpen
     @AppStorage("remindMeToJournal") private var remindMeToJournal: Bool = DefaultSettings.remindMeToJournal
     @AppStorage("reminderTime") private var reminderTime: Date = DefaultSettings.reminderTime
@@ -44,13 +42,6 @@ struct ContentView: View {
             Tab("Settings", systemImage: "gearshape", value: 2) {
                 SettingsView()
                     .preferredColorScheme(preferredColorScheme.colorScheme)
-            }
-        }
-        .onAppear {
-            UNUserNotificationCenter.current().getNotificationSettings() { settings in
-                DispatchQueue.main.async {
-                    enableNotifications = settings.alertSetting == .enabled
-                }
             }
         }
     }
