@@ -18,7 +18,7 @@ struct NotificationsManager {
         // Create the notification content
         let content = UNMutableNotificationContent()
         content.title = "Today"
-        content.subtitle = "It's time for your daily journal, spend some time in the app."
+        content.body = "It's time for your daily journal, spend some time in the app."
         content.sound = UNNotificationSound.default
         
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: reminderTime.timeIntervalSinceNow, repeats: true)
