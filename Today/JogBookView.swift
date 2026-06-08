@@ -70,7 +70,7 @@ struct JogBookView: View {
                     )
                     .aspectRatio(1, contentMode: .fill)
                 
-                entryPreview
+                monthSummary
                     .padding(16)
                     .background(
                         RoundedRectangle(cornerRadius: 16)
@@ -117,7 +117,7 @@ struct JogBookView: View {
         }
     }
     
-    private var entryPreview: some View {
+    private var monthSummary: some View {
         VStack(alignment: .leading, spacing: 12) {
             let dateString = selectedDay != nil ? selectedDay!.formatted(.dateTime.day().month(.wide).year()) : selectedMonthYear.formatted(.dateTime.month(.wide).year())
             
@@ -137,16 +137,7 @@ struct JogBookView: View {
                     Text("You have \(entryCount(for: selectedDay, granularity: .day)) entries on \(selectedDay.formatted(.dateTime.day().month(.wide).year()))")
                         .font(.headline)
                 } else {
-                    var endString: String {
-                        if Calendar.current.isDate(selectedMonthYear, equalTo: Date(), toGranularity: .year) {
-                            return "this \(selectedMonthYear.formatted(.dateTime.month(.wide)))"
-                        } else {
-                            return "in \(selectedMonthYear.formatted(.dateTime.month(.wide).year()))"
-                        }
-                    }
-                    
-                    Text("You have logged \(entryCount(for: selectedMonthYear, granularity: .month)) journal entries \(endString).")
-                        .font(.headline)
+                    monthlyEntryText
                 }
             }
             .contentTransition(.numericText())
@@ -158,6 +149,19 @@ struct JogBookView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    
+    private var monthlyEntryText: some View {
+        var endString: String {
+            if Calendar.current.isDate(selectedMonthYear, equalTo: Date(), toGranularity: .year) {
+                return "this \(selectedMonthYear.formatted(.dateTime.month(.wide)))"
+            } else {
+                return "in \(selectedMonthYear.formatted(.dateTime.month(.wide).year()))"
+            }
+        }
+        
+        return Text("You have logged \(entryCount(for: selectedMonthYear, granularity: .month)) journal entries \(endString).")
+            .font(.headline)
     }
     
     private var emptyCarouselText: some View {
