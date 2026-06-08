@@ -20,9 +20,13 @@ struct JogBookView: View {
         NavigationStack {
             VStack {
                 HStack {
-                    Button("May") {
+                    Button(action: {
                         
-                    }
+                    }, label: {
+                        Label("May", systemImage: "chevron.left")
+                            .font(.title3)
+                            .padding(.horizontal, 8)
+                    })
                     .buttonStyle(.glass)
                     .font(.title3)
                     
@@ -34,9 +38,14 @@ struct JogBookView: View {
                     
                     Spacer()
                     
-                    Button("July") {
+                    Button(action: {
                         
-                    }
+                    }, label: {
+                        Label("July", systemImage: "chevron.right")
+                            .labelStyle(TrailingIcon())
+                            .font(.title3)
+                            .padding(.horizontal, 8)
+                    })
                     .buttonStyle(.glass)
                     .font(.title3)
                 }
@@ -54,11 +63,11 @@ struct JogBookView: View {
                     .aspectRatio(1, contentMode: .fill)
                 
                 VStack(alignment: .leading) {
-                    Text("You have logged \(entryCount(for: selectedMonth)) journal entries this \(selectedMonth.formatted(.dateTime.month(.wide))).")
+                    Text("You have logged \(entryCount(for: selectedMonth, granularity: .month)) journal entries this \(selectedMonth.formatted(.dateTime.month(.wide))).")
                         .font(.headline)
                     
                     if selectedDate != nil, let selectedDate {
-                        Text("You have \(entryCount(for: selectedDate)) entries on \(selectedDate.formatted(.dateTime.day().month(.wide).year()))")
+                        Text("You have \(entryCount(for: selectedDate, granularity: .day)) entries on \(selectedDate.formatted(.dateTime.day().month(.wide).year()))")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -84,23 +93,24 @@ struct JogBookView: View {
     private var jogGrid: some View {
         LazyVGrid(columns: calendarGridColumn, spacing: 12) {
             let daysInCurrentMonth = Calendar.current.range(of: .day, in: .month, for: selectedMonth)?.count ?? 30
+            let startOfSelectedMonth = Calendar.current.dateComponents([.year, .month], from: selectedMonth)
             
             ForEach(0...daysInCurrentMonth, id: \.self) { index in
-                let date = Calendar.current.date(byAdding: .day, value: index, to: Calendar.current.startOfDay(for: selectedMonth)) ?? Date()
+                let indexDate = Calendar.current.date(byAdding: .day, value: index, to: Calendar.current.date(from: startOfSelectedMonth)!)!
                 
                 Button(action: {
-                    if selectedDate == date {
+                    if selectedDate == indexDate {
                         selectedDate = nil
-                        print("Cleared selection for \(date)")
+                        print("Cleared selection for \(indexDate)")
                     } else {
-                        selectedDate = date
+                        selectedDate = indexDate
                     }
                 }, label: {
                     RoundedRectangle(cornerRadius: 8)
-                        .foregroundStyle(hasJournalEntry(for: date) ? Color.accentColor : Color.secondary)
+                        .foregroundStyle(hasJournalEntry(for: indexDate) ? Color.accentColor : Color.secondary)
                         .aspectRatio(1, contentMode: .fit)
                         .glassEffect(
-                            .regular.interactive().tint(hasJournalEntry(for: date) ? Color.accentColor.opacity(0.5) : Color.secondary.opacity(0.5)),
+                            .regular.interactive().tint(hasJournalEntry(for: indexDate) ? Color.accentColor.opacity(0.5) : Color.secondary.opacity(0.5)),
                             in: RoundedRectangle(cornerRadius: 8)
                         )
                 })
@@ -115,10 +125,19 @@ struct JogBookView: View {
         }
     }
     
-    private func entryCount(for month: Date) -> Int {
+    private func entryCount(for date: Date, granularity: Calendar.Component) -> Int {
         return journalEntries.filter { entry in
-            Calendar.current.isDate(entry.date, equalTo: month, toGranularity: .month)
+            Calendar.current.isDate(entry.date, equalTo: date, toGranularity: granularity)
         }.count
+    }
+}
+
+struct TrailingIcon: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack {
+            configuration.title
+            configuration.icon
+        }
     }
 }
 
