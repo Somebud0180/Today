@@ -27,7 +27,7 @@ struct JournalView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                if let resolvedURL {
+                if resolvedURL != nil {
                     if selectedEntry.mediaType == .video, let vm = videoViewModel {
                         VideoPlayerView(player: vm.player)
                     } else if selectedEntry.mediaType == .audio, let vm = audioViewModel {
