@@ -17,19 +17,16 @@ struct JournalView: View {
     let selectedEntry: JournalEntry
     @State private var isLandscape: Bool = false
     
-    // Track loading state explicitly
     @State private var resolvedURL: URL? = nil
     @State private var isDownloading: Bool = false
     @State private var errorMessage: String? = nil
     
-    // Hold reference to viewmodels as optionals that activate post-load
     @State private var videoViewModel: VideoViewModel? = nil
     @State private var audioViewModel: AudioViewModel? = nil
     
     var body: some View {
         NavigationStack {
             ZStack {
-                // 1. Core Content Layout based on state
                 if let resolvedURL {
                     if selectedEntry.mediaType == .video, let vm = videoViewModel {
                         VideoPlayerView(player: vm.player)
@@ -57,7 +54,6 @@ struct JournalView: View {
                     .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
                     
                 } else if let errorMessage {
-                    // 3. Error UI Fallback
                     VStack(spacing: 12) {
                         Image(systemName: "exclamationmark.icloud")
                             .font(.largeTitle)
@@ -101,7 +97,6 @@ struct JournalView: View {
                     .foregroundStyle(.red)
                 }
             }
-            // Trigger asynchronous verification sequence as soon as view mounts
             .task {
                 await resolveAndPrepareMedia()
             }
@@ -118,10 +113,8 @@ struct JournalView: View {
         
         isDownloading = true
         
-        // Loop check: Wait for up to 30 seconds for the cloud asset to download
         for _ in 0..<60 {
             if MediaStore.downloadIfNeeded(at: targetURL) {
-                // File is active on local disk! Initialize view models safely
                 resolvedURL = targetURL
                 
                 if selectedEntry.mediaType == .video {
@@ -136,7 +129,6 @@ struct JournalView: View {
                 return
             }
             
-            // Wait 0.5 seconds before re-checking download status
             try? await Task.sleep(nanoseconds: 500 * 1_000_000)
         }
         

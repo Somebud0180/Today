@@ -196,10 +196,8 @@ struct HomeView: View {
     
     private func gridCard(for journalEntry: JournalEntry, size: CGSize) -> some View {
         ZStack {
-            if let thumbnail = journalEntry.videoThumbImage {
-                thumbnail
-                    .resizable()
-                    .scaledToFill()
+            if journalEntry.mediaType == .video {
+                AsyncThumbnailView(entry: journalEntry, targetSize: size)
                     .frame(width: size.width, height: size.height)
                     .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
             } else if let waveformLevels = journalEntry.audioWaveformThumbnailLevels(maxBars: max(1, Int(size.width / 7))) {
