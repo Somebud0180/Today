@@ -11,7 +11,7 @@ import SwiftData
 struct JogBookView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var journalEntries: [JournalEntry]
-    @State var calendarGridColumn: [GridItem] = Array(repeating: GridItem(.flexible(), spacing: 12), count: 7)
+    @State var calendarGridColumn: [GridItem] = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
     @State var selectedMonthYear: Date = Calendar.current.dateComponents([.year, .month], from: Date()).date ?? Date()
     @State var selectedDay: Date? = nil
     
@@ -90,7 +90,7 @@ struct JogBookView: View {
     
     private var jogGrid: some View {
         GlassEffectContainer {
-            LazyVGrid(columns: calendarGridColumn, spacing: 12) {
+            LazyVGrid(columns: calendarGridColumn, spacing: 8) {
                 let daysInCurrentMonth = Calendar.current.range(of: .day, in: .month, for: selectedMonthYear)?.count ?? 30
                 let startOfselectedMonthYear = Calendar.current.dateComponents([.year, .month], from: selectedMonthYear)
                 
@@ -112,6 +112,12 @@ struct JogBookView: View {
                     })
                     .buttonStyle(.plain)
                     .transition(.scale.combined(with: .opacity))
+                    .padding(4)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.clear)
+                            .stroke(selectedDay != nil && Calendar.current.isDate(indexDate, inSameDayAs: selectedDay!) ? Color.primary : Color.clear, lineWidth: 3)
+                    }
                 }
             }
         }
