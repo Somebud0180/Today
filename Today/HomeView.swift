@@ -43,7 +43,6 @@ struct HomeView: View {
     @State private var isFollowingBottom = true
     @State private var didPerformInitialScroll = false
     
-    
     private let minimumCardWidth: [CGFloat] = [60, 80, 100, 120, 150]
     private let gridSpacing: [CGFloat] = [4, 8, 12, 16, 20]
     private let cardAspectRatio: CGFloat = 2 / 3
@@ -160,6 +159,15 @@ struct HomeView: View {
                     Button("Select") {
                         // Edit
                     }
+                }
+                
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink(
+                        destination: SettingsView(),
+                        label: {
+                            Label("Settings", systemImage: "gearshape")
+                                .labelStyle(.iconOnly)
+                        })
                 }
             }
             .navigationBarTitleDisplayMode(.inline)

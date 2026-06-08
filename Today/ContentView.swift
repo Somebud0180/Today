@@ -39,8 +39,8 @@ struct ContentView: View {
                     .preferredColorScheme(preferredColorScheme.colorScheme)
             }
             
-            Tab("Settings", systemImage: "gearshape", value: 2) {
-                SettingsView()
+            Tab("Jog Book", systemImage: "ellipsis.calendar", value: 2) {
+                JogBookView()
                     .preferredColorScheme(preferredColorScheme.colorScheme)
             }
         }
