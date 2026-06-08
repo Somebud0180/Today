@@ -13,6 +13,8 @@ private struct ViewLayoutMetrics {
     var columns: [GridItem] = []
     var cardSize: CGSize = .zero
     var spacing: CGFloat = 0
+    var titleTopPadding: CGFloat = 0
+    var titleHorizontalPadding: CGFloat = 0
 }
 
 private struct ZoomTransitionState {
@@ -107,10 +109,10 @@ struct HomeView: View {
                             .font(.headline)
                             .fontWeight(.semibold)
                     }
-                    .padding(.leading, 24)
-                    .padding(.top, proxy.safeAreaInsets.top / 2)
+                    .padding(.leading, getTitleHorizontalPadding(proxy: proxy))
+                    .padding(.top, getTitleTopPadding(proxy: proxy))
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .ignoresSafeArea(edges: .top)
+                    .ignoresSafeArea(edges: .all)
                 }
                 .simultaneousGesture(
                     MagnifyGesture()
@@ -323,5 +325,27 @@ struct HomeView: View {
     
     private func clamp(_ value: CGFloat, lower: CGFloat, upper: CGFloat) -> CGFloat {
         max(lower, min(upper, value))
+    }
+    
+    private func getTitleTopPadding(proxy: GeometryProxy) -> CGFloat {
+        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+        
+        if isPad {
+            return proxy.safeAreaInsets.top / 2 - 16
+        } else {
+            if proxy.size.width > proxy.size.height {
+                return 16
+            } else {
+                return proxy.safeAreaInsets.top / 2
+            }
+        }
+    }
+    
+    private func getTitleHorizontalPadding(proxy: GeometryProxy) -> CGFloat {
+        if proxy.size.width > proxy.size.height {
+            return proxy.safeAreaInsets.leading / 2 + 16
+        } else {
+            return 24
+        }
     }
 }
