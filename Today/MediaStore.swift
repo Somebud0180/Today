@@ -48,17 +48,30 @@ struct MediaStore {
     /// Returns the file URL on success.
     static func saveMedia(data: Data, fileExtension: String, entryID: UUID) -> URL? {
         guard let dir = mediaDirectory() else { return nil }
-
+        
         let filename = "\(entryID.uuidString).\(fileExtension)"
         let url = dir.appendingPathComponent(filename)
-
-        do {
-            try data.write(to: url, options: .atomic)
-            return url
-        } catch {
-            print("MediaStore: failed to write media file: \(error)")
+        
+        // Coordinate the write operation to alert the system's iCloud daemon
+        let coordinator = NSFileCoordinator()
+        var writeError: NSError?
+        var success = false
+        
+        coordinator.coordinate(writingItemAt: url, options: [], error: &writeError) { coordinatedURL in
+            do {
+                try data.write(to: coordinatedURL, options: .atomic)
+                success = true
+            } catch {
+                print("MediaStore: failed to write media file: \(error)")
+            }
+        }
+        
+        if let writeError {
+            print("File coordination error during save: \(writeError)")
             return nil
         }
+        
+        return success ? url : nil
     }
 
     /// Synchronously saves thumbnail data to the chosen media directory.
@@ -68,13 +81,26 @@ struct MediaStore {
         let filename = "\(entryID.uuidString)\(thumbnailSuffix)"
         let url = dir.appendingPathComponent(filename)
 
-        do {
-            try data.write(to: url, options: .atomic)
-            return url
-        } catch {
-            print("MediaStore: failed to write thumbnail: \(error)")
+        // Coordinate the write operation to alert the system's iCloud daemon
+        let coordinator = NSFileCoordinator()
+        var writeError: NSError?
+        var success = false
+        
+        coordinator.coordinate(writingItemAt: url, options: [], error: &writeError) { coordinatedURL in
+            do {
+                try data.write(to: coordinatedURL, options: .atomic)
+                success = true
+            } catch {
+                print("MediaStore: failed to write media file: \(error)")
+            }
+        }
+        
+        if let writeError {
+            print("File coordination error during save: \(writeError)")
             return nil
         }
+        
+        return success ? url : nil
     }
 
     /// Delete a media file at the given URL
@@ -116,5 +142,46 @@ struct MediaStore {
                 print("MediaStore: failed to delete media at \(url): \(error)")
             }
         }
+    }
+    
+    /// Checks if a file is stored locally or needs downloading from iCloud.
+    static func downloadIfNeeded(at url: URL) -> Bool {
+        let fm = FileManager.default
+        
+        // If it doesn't even exist at the path, it might be an un-downloaded iCloud placeholder
+        if !fm.fileExists(atPath: url.path) {
+            // Check if a hidden placeholder file exists (.filename.icloud)
+            let directory = url.deletingLastPathComponent()
+            let placeholderURL = directory.appendingPathComponent(".\(url.lastPathComponent).icloud")
+            
+            if fm.fileExists(atPath: placeholderURL.path) {
+                do {
+                    try fm.startDownloadingUbiquitousItem(at: url)
+                } catch {
+                    print("Failed to start iCloud download: \(error)")
+                }
+            }
+            return false
+        }
+        
+        // Check iCloud download status values
+        do {
+            let values = try url.resourceValues(forKeys: [.isUbiquitousItemKey, .ubiquitousItemDownloadingStatusKey])
+            if let isUbiquitous = values.isUbiquitousItem, isUbiquitous {
+                if let status = values.ubiquitousItemDownloadingStatus {
+                    if status == .current {
+                        return true // File is local and fully downloaded
+                    } else {
+                        // File exists but is outdated or not downloaded yet
+                        try fm.startDownloadingUbiquitousItem(at: url)
+                        return false
+                    }
+                }
+            }
+        } catch {
+            print("Error checking iCloud resource values: \(error)")
+        }
+        
+        return true // Fallback assuming it's a normal local file
     }
 }
