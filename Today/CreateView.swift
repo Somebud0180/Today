@@ -373,8 +373,7 @@ struct CreateView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
             } else if
-                let recordedAudioWaveform = recordedAudioWaveform,
-                let linearSample = recordedAudioWaveform.samplesLinear as? [Double],
+                let linearSample = recordedAudioWaveform?.samplesLinear,
                 let waveformLevels = JournalEntry.audioWaveformThumbnailLevels(linearSample, maxBars: max(1, Int(finalWidth / 7)))
             {
                 WaveformView(levels: waveformLevels, isThumbnailView: true)
@@ -421,6 +420,9 @@ struct CreateView: View {
         .offset(cardOffset)
         .shadow(color: .black.opacity(shadowOpacity), radius: 10, x: 0, y: shadowOffsetY)
         .onAppear(perform: showCardAnimation)
+        .onAppear {
+            debugPrint("Recorded waveform samples: \(recordedAudioWaveform?.samplesLinear.count ?? 0)")
+        }
     }
     
     func saveFields(activeURL: URL, fileExtension: String, mediaType: MediaType, proxy: GeometryProxy) -> some View {

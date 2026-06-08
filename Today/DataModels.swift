@@ -192,9 +192,8 @@ class JournalEntry: Identifiable {
         return samples[startIndex..<endIndex].map { CGFloat($0) }
     }
     
-    static func audioWaveformThumbnailLevels(_ linearSamples: [Double], maxBars: Int = 24) -> [CGFloat]? {
-        guard maxBars > 0,
-              !linearSamples.isEmpty else {
+    static func audioWaveformThumbnailLevels(_ linearSamples: [Float], maxBars: Int = 24) -> [CGFloat]? {
+        guard maxBars > 0, !linearSamples.isEmpty else {
             return nil
         }
         
