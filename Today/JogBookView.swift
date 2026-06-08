@@ -12,19 +12,24 @@ struct JogBookView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var journalEntries: [JournalEntry]
     @State var calendarGridColumn: [GridItem] = Array(repeating: GridItem(.flexible(), spacing: 12), count: 7)
-    @State var selectedMonth: Date = Date()
-    @State var selectedDate: Date? = nil
+    @State var selectedMonthYear: Date = Calendar.current.dateComponents([.year, .month], from: Date()).date ?? Date()
+    @State var selectedDay: Date? = nil
     
     let cardSize: CGSize = CGSize(width: 120, height: 200)
     
     var body: some View {
+        let previousMonth = Calendar.current.date(byAdding: .month, value: -1, to: selectedMonthYear) ?? Date()
+        let nextMonth = Calendar.current.date(byAdding: .month, value: 1, to: selectedMonthYear) ?? Date()
+        
         NavigationStack {
             VStack {
                 HStack {
                     Button(action: {
-                        
+                        withAnimation(.snappy) {
+                            selectedMonthYear = previousMonth
+                        }
                     }, label: {
-                        Label("May", systemImage: "chevron.left")
+                        Label(previousMonth.formatted(.dateTime.month(.wide)), systemImage: "chevron.left")
                             .font(.title3)
                             .padding(.horizontal, 8)
                     })
@@ -33,16 +38,18 @@ struct JogBookView: View {
                     
                     Spacer()
                     
-                    Text("June")
+                    Text(selectedMonthYear.formatted(.dateTime.month(.wide)))
                         .font(.title)
                         .fontWeight(.bold)
                     
                     Spacer()
                     
                     Button(action: {
-                        
+                        withAnimation(.snappy) {
+                            selectedMonthYear = nextMonth
+                        }
                     }, label: {
-                        Label("July", systemImage: "chevron.right")
+                        Label(nextMonth.formatted(.dateTime.month(.wide)), systemImage: "chevron.right")
                             .labelStyle(TrailingIcon())
                             .font(.title3)
                             .padding(.horizontal, 8)
@@ -64,11 +71,11 @@ struct JogBookView: View {
                     .aspectRatio(1, contentMode: .fill)
                 
                 VStack(alignment: .leading) {
-                    Text("You have logged \(entryCount(for: selectedMonth, granularity: .month)) journal entries this \(selectedMonth.formatted(.dateTime.month(.wide))).")
+                    Text("You have logged \(entryCount(for: selectedMonthYear, granularity: .month)) journal entries this \(selectedMonthYear.formatted(.dateTime.month(.wide))).")
                         .font(.headline)
                     
-                    if selectedDate != nil, let selectedDate {
-                        Text("You have \(entryCount(for: selectedDate, granularity: .day)) entries on \(selectedDate.formatted(.dateTime.day().month(.wide).year()))")
+                    if let selectedDay {
+                        Text("You have \(entryCount(for: selectedDay, granularity: .day)) entries on \(selectedDay.formatted(.dateTime.day().month(.wide).year()))")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -106,15 +113,15 @@ struct JogBookView: View {
     private var jogGrid: some View {
         GlassEffectContainer {
             LazyVGrid(columns: calendarGridColumn, spacing: 12) {
-                let daysInCurrentMonth = Calendar.current.range(of: .day, in: .month, for: selectedMonth)?.count ?? 30
-                let startOfSelectedMonth = Calendar.current.dateComponents([.year, .month], from: selectedMonth)
+                let daysInCurrentMonth = Calendar.current.range(of: .day, in: .month, for: selectedMonthYear)?.count ?? 30
+                let startOfselectedMonthYear = Calendar.current.dateComponents([.year, .month], from: selectedMonthYear)
                 
                 ForEach(0...daysInCurrentMonth, id: \.self) { index in
-                    let indexDate = Calendar.current.date(byAdding: .day, value: index, to: Calendar.current.date(from: startOfSelectedMonth)!)!
+                    let indexDate = Calendar.current.date(byAdding: .day, value: index, to: Calendar.current.date(from: startOfselectedMonthYear)!)!
                     
                     Button(action: {
-                        withAnimation(.snappy(duration: 0.3)) {
-                            selectedDate = selectedDate == indexDate ? nil : indexDate
+                        withAnimation(.snappy) {
+                            selectedDay = selectedDay == indexDate ? nil : indexDate
                         }
                     }, label: {
                         RoundedRectangle(cornerRadius: 8)
@@ -133,13 +140,13 @@ struct JogBookView: View {
     
     private var entryPreview: some View {
         VStack(alignment: .leading, spacing: 12) {
-            let dateString = selectedDate != nil ? selectedDate!.formatted(.dateTime.day().month(.wide).year()) : selectedMonth.formatted(.dateTime.month(.wide).year())
+            let dateString = selectedDay != nil ? selectedDay!.formatted(.dateTime.day().month(.wide).year()) : selectedMonthYear.formatted(.dateTime.month(.wide).year())
             
             let entriesForSelected = journalEntries.filter { entry in
-                if let selectedDate {
-                    Calendar.current.isDate(entry.date, inSameDayAs: selectedDate)
+                if let selectedDay {
+                    Calendar.current.isDate(entry.date, inSameDayAs: selectedDay)
                 } else {
-                    Calendar.current.isDate(entry.date, equalTo: selectedMonth, toGranularity: .month)
+                    Calendar.current.isDate(entry.date, equalTo: selectedMonthYear, toGranularity: .month)
                 }
             }
             
