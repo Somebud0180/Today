@@ -69,7 +69,15 @@ struct JogBookView: View {
                     .aspectRatio(1, contentMode: .fill)
                 
                 VStack(alignment: .leading) {
-                    Text("You have logged \(entryCount(for: selectedMonthYear, granularity: .month)) journal entries this \(selectedMonthYear.formatted(.dateTime.month(.wide))).")
+                    var endString: String {
+                        if Calendar.current.isDate(selectedMonthYear, equalTo: Date(), toGranularity: .year) {
+                            return "this \(selectedMonthYear.formatted(.dateTime.month(.wide)))"
+                        } else {
+                            return "in \(selectedMonthYear.formatted(.dateTime.month(.wide).year()))"
+                        }
+                    }
+                    
+                    Text("You have logged \(entryCount(for: selectedMonthYear, granularity: .month)) journal entries \(endString).")
                         .font(.headline)
                     
                     Divider()
