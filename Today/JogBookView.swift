@@ -23,6 +23,10 @@ struct JogBookView: View {
         
         NavigationStack {
             VStack {
+                Text(selectedMonthYear.formatted(.dateTime.month(.wide).year()))
+                    .font(.title)
+                    .fontWeight(.bold)
+                
                 HStack {
                     Button(action: {
                         withAnimation(.snappy) {
@@ -35,12 +39,6 @@ struct JogBookView: View {
                     })
                     .buttonStyle(.glass)
                     .font(.title3)
-                    
-                    Spacer()
-                    
-                    Text(selectedMonthYear.formatted(.dateTime.month(.wide)))
-                        .font(.title)
-                        .fontWeight(.bold)
                     
                     Spacer()
                     
@@ -67,20 +65,17 @@ struct JogBookView: View {
                                 .regular,
                                 in: RoundedRectangle(cornerRadius: 16)
                             )
-                        )
+                    )
                     .aspectRatio(1, contentMode: .fill)
                 
                 VStack(alignment: .leading) {
                     Text("You have logged \(entryCount(for: selectedMonthYear, granularity: .month)) journal entries this \(selectedMonthYear.formatted(.dateTime.month(.wide))).")
                         .font(.headline)
                     
-                    if let selectedDay {
-                        Text("You have \(entryCount(for: selectedDay, granularity: .day)) entries on \(selectedDay.formatted(.dateTime.day().month(.wide).year()))")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
+                    Divider()
+                    
+                    entryPreview
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(16)
                 .background(
                     RoundedRectangle(cornerRadius: 16)
@@ -89,18 +84,6 @@ struct JogBookView: View {
                             in: RoundedRectangle(cornerRadius: 16)
                         )
                 )
-                
-                entryPreview
-                    .padding(16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .glassEffect(
-                                .regular,
-                                in: RoundedRectangle(cornerRadius: 16)
-                            )
-                    )
-                    .aspectRatio(1, contentMode: .fill)
-
                 
                 Spacer()
             }
@@ -116,7 +99,7 @@ struct JogBookView: View {
                 let daysInCurrentMonth = Calendar.current.range(of: .day, in: .month, for: selectedMonthYear)?.count ?? 30
                 let startOfselectedMonthYear = Calendar.current.dateComponents([.year, .month], from: selectedMonthYear)
                 
-                ForEach(0...daysInCurrentMonth, id: \.self) { index in
+                ForEach(0..<daysInCurrentMonth, id: \.self) { index in
                     let indexDate = Calendar.current.date(byAdding: .day, value: index, to: Calendar.current.date(from: startOfselectedMonthYear)!)!
                     
                     Button(action: {
@@ -133,6 +116,7 @@ struct JogBookView: View {
                             )
                     })
                     .buttonStyle(.plain)
+                    .transition(.scale.combined(with: .opacity))
                 }
             }
         }
@@ -150,8 +134,17 @@ struct JogBookView: View {
                 }
             }
             
-            Text("\(dateString)'s entries")
-                .font(.title)
+            Group {
+                Text("\(dateString)'s entries")
+                    .font(.title)
+                
+                if !entriesForSelected.isEmpty, let selectedDay {
+                    Text("You have \(entryCount(for: selectedDay, granularity: .day)) entries on \(selectedDay.formatted(.dateTime.day().month(.wide).year()))")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+                .contentTransition(.numericText())
             
             if entriesForSelected.isEmpty {
                 emptyCarouselText
@@ -163,7 +156,15 @@ struct JogBookView: View {
     }
     
     private var emptyCarouselText: some View {
-        Text("No entries for this date.")
+        var messageString: String {
+            if let selectedDay {
+                return "You have \(entryCount(for: selectedDay, granularity: .day)) entries on \(selectedDay.formatted(.dateTime.day().month(.wide).year()))"
+            } else {
+                return "No entries for this date."
+            }
+        }
+        
+        return Text(messageString)
             .font(.subheadline)
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, maxHeight: 200, alignment: .center)

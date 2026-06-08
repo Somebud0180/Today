@@ -128,7 +128,7 @@ struct OnboardingView: View {
                             LazyVGrid(columns: calendarGridColumn, spacing: 8) {
                                 let daysInCurrentMonth = Calendar.current.range(of: .day, in: .month, for: Date())?.count ?? 30
                                 
-                                ForEach(0...daysInCurrentMonth, id: \.self) { block in
+                                ForEach(0..<daysInCurrentMonth, id: \.self) { block in
                                     let isActive = Float.random(in: 0...2) > 0.25
                                     RoundedRectangle(cornerRadius: 6)
                                         .foregroundStyle(isActive ? .orange : .gray)
