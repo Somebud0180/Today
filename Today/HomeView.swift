@@ -68,9 +68,10 @@ struct HomeView: View {
                         .scrollTargetLayout()
                         .padding(gridPadding)
                         .frame(maxWidth: .infinity)
-                        .blurScroll(2, blurHeight: 0.08, blurPosition: .top, coordinateSpaceName: "homeScrollSpace", viewportHeight: proxy.size.height)
+                        .blurScroll(4, blurHeight: 0.08, blurPosition: .top, coordinateSpaceName: "homeScrollSpace", viewportHeight: proxy.size.height)
                     }
                     .coordinateSpace(name: "homeScrollSpace")
+                    .scrollEdgeEffectHidden()
                     .scrollPosition($scrollPosition, anchor: .bottom)
                     .defaultScrollAnchor(.bottom, for: .initialOffset)
                     .onAppear {
