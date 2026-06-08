@@ -10,23 +10,24 @@ import Foundation
 struct MediaStore {
     private static let mediaFolderName = "TodayMedia"
     private static let thumbnailSuffix = "-thumb.jpg"
-
+    private static let icloudContainerID = "iCloud.com.lagera.Today"
+    
     /// Returns the base media directory. Prefer ubiquity container; fallback to Application Support.
     private static func mediaDirectory() -> URL? {
         let fm = FileManager.default
-
-        // Try ubiquity container first (iCloud Drive / app container)
-        if let ubiquity = fm.url(forUbiquityContainerIdentifier: nil) {
+        
+        if let ubiquity = fm.url(forUbiquityContainerIdentifier: icloudContainerID) {
             let dir = ubiquity.appendingPathComponent(mediaFolderName, isDirectory: true)
             do {
                 try fm.createDirectory(at: dir, withIntermediateDirectories: true)
                 return dir
             } catch {
                 print("Failed to create ubiquity media directory: \(error)")
-                // fall through to fallback
             }
+        } else {
+            print("iCloud container '\(icloudContainerID)' is temporarily unavailable. Using local fallback.")
         }
-
+        
         // Fallback: Application Support/<bundle-id>/Media
         if let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
             let bundleID = Bundle.main.bundleIdentifier ?? "Today"
@@ -39,7 +40,7 @@ struct MediaStore {
                 return nil
             }
         }
-
+        
         return nil
     }
 
