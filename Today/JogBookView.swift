@@ -31,6 +31,7 @@ struct JogBookView: View {
                     Button(action: {
                         withAnimation(.snappy) {
                             selectedMonthYear = previousMonth
+                            selectedDay = nil
                         }
                     }, label: {
                         Label(previousMonth.formatted(.dateTime.month(.wide)), systemImage: "chevron.left")
@@ -45,6 +46,7 @@ struct JogBookView: View {
                     Button(action: {
                         withAnimation(.snappy) {
                             selectedMonthYear = nextMonth
+                            selectedDay = nil
                         }
                     }, label: {
                         Label(nextMonth.formatted(.dateTime.month(.wide)), systemImage: "chevron.right")
@@ -68,30 +70,15 @@ struct JogBookView: View {
                     )
                     .aspectRatio(1, contentMode: .fill)
                 
-                VStack(alignment: .leading) {
-                    var endString: String {
-                        if Calendar.current.isDate(selectedMonthYear, equalTo: Date(), toGranularity: .year) {
-                            return "this \(selectedMonthYear.formatted(.dateTime.month(.wide)))"
-                        } else {
-                            return "in \(selectedMonthYear.formatted(.dateTime.month(.wide).year()))"
-                        }
-                    }
-                    
-                    Text("You have logged \(entryCount(for: selectedMonthYear, granularity: .month)) journal entries \(endString).")
-                        .font(.headline)
-                    
-                    Divider()
-                    
-                    entryPreview
-                }
-                .padding(16)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .glassEffect(
-                            .regular,
-                            in: RoundedRectangle(cornerRadius: 16)
-                        )
-                )
+                entryPreview
+                    .padding(16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .glassEffect(
+                                .regular,
+                                in: RoundedRectangle(cornerRadius: 16)
+                            )
+                    )
                 
                 Spacer()
             }
@@ -142,17 +129,27 @@ struct JogBookView: View {
                 }
             }
             
-            Group {
+            VStack(alignment: .leading, spacing: 6) {
                 Text("\(dateString)'s entries")
                     .font(.title)
                 
                 if !entriesForSelected.isEmpty, let selectedDay {
                     Text("You have \(entryCount(for: selectedDay, granularity: .day)) entries on \(selectedDay.formatted(.dateTime.day().month(.wide).year()))")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .font(.headline)
+                } else {
+                    var endString: String {
+                        if Calendar.current.isDate(selectedMonthYear, equalTo: Date(), toGranularity: .year) {
+                            return "this \(selectedMonthYear.formatted(.dateTime.month(.wide)))"
+                        } else {
+                            return "in \(selectedMonthYear.formatted(.dateTime.month(.wide).year()))"
+                        }
+                    }
+                    
+                    Text("You have logged \(entryCount(for: selectedMonthYear, granularity: .month)) journal entries \(endString).")
+                        .font(.headline)
                 }
             }
-                .contentTransition(.numericText())
+            .contentTransition(.numericText())
             
             if entriesForSelected.isEmpty {
                 emptyCarouselText
