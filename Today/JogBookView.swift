@@ -18,72 +18,69 @@ struct JogBookView: View {
     @State var isLandscape: Bool = false
     
     let cardSize: CGSize = CGSize(width: 120, height: 200)
+    let cardSizeCompact: CGSize = CGSize(width: 96, height: 160)
     
     var body: some View {
-        let previousMonth = Calendar.current.date(byAdding: .month, value: -1, to: selectedMonthYear) ?? Date()
-        let nextMonth = Calendar.current.date(byAdding: .month, value: 1, to: selectedMonthYear) ?? Date()
-        
         NavigationStack {
             ScrollView {
-                VStack {
-                    Text(selectedMonthYear.formatted(.dateTime.month(.wide).year()))
-                        .font(.title)
-                        .fontWeight(.bold)
-                    
-                    HStack {
-                        Button(action: {
-                            withAnimation(.snappy) {
-                                selectedMonthYear = previousMonth
-                                selectedDay = nil
-                            }
-                        }, label: {
-                            Label(previousMonth.formatted(.dateTime.month(.wide)), systemImage: "chevron.left")
-                                .font(.title3)
-                                .padding(.horizontal, 8)
-                        })
-                        .buttonStyle(.glass)
-                        .font(.title3)
+                if isLandscape {
+                    VStack {
+                        topBar
+                            .padding(.horizontal, 16)
                         
-                        Spacer()
-                        
-                        Button(action: {
-                            withAnimation(.snappy) {
-                                selectedMonthYear = nextMonth
-                                selectedDay = nil
-                            }
-                        }, label: {
-                            Label(nextMonth.formatted(.dateTime.month(.wide)), systemImage: "chevron.right")
-                                .labelStyle(TrailingIcon())
-                                .font(.title3)
-                                .padding(.horizontal, 8)
-                        })
-                        .buttonStyle(.glass)
-                        .font(.title3)
+                        HStack {
+                            jogGrid
+                                .padding(16)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .glassEffect(
+                                            .regular,
+                                            in: RoundedRectangle(cornerRadius: 16)
+                                        )
+                                )
+                                .aspectRatio(1, contentMode: .fill)
+                            
+                            monthSummary
+                                .padding(16)
+                                .frame(maxHeight: .infinity, alignment: .top)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .glassEffect(
+                                            .regular,
+                                            in: RoundedRectangle(cornerRadius: 16)
+                                        )
+                                )
+                        }
                     }
-                    .padding(.horizontal, 16)
-                    
-                    jogGrid
-                        .padding(16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .glassEffect(
-                                    .regular,
-                                    in: RoundedRectangle(cornerRadius: 16)
-                                )
-                        )
-                        .aspectRatio(1, contentMode: .fill)
-                    
-                    monthSummary
-                        .padding(16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .glassEffect(
-                                    .regular,
-                                    in: RoundedRectangle(cornerRadius: 16)
-                                )
-                        )
+                } else {
+                    VStack(spacing: 12) {
+                        topBar
+                            .padding(.horizontal, 16)
+                        
+                        jogGrid
+                            .padding(16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .glassEffect(
+                                        .regular,
+                                        in: RoundedRectangle(cornerRadius: 16)
+                                    )
+                            )
+                            .aspectRatio(1, contentMode: .fill)
+                        
+                        monthSummary
+                            .padding(16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .glassEffect(
+                                        .regular,
+                                        in: RoundedRectangle(cornerRadius: 16)
+                                    )
+                            )
+                    }
                 }
             }
+            .scrollDisabled(isLandscape)
             .padding(.horizontal, 16)
             .navigationTitle("Jog Book")
             .navigationBarTitleDisplayMode(.inline)
@@ -100,6 +97,60 @@ struct JogBookView: View {
             }
         }
     }
+    
+    private var topBar: some View {
+        VStack(spacing: 4) {
+            if isLandscape {
+                HStack {
+                    monthButton(forPrevious: true)
+                    Spacer()
+                    monthTitleText
+                    Spacer()
+                    monthButton(forPrevious: false)
+                }
+            } else {
+                monthTitleText
+                
+                HStack {
+                    monthButton(forPrevious: true)
+                    Spacer()
+                    monthButton(forPrevious: false)
+                }
+            }
+        }
+    }
+    
+    private var monthTitleText: some View {
+        Text(selectedMonthYear.formatted(.dateTime.month(.wide).year()))
+            .font(.title)
+            .fontWeight(.bold)
+    }
+    
+    private func monthButton(forPrevious: Bool) -> some View {
+        var month: Date {
+            if forPrevious {
+                return Calendar.current.date(byAdding: .month, value: -1, to: selectedMonthYear) ?? Date()
+            } else {
+                return Calendar.current.date(byAdding: .month, value: 1, to: selectedMonthYear) ?? Date()
+            }
+        }
+        
+        return Button(action: {
+            withAnimation(.snappy) {
+                selectedMonthYear = month
+                selectedDay = nil
+            }
+        }, label: {
+            Label(month.formatted(.dateTime.month(.wide)), systemImage: forPrevious ? "chevron.left" : "chevron.right")
+                .font(.title3)
+                .padding(.horizontal, 8)
+        })
+        .buttonStyle(.glass)
+        .font(.title3)
+    }
+    
+    
+    
     
     private var jogGrid: some View {
         GlassEffectContainer {
@@ -202,7 +253,7 @@ struct JogBookView: View {
         ScrollView(.horizontal) {
             HStack(spacing: 12) {
                 ForEach(entries) { entry in
-                    GridCardView(for: entry, size: cardSize)
+                    GridCardView(for: entry, size: isLandscape ? cardSizeCompact : cardSize)
                 }
             }
         }
