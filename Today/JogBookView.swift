@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct JogBookView: View {
     @Environment(\.colorScheme) private var colorScheme
@@ -122,9 +123,11 @@ struct JogBookView: View {
     }
     
     private var monthTitleText: some View {
-        Text(selectedMonthYear.formatted(.dateTime.month(.wide).year()))
-            .font(.title)
-            .fontWeight(.bold)
+        MonthYearPicker(date: $selectedMonthYear) {
+            Text(selectedMonthYear.formatted(.dateTime.month(.wide).year()))
+        }
+        .font(.title)
+        .fontWeight(.bold)
     }
     
     private func monthButton(forPrevious: Bool) -> some View {
@@ -147,11 +150,7 @@ struct JogBookView: View {
                 .padding(.horizontal, 8)
         })
         .buttonStyle(.glass)
-        .font(.title3)
     }
-    
-    
-    
     
     private var jogGrid: some View {
         GlassEffectContainer {
