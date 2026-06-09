@@ -124,7 +124,9 @@ struct CreateView: View {
                                     }
                                 } else {
                                     VStackLayout(spacing: 24) {
+#if canImport(JournalingSuggestions)
                                         journalingSuggestionsButton
+#endif
                                         createButtons
                                     }
                                 }
@@ -247,9 +249,9 @@ struct CreateView: View {
         }
     }
     
+#if canImport(JournalingSuggestions)
     var journalingSuggestionsButton: some View {
         HStack {
-#if canImport(JournalingSuggestions)
             JournalingSuggestionsPicker {
                 ZStack {
                     RoundedRectangle(cornerRadius: 24)
@@ -295,11 +297,11 @@ struct CreateView: View {
                 .buttonStyle(.plain)
                 .frame(maxWidth: 72)
             }
-#endif
         }
         .frame(maxHeight: 72)
         .animation(.snappy(duration: 0.5), value: suggestionTitle)
     }
+#endif
     
     var createButtons: some View {
         Group {
