@@ -156,9 +156,12 @@ struct HomeView: View {
             )
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Select") {
+                    Button(action: {
                         // Edit
-                    }
+                    }, label: {
+                        Label("Select", systemImage: "circle.grid.2x2.topleft.checkmark.filled")
+                            .labelStyle(.titleOnly)
+                    })
                 }
                 
                 ToolbarItem(placement: .topBarTrailing) {
@@ -186,6 +189,7 @@ struct HomeView: View {
                     GridCardView(for: journalEntry, size: metrics.cardSize)
                         .matchedTransitionSource(id: journalEntry, in: namespace)
                 }
+                .buttonBorderShape(.roundedRectangle(radius: 16))
                 .id(journalEntry.date)
                 .contextMenu {
                     Button(role: .destructive) {
