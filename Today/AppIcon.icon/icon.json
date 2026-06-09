@@ -1,10 +1,14 @@
 {
+  "features" : [
+    "refractivity",
+    "specular-location"
+  ],
   "fill" : {
     "automatic-gradient" : "display-p3:0.53706,0.74663,0.96783,1.00000"
   },
   "groups" : [
     {
-      "blur-material" : null,
+      "blur-material" : 0.25,
       "layers" : [
         {
           "image-name" : "Group 2 2.png",
@@ -19,13 +23,19 @@
         }
       ],
       "lighting" : "individual",
+      "name" : "Group",
+      "refractivity" : {
+        "depth" : 0.25,
+        "enabled" : true,
+        "strength" : 0
+      },
       "shadow" : {
-        "kind" : "neutral",
+        "kind" : "layer-color",
         "opacity" : 0.5
       },
       "specular-specializations" : [
         {
-          "value" : false
+          "value" : "inside"
         },
         {
           "appearance" : "tinted",
@@ -71,13 +81,18 @@
           }
         }
       ],
+      "refractivity" : {
+        "depth" : 0,
+        "enabled" : true,
+        "strength" : 0.5
+      },
       "shadow" : {
         "kind" : "layer-color",
         "opacity" : 0.5
       },
       "specular-specializations" : [
         {
-          "value" : true
+          "value" : "inside"
         },
         {
           "appearance" : "tinted",
