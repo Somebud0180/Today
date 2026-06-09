@@ -34,12 +34,12 @@ struct GridCardView: View {
                 endPoint: .bottom
             )
             
-            if size.width > 100 {
+            ViewThatFits {
                 VStack(alignment: .leading) {
                     Text(
                         journalEntry.title.isEmpty ? journalEntry.date.formatted(date: .numeric, time: .omitted) : journalEntry.title
                     )
-                    .lineLimit(2)
+                    .lineLimit(2)   
                     .fontWeight(.heavy)
                     .foregroundStyle(.white.opacity(0.9))
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -47,16 +47,17 @@ struct GridCardView: View {
                     if !journalEntry.title.isEmpty {
                         Text(journalEntry.date.formatted(date: .numeric, time: .omitted))
                             .font(.subheadline)
+                            .multilineTextAlignment(.leading)
                             .foregroundStyle(.white.opacity(0.75))
                     }
-                    
+                        
                     Spacer()
                 }
                 .padding(12)
-            } else {
+                
                 VStack(alignment: .leading) {
-                    let date = journalEntry.date.formatted(date: .abbreviated, time: .omitted)
-                    Text(date.dropLast(6))
+                    let date = journalEntry.date.formatted(.dateTime.month(.abbreviated).day())
+                    Text(date)
                         .lineLimit(2)
                         .fontWeight(.bold)
                         .foregroundStyle(.white.opacity(0.9))

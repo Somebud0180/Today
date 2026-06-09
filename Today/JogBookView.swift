@@ -23,12 +23,41 @@ struct JogBookView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                if isLandscape {
-                    VStack {
-                        topBar
-                            .padding(.horizontal, 16)
-                        
-                        HStack {
+                Group {
+                    if isLandscape {
+                        VStack {
+                            topBar
+                                .padding(.horizontal, 16)
+                            
+                            HStack {
+                                jogGrid
+                                    .padding(16)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .glassEffect(
+                                                .regular,
+                                                in: RoundedRectangle(cornerRadius: 16)
+                                            )
+                                    )
+                                    .aspectRatio(1, contentMode: .fill)
+                                
+                                monthSummary
+                                    .padding(16)
+                                    .frame(maxHeight: .infinity, alignment: .top)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .glassEffect(
+                                                .regular,
+                                                in: RoundedRectangle(cornerRadius: 16)
+                                            )
+                                    )
+                            }
+                        }
+                    } else {
+                        VStack(spacing: 12) {
+                            topBar
+                                .padding(.horizontal, 16)
+                            
                             jogGrid
                                 .padding(16)
                                 .background(
@@ -42,7 +71,6 @@ struct JogBookView: View {
                             
                             monthSummary
                                 .padding(16)
-                                .frame(maxHeight: .infinity, alignment: .top)
                                 .background(
                                     RoundedRectangle(cornerRadius: 16)
                                         .glassEffect(
@@ -52,37 +80,10 @@ struct JogBookView: View {
                                 )
                         }
                     }
-                } else {
-                    VStack(spacing: 12) {
-                        topBar
-                            .padding(.horizontal, 16)
-                        
-                        jogGrid
-                            .padding(16)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .glassEffect(
-                                        .regular,
-                                        in: RoundedRectangle(cornerRadius: 16)
-                                    )
-                            )
-                            .aspectRatio(1, contentMode: .fill)
-                        
-                        monthSummary
-                            .padding(16)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .glassEffect(
-                                        .regular,
-                                        in: RoundedRectangle(cornerRadius: 16)
-                                    )
-                            )
-                    }
                 }
+                .padding(.horizontal, isLandscape ? nil : 16)
+                .padding(.top, isLandscape ? 16 : nil)
             }
-            .scrollDisabled(isLandscape)
-            .padding(.horizontal, 16)
-            .navigationTitle("Jog Book")
             .navigationBarTitleDisplayMode(.inline)
             .background {
                 GeometryReader { proxy in
@@ -282,6 +283,6 @@ struct TrailingIcon: LabelStyle {
 }
 
 #Preview {
-    JogBookView()
+    ContentView(tabSelection: 2)
         .modelContainer(for: JournalEntry.self)
 }
