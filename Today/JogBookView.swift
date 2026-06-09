@@ -9,11 +9,13 @@ import SwiftUI
 import SwiftData
 
 struct JogBookView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @Query private var journalEntries: [JournalEntry]
     @State var calendarGridColumn: [GridItem] = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
     @State var selectedMonthYear: Date = Calendar.current.dateComponents([.year, .month], from: Date()).date ?? Date()
     @State var selectedDay: Date? = nil
+    @State var isLandscape: Bool = false
     
     let cardSize: CGSize = CGSize(width: 120, height: 200)
     
@@ -22,69 +24,80 @@ struct JogBookView: View {
         let nextMonth = Calendar.current.date(byAdding: .month, value: 1, to: selectedMonthYear) ?? Date()
         
         NavigationStack {
-            VStack {
-                Text(selectedMonthYear.formatted(.dateTime.month(.wide).year()))
-                    .font(.title)
-                    .fontWeight(.bold)
-                
-                HStack {
-                    Button(action: {
-                        withAnimation(.snappy) {
-                            selectedMonthYear = previousMonth
-                            selectedDay = nil
-                        }
-                    }, label: {
-                        Label(previousMonth.formatted(.dateTime.month(.wide)), systemImage: "chevron.left")
-                            .font(.title3)
-                            .padding(.horizontal, 8)
-                    })
-                    .buttonStyle(.glass)
-                    .font(.title3)
+            ScrollView {
+                VStack {
+                    Text(selectedMonthYear.formatted(.dateTime.month(.wide).year()))
+                        .font(.title)
+                        .fontWeight(.bold)
                     
-                    Spacer()
+                    HStack {
+                        Button(action: {
+                            withAnimation(.snappy) {
+                                selectedMonthYear = previousMonth
+                                selectedDay = nil
+                            }
+                        }, label: {
+                            Label(previousMonth.formatted(.dateTime.month(.wide)), systemImage: "chevron.left")
+                                .font(.title3)
+                                .padding(.horizontal, 8)
+                        })
+                        .buttonStyle(.glass)
+                        .font(.title3)
+                        
+                        Spacer()
+                        
+                        Button(action: {
+                            withAnimation(.snappy) {
+                                selectedMonthYear = nextMonth
+                                selectedDay = nil
+                            }
+                        }, label: {
+                            Label(nextMonth.formatted(.dateTime.month(.wide)), systemImage: "chevron.right")
+                                .labelStyle(TrailingIcon())
+                                .font(.title3)
+                                .padding(.horizontal, 8)
+                        })
+                        .buttonStyle(.glass)
+                        .font(.title3)
+                    }
+                    .padding(.horizontal, 16)
                     
-                    Button(action: {
-                        withAnimation(.snappy) {
-                            selectedMonthYear = nextMonth
-                            selectedDay = nil
-                        }
-                    }, label: {
-                        Label(nextMonth.formatted(.dateTime.month(.wide)), systemImage: "chevron.right")
-                            .labelStyle(TrailingIcon())
-                            .font(.title3)
-                            .padding(.horizontal, 8)
-                    })
-                    .buttonStyle(.glass)
-                    .font(.title3)
+                    jogGrid
+                        .padding(16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .glassEffect(
+                                    .regular,
+                                    in: RoundedRectangle(cornerRadius: 16)
+                                )
+                        )
+                        .aspectRatio(1, contentMode: .fill)
+                    
+                    monthSummary
+                        .padding(16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .glassEffect(
+                                    .regular,
+                                    in: RoundedRectangle(cornerRadius: 16)
+                                )
+                        )
                 }
-                .padding(.horizontal, 16)
-                
-                jogGrid
-                    .padding(16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .glassEffect(
-                                .regular,
-                                in: RoundedRectangle(cornerRadius: 16)
-                            )
-                    )
-                    .aspectRatio(1, contentMode: .fill)
-                
-                monthSummary
-                    .padding(16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .glassEffect(
-                                .regular,
-                                in: RoundedRectangle(cornerRadius: 16)
-                            )
-                    )
-                
-                Spacer()
             }
             .padding(.horizontal, 16)
             .navigationTitle("Jog Book")
             .navigationBarTitleDisplayMode(.inline)
+            .background {
+                GeometryReader { proxy in
+                    Image("Background1")
+                        .resizable()
+                        .scaledToFill()
+                        .ignoresSafeArea()
+                        .animation(.easeInOut(duration: 0.5), value: colorScheme)
+                        .onAppear { isLandscape = proxy.size.width > proxy.size.height }
+                        .onChange(of: proxy.size) { isLandscape = proxy.size.width > proxy.size.height }
+                }
+            }
         }
     }
     
