@@ -24,16 +24,23 @@ struct JournalView: View {
     @State private var videoViewModel: VideoViewModel? = nil
     @State private var audioViewModel: AudioViewModel? = nil
     
+    @FocusState private var titleFieldFocused: Bool
+    
     var body: some View {
         NavigationStack {
             ZStack {
                 if resolvedURL != nil {
-                    if selectedEntry.mediaType == .video, let vm = videoViewModel {
-                        VideoPlayerView(player: vm.player)
-                    } else if selectedEntry.mediaType == .audio, let vm = audioViewModel {
-                        AudioPlayerView(viewModel: vm)
+                    Group {
+                        if selectedEntry.mediaType == .video, let vm = videoViewModel {
+                            VideoPlayerView(player: vm.player)
+                        } else if selectedEntry.mediaType == .audio, let vm = audioViewModel {
+                            AudioPlayerView(viewModel: vm)
+                        }
                     }
-                    
+                    .onTapGesture {
+                        titleFieldFocused = false
+                    }
+                        
                     playButton()
                     
                     VStack {
@@ -41,7 +48,6 @@ struct JournalView: View {
                         NoteCardView(note: bindingFor(\.note), isLandscape: $isLandscape)
                     }
                     .ignoresSafeArea()
-                    
                 } else if isDownloading {
                     VStack(spacing: 16) {
                         ProgressView()
@@ -52,6 +58,9 @@ struct JournalView: View {
                     }
                     .padding(24)
                     .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
+                    .onTapGesture {
+                        titleFieldFocused = false
+                    }
                     
                 } else if let errorMessage {
                     VStack(spacing: 12) {
@@ -83,8 +92,6 @@ struct JournalView: View {
                         .onChange(of: proxy.size) { isLandscape = proxy.size.width > proxy.size.height }
                 }
             }
-            .navigationTitle(selectedEntry.title.isEmpty ? selectedEntry.date.formatted(date: .numeric, time: .omitted) : selectedEntry.title)
-            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(role: .destructive, action: {
@@ -95,6 +102,14 @@ struct JournalView: View {
                         Image(systemName: "trash")
                     }
                     .foregroundStyle(.red)
+                }
+                
+                ToolbarItem(placement: .title) {
+                    TextField(
+                        selectedEntry.title.isEmpty ? selectedEntry.date.formatted(date: .numeric, time: .omitted) : selectedEntry.title,
+                        text: bindingFor(\.title)
+                    )
+                    .focused($titleFieldFocused)
                 }
             }
             .task {
@@ -153,7 +168,10 @@ struct JournalView: View {
     @ViewBuilder
     private func playButton() -> some View {
         if selectedEntry.mediaType == .video, let vm = videoViewModel {
-            Button(action: { vm.togglePlayback() }) {
+            Button(action: {
+                vm.togglePlayback()
+                titleFieldFocused = false
+            }) {
                 Image(systemName: vm.isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 32))
                     .foregroundStyle(.black.opacity(0.75))
@@ -161,7 +179,10 @@ struct JournalView: View {
                     .glassEffect(.clear.interactive(), in: Circle())
             }
         } else if selectedEntry.mediaType == .audio, let vm = audioViewModel {
-            Button(action: { vm.togglePlayback() }) {
+            Button(action: {
+                vm.togglePlayback()
+                titleFieldFocused = false
+            }) {
                 Image(systemName: vm.isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 32))
                     .foregroundStyle(.black.opacity(0.75))
