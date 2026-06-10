@@ -44,7 +44,7 @@ struct BlurScroll: ViewModifier {
             content
             
             // Blurred overlay (copy of main content)
-            content
+            Color.red
                 .blur(radius: blur)
                 .mask(
                     VStack(spacing: 0) {
