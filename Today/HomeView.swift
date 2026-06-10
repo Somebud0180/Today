@@ -42,6 +42,8 @@ struct HomeView: View {
     @State private var scrollPosition: ScrollPosition = .init(idType: Date.self)
     @State private var isFollowingBottom = true
     @State private var didPerformInitialScroll = false
+    @State private var isPad = UIDevice.current.userInterfaceIdiom == .pad
+    @State private var topBarHeight: CGFloat = 0.0
     
     private let minimumCardWidth: [CGFloat] = [60, 80, 100, 120, 150]
     private let gridSpacing: [CGFloat] = [4, 8, 12, 16, 20]
@@ -49,9 +51,10 @@ struct HomeView: View {
     private let gridPadding: CGFloat = 10
     
     var body: some View {
-        NavigationStack {
-            GeometryReader { proxy in
+        GeometryReader { proxy in
+            NavigationStack {
                 let transition = zoomTransition(in: proxy.size)
+                let blurHeight = (topBarHeight - getTitleTopPadding(proxy)) / proxy.size.height - 0.025
                 
                 ZStack(alignment: .top) {
                     ScrollView(.vertical, showsIndicators: true) {
@@ -69,7 +72,7 @@ struct HomeView: View {
                         .scrollTargetLayout()
                         .padding(gridPadding)
                         .frame(maxWidth: .infinity)
-                        .blurScroll(4, blurHeight: 0.08, blurPosition: .top, coordinateSpaceName: "homeScrollSpace", viewportHeight: proxy.size.height)
+                        .blurScroll(4, blurHeight: blurHeight, blurPosition: .top, coordinateSpaceName: "homeScrollSpace", viewportHeight: proxy.size.height)
                     }
                     .coordinateSpace(name: "homeScrollSpace")
                     .scrollEdgeEffectHidden()
@@ -108,73 +111,64 @@ struct HomeView: View {
                             .font(.headline)
                             .fontWeight(.semibold)
                     }
-                    .padding(.leading, getTitleHorizontalPadding(proxy: proxy))
-                    .padding(.top, getTitleTopPadding(proxy: proxy))
+                    .padding(.leading, getTitleHorizontalPadding(proxy))
+                    .padding(.top, getTitleTopPadding(proxy))
+                    .animation(.snappy, value: getTitleHorizontalPadding(proxy))
+                    .animation(.snappy, value: getTitleTopPadding(proxy))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .ignoresSafeArea(edges: .all)
+                    .background(
+                        GeometryReader { geo in
+                            Color.clear
+                                .onAppear {
+                                    withAnimation(.snappy) {
+                                        topBarHeight = geo.size.height
+                                    }
+                                }
+                                .onChange(of: geo.size.height) {
+                                    withAnimation(.snappy) {
+                                        topBarHeight = geo.size.height
+                                    }
+                                }
+                        }
+                    )
                 }
-                .simultaneousGesture(
-                    MagnifyGesture()
-                        .updating($magnifyBy) { value, gestureState, _ in
-                            gestureState = value.magnification
-                            
-                            if gestureStartZoomStep == nil {
-                                gestureStartZoomStep = gridZoomStep
-                            }
-                            
-                            let baseStep = gestureStartZoomStep ?? gridZoomStep
-                            let maxStep = CGFloat(gridSpacing.count - 1)
-                            let rawFactor = CGFloat(baseStep) + (value.magnification - 1.0) * maxStep
-                            let clampedFactor = clamp(rawFactor, lower: 0, upper: maxStep)
-                            continuousZoomFactor = clampedFactor
-                            
-                            let lowerStep = clampStep(Int(floor(clampedFactor)))
-                            let upperStep = clampStep(lowerStep + 1)
-                            let progress = clampedFactor - CGFloat(lowerStep)
-                            
-                            let direction = value.magnification > 1 ? "In" : "Out"
-                            debugPrint("Zooming - Direction: \(direction), Base Step: \(baseStep), Raw Factor: \(rawFactor), Clamped Factor: \(clampedFactor), Lower Step: \(lowerStep), Upper Step: \(upperStep), Progress: \(progress)")
-                        }
-                        .onEnded { _ in
-                            let finalStep = clampStep(Int(round(continuousZoomFactor)))
-                            
-                            withAnimation(.interactiveSpring(response: 0.3, dampingFraction: 0.78, blendDuration: 0.2)) {
-                                gridZoomStep = finalStep
-                                continuousZoomFactor = CGFloat(finalStep)
-                            }
-                            
-                            gestureStartZoomStep = nil
-                        }
+                .simultaneousGesture(zoomGesture)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(action: {
+                            // Edit
+                        }, label: {
+                            Text("Select")
+                                .padding(.horizontal, 8)
+                        })
+                        .buttonBorderShape(.capsule)
+                    }
+                    
+                    ToolbarItem(placement: .topBarTrailing) {
+                        NavigationLink(
+                            destination: SettingsView(),
+                            label: {
+                                Label("Settings", systemImage: "gearshape")
+                                    .labelStyle(.iconOnly)
+                            })
+                    }
+                }
+                .navigationBarTitleDisplayMode(.inline)
+                .onChange(of: blurHeight) {
+                    debugPrint("Blur Height \(blurHeight)")
+                    debugPrint("Top Bar Height \(topBarHeight)")
+                    debugPrint("Proxy Height \(proxy.size.height)")
+                    debugPrint("Title Padding Height \(getTitleTopPadding(proxy))")
+                }
+                .background(
+                    Image("Background1")
+                        .resizable()
+                        .scaledToFill()
+                        .ignoresSafeArea(.all)
+                        .animation(.easeInOut(duration: 0.5), value: colorScheme)
                 )
             }
-            .background(
-                Image("Background1")
-                    .resizable()
-                    .scaledToFill()
-                    .ignoresSafeArea()
-                    .animation(.easeInOut(duration: 0.5), value: colorScheme)
-            )
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: {
-                        // Edit
-                    }, label: {
-                        Text("Select")
-                            .padding(.horizontal, 8)
-                    })
-                    .buttonBorderShape(.capsule)
-                }
-                
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink(
-                        destination: SettingsView(),
-                        label: {
-                            Label("Settings", systemImage: "gearshape")
-                                .labelStyle(.iconOnly)
-                        })
-                }
-            }
-            .navigationBarTitleDisplayMode(.inline)
         }
     }
     
@@ -210,6 +204,40 @@ struct HomeView: View {
     }
     
     // MARK: - Zoom Transition
+    private var zoomGesture: some Gesture {
+        MagnifyGesture()
+            .updating($magnifyBy) { value, gestureState, _ in
+                gestureState = value.magnification
+                
+                if gestureStartZoomStep == nil {
+                    gestureStartZoomStep = gridZoomStep
+                }
+                
+                let baseStep = gestureStartZoomStep ?? gridZoomStep
+                let maxStep = CGFloat(gridSpacing.count - 1)
+                let rawFactor = CGFloat(baseStep) + (value.magnification - 1.0) * maxStep
+                let clampedFactor = clamp(rawFactor, lower: 0, upper: maxStep)
+                continuousZoomFactor = clampedFactor
+                
+                let lowerStep = clampStep(Int(floor(clampedFactor)))
+                let upperStep = clampStep(lowerStep + 1)
+                let progress = clampedFactor - CGFloat(lowerStep)
+                
+                let direction = value.magnification > 1 ? "In" : "Out"
+                debugPrint("Zooming - Direction: \(direction), Base Step: \(baseStep), Raw Factor: \(rawFactor), Clamped Factor: \(clampedFactor), Lower Step: \(lowerStep), Upper Step: \(upperStep), Progress: \(progress)")
+            }
+            .onEnded { _ in
+                let finalStep = clampStep(Int(round(continuousZoomFactor)))
+                
+                withAnimation(.interactiveSpring(response: 0.3, dampingFraction: 0.78, blendDuration: 0.2)) {
+                    gridZoomStep = finalStep
+                    continuousZoomFactor = CGFloat(finalStep)
+                }
+                
+                gestureStartZoomStep = nil
+            }
+    }
+    
     private func zoomTransition(in size: CGSize) -> ZoomTransitionState {
         let currentStep = clampStep(Int(floor(continuousZoomFactor)))
         let nextStep = clampStep(Int(ceil(continuousZoomFactor)))
@@ -283,25 +311,35 @@ struct HomeView: View {
         max(lower, min(upper, value))
     }
     
-    private func getTitleTopPadding(proxy: GeometryProxy) -> CGFloat {
-        let isPad = UIDevice.current.userInterfaceIdiom == .pad
-        
+    private func getTitleTopPadding(_ proxy: GeometryProxy) -> CGFloat {
         if isPad {
-            return proxy.safeAreaInsets.top / 2 - 16
+            return proxy.safeAreaInsets.top
         } else {
             if proxy.size.width > proxy.size.height {
                 return 16
             } else {
-                return proxy.safeAreaInsets.top / 2
+                return proxy.safeAreaInsets.top
             }
         }
     }
     
-    private func getTitleHorizontalPadding(proxy: GeometryProxy) -> CGFloat {
-        if proxy.size.width > proxy.size.height {
-            return proxy.safeAreaInsets.leading / 2 + 16
+    private func getTitleHorizontalPadding(_ proxy: GeometryProxy) -> CGFloat {
+        debugPrint("Top safe area inset \(proxy.safeAreaInsets.top)")
+        debugPrint("Leading safe area inset \(proxy.safeAreaInsets.leading)")
+        debugPrint("Bottom safe area inset \(proxy.safeAreaInsets.bottom)")
+        debugPrint("Trailing safe area inset \(proxy.safeAreaInsets.trailing)")
+        
+        
+        debugPrint("TopLeading safe area inset \(proxy.containerCornerInsets.topLeading)")
+        
+        if isPad {
+            return proxy.containerCornerInsets.topLeading.width + 16
         } else {
-            return 24
+            if proxy.size.width > proxy.size.height {
+                return proxy.safeAreaInsets.leading / 2 + 16
+            } else {
+                return 24
+            }
         }
     }
 }
