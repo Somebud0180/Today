@@ -54,7 +54,7 @@ struct HomeView: View {
         GeometryReader { proxy in
             NavigationStack {
                 let transition = zoomTransition(in: proxy.size)
-                let blurHeight = (topBarHeight - getTitleTopPadding(proxy)) / proxy.size.height - 0.025
+                let blurHeight = topBarHeight - getTitleTopPadding(proxy)
                 
                 ZStack(alignment: .top) {
                     ScrollView(.vertical, showsIndicators: true) {
@@ -72,7 +72,6 @@ struct HomeView: View {
                         .scrollTargetLayout()
                         .padding(gridPadding)
                         .frame(maxWidth: .infinity)
-                        .blurScroll(4, blurHeight: blurHeight, blurPosition: .top, coordinateSpaceName: "homeScrollSpace", viewportHeight: proxy.size.height)
                     }
                     .coordinateSpace(name: "homeScrollSpace")
                     .scrollEdgeEffectHidden()
@@ -102,6 +101,10 @@ struct HomeView: View {
                             isFollowingBottom = true
                         }
                     }
+                    
+                    VariableBlurView(maxBlurRadius: 10)
+                        .frame(height: blurHeight)
+                        .ignoresSafeArea()
                     
                     VStack(alignment: .leading) {
                         Text("Today")
