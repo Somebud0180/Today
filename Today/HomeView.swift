@@ -148,17 +148,14 @@ struct HomeView: View {
                 }
                 .simultaneousGesture(zoomGesture)
                 .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
+                    ToolbarItemGroup(placement: .topBarTrailing) {
                         Button(action: {
                             // Edit
                         }, label: {
-                            Text("Select")
-                                .padding(.horizontal, 8)
+                            Label("Select", systemImage: "checkmark.circle")
+                                .labelStyle(.titleOnly)
                         })
-                        .buttonBorderShape(.capsule)
-                    }
-                    
-                    ToolbarItem(placement: .topBarTrailing) {
+                        
                         NavigationLink(
                             destination: SettingsView(),
                             label: {
