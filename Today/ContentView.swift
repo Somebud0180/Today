@@ -63,5 +63,5 @@ extension Color {
 
 #Preview {
     ContentView()
-        .modelContainer(for: [JournalEntry.self], inMemory: true)
+        .modelContainer(for: JournalEntry.self)
 }

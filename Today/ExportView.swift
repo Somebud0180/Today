@@ -6,8 +6,12 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct ExportView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Query private var journalEntries: [JournalEntry]
+    
     @State var includedIndex: Int = 2
     @State var timeframeIndex: Int = 0
     @State var timeframeCustomBegin: Date = Date().addingTimeInterval(-7 * 24 * 60 * 60)
@@ -15,6 +19,25 @@ struct ExportView: View {
     @State var organizationIndex: Int = 0
     @State var groupingIndex: Int = 0
     @State var showExportConfirmation: Bool = false
+    
+    // Grouping formatters
+    var dayFormatter: DateFormatter {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        return df
+    }
+    
+    var monthFormatter: DateFormatter {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM"
+        return df
+    }
+    
+    var yearFormatter: DateFormatter {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy"
+        return df
+    }
     
     var body: some View {
         NavigationStack {
@@ -61,7 +84,7 @@ struct ExportView: View {
                         if timeframeIndex == 4 {
                             DatePicker("Start date", selection: $timeframeCustomBegin, displayedComponents: [.date])
                             
-                            DatePicker("End date", selection: $timeframeCustomBegin, displayedComponents: [.date])
+                            DatePicker("End date", selection: $timeframeCustomEnd, displayedComponents: [.date])
                         }
                     }
                     .transition(.push(from: .top))
@@ -146,14 +169,150 @@ struct ExportView: View {
             .animation(.easeInOut(duration: 0.3), value: groupingIndex)
             .alert("Are you sure with your export choices?", isPresented: $showExportConfirmation, actions: {
                 Button("Yes, export") {
-                    // Export
+                    exportEntries()
                 }
                 Button("Cancel", role: .cancel) {}
             })
         }
     }
+    
+    private func safeName(_ raw: String) -> String {
+        let invalid = CharacterSet(charactersIn: "/\\?%*|\"<>:")
+        return raw.components(separatedBy: invalid).joined(separator: "_")
+    }
+    
+    private func groupKey(for date: Date) -> String {
+        switch groupingIndex {
+        case 1: return monthFormatter.string(from: date)
+        case 2: return yearFormatter.string(from: date)
+        default: return dayFormatter.string(from: date)
+        }
+    }
+    
+    private func exportEntries() {
+        let calendar = Calendar.current
+        let now = Date()
+
+        // Determine date range
+        var startDate: Date? = nil
+        var endDate: Date? = nil
+        switch timeframeIndex {
+        case 1: // This year
+            startDate = calendar.date(from: calendar.dateComponents([.year], from: now))
+            endDate = startDate.flatMap { calendar.date(byAdding: DateComponents(year: 1, second: -1), to: $0) }
+        case 2: // This month
+            startDate = calendar.date(from: calendar.dateComponents([.year, .month], from: now))
+            endDate = startDate.flatMap { calendar.date(byAdding: DateComponents(month: 1, second: -1), to: $0) }
+        case 3: // This week
+            startDate = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now))
+            endDate = startDate.flatMap { calendar.date(byAdding: DateComponents(day: 7, second: -1), to: $0) }
+        case 4: // Custom
+            startDate = calendar.startOfDay(for: timeframeCustomBegin)
+            endDate = calendar.date(byAdding: DateComponents(day: 1, second: -1), to: calendar.startOfDay(for: timeframeCustomEnd))
+        default:
+            break // All time
+        }
+
+        // Filter entries
+        let filtered = journalEntries.filter { entry in
+            let d = entry.date
+            if let s = startDate, d < s { return false }
+            if let e = endDate, d > e { return false }
+            return true
+        }
+
+        // Prepare export root
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        let exportRoot = URL.documentsDirectory.appendingPathComponent("Today-Archive-\(df.string(from: now))", isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: exportRoot, withIntermediateDirectories: true)
+        } catch {
+            print("Export: failed to create root folder: \(error)")
+            return
+        }
+
+        let entriesByGroup = Dictionary(grouping: filtered) { entry in groupKey(for: entry.date) }
+
+        for (group, entries) in entriesByGroup.sorted(by: { $0.key < $1.key }) {
+            let groupFolder = exportRoot.appendingPathComponent(group, isDirectory: true)
+            do { try FileManager.default.createDirectory(at: groupFolder, withIntermediateDirectories: true) } catch {
+                print("Export: failed to create group folder: \(error)")
+                continue
+            }
+
+            if organizationIndex == 1 {
+                // Group media/notes at group level
+                let notesFolder = groupFolder.appendingPathComponent("Notes", isDirectory: true)
+                let mediaFolder = groupFolder.appendingPathComponent("Media", isDirectory: true)
+                do {
+                    if includedIndex != 0 { try FileManager.default.createDirectory(at: notesFolder, withIntermediateDirectories: true) }
+                    if includedIndex != 1 { try FileManager.default.createDirectory(at: mediaFolder, withIntermediateDirectories: true) }
+                } catch { print("Export: failed to create grouped subfolders: \(error)") }
+
+                for entry in entries {
+                    let baseTitle = entry.title.isEmpty ? "Untitled" : entry.title
+                    let baseName = safeName("\(dayFormatter.string(from: entry.date)) - \(baseTitle)")
+
+                    if includedIndex != 1 {
+                        if let srcURL = entry.mediaURL {
+                            // Ensure file is local if in iCloud
+                            _ = MediaStore.downloadIfNeeded(at: srcURL)
+                            let ext = srcURL.pathExtension.isEmpty ? (entry.mediaType == .audio ? "m4a" : "mov") : srcURL.pathExtension
+                            var destURL = mediaFolder.appendingPathComponent("\(baseName).\(ext)")
+                            var attempt = 2
+                            while FileManager.default.fileExists(atPath: destURL.path) {
+                                destURL = mediaFolder.appendingPathComponent("\(baseName) (\(attempt)).\(ext)")
+                                attempt += 1
+                            }
+                            do { try FileManager.default.copyItem(at: srcURL, to: destURL) } catch { print("Export: failed to copy media: \(error)") }
+                        }
+                    }
+
+                    if includedIndex != 0 {
+                        let text = entry.note
+                        let noteURL = notesFolder.appendingPathComponent("\(baseName).txt")
+                        do { try text.data(using: .utf8)?.write(to: noteURL) } catch { print("Export: failed to write note: \(error)") }
+                    }
+                }
+            } else {
+                // One folder per entry
+                for entry in entries {
+                    let baseTitle = entry.title.isEmpty ? "Untitled" : entry.title
+                    let entryFolderName = safeName("\(dayFormatter.string(from: entry.date)) - \(baseTitle)")
+                    let entryFolder = groupFolder.appendingPathComponent(entryFolderName, isDirectory: true)
+                    do { try FileManager.default.createDirectory(at: entryFolder, withIntermediateDirectories: true) } catch { print("Export: failed to create entry folder: \(error)"); continue }
+
+                    if includedIndex != 1 {
+                        if let srcURL = entry.mediaURL {
+                            _ = MediaStore.downloadIfNeeded(at: srcURL)
+                            let mediaFolder = entryFolder.appendingPathComponent("Media", isDirectory: true)
+                            do { try FileManager.default.createDirectory(at: mediaFolder, withIntermediateDirectories: true) } catch { print("Export: failed to create media folder: \(error)") }
+                            let ext = srcURL.pathExtension.isEmpty ? (entry.mediaType == .audio ? "m4a" : "mov") : srcURL.pathExtension
+                            var destURL = mediaFolder.appendingPathComponent("Media.\(ext)")
+                            var attempt = 2
+                            while FileManager.default.fileExists(atPath: destURL.path) {
+                                destURL = mediaFolder.appendingPathComponent("Media (\(attempt)).\(ext)")
+                                attempt += 1
+                            }
+                            do { try FileManager.default.copyItem(at: srcURL, to: destURL) } catch { print("Export: failed to copy media: \(error)") }
+                        }
+                    }
+
+                    if includedIndex != 0 {
+                        let text = entry.note
+                        let noteURL = entryFolder.appendingPathComponent("Notes.txt")
+                        do { try text.data(using: .utf8)?.write(to: noteURL) } catch { print("Export: failed to write note: \(error)") }
+                    }
+                }
+            }
+        }
+
+        print("Export complete at: \(exportRoot.path)")
+    }
 }
 
 #Preview {
     ExportView()
+        .modelContainer(for: JournalEntry.self)
 }
