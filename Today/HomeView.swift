@@ -54,7 +54,7 @@ struct HomeView: View {
         GeometryReader { proxy in
             NavigationStack {
                 let transition = zoomTransition(in: proxy.size)
-                let blurHeight = topBarHeight - getTitleTopPadding(proxy)
+                let blurHeight = topBarHeight
                 
                 ZStack(alignment: .top) {
                     ScrollView(.vertical, showsIndicators: true) {
@@ -73,7 +73,6 @@ struct HomeView: View {
                         .padding(gridPadding)
                         .frame(maxWidth: .infinity)
                     }
-                    .coordinateSpace(name: "homeScrollSpace")
                     .scrollEdgeEffectHidden()
                     .scrollPosition($scrollPosition, anchor: .bottom)
                     .defaultScrollAnchor(.bottom, for: .initialOffset)
@@ -102,6 +101,16 @@ struct HomeView: View {
                         }
                     }
                     
+                    LinearGradient(
+                        colors: [.black.opacity(0.5), .clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                        .blur(radius: 4)
+                        .frame(height: blurHeight)
+                        .ignoresSafeArea()
+                    
+                    
                     VariableBlurView(maxBlurRadius: 10)
                         .frame(height: blurHeight)
                         .ignoresSafeArea()
@@ -114,12 +123,13 @@ struct HomeView: View {
                             .font(.headline)
                             .fontWeight(.semibold)
                     }
+                    .foregroundStyle(.white)
                     .padding(.leading, getTitleHorizontalPadding(proxy))
                     .padding(.top, getTitleTopPadding(proxy))
                     .animation(.snappy, value: getTitleHorizontalPadding(proxy))
                     .animation(.snappy, value: getTitleTopPadding(proxy))
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .ignoresSafeArea(edges: .all)
+                    .ignoresSafeArea()
                     .background(
                         GeometryReader { geo in
                             Color.clear
@@ -319,7 +329,7 @@ struct HomeView: View {
             return proxy.safeAreaInsets.top
         } else {
             if proxy.size.width > proxy.size.height {
-                return 16
+                return proxy.safeAreaInsets.top + 16
             } else {
                 return proxy.safeAreaInsets.top
             }
