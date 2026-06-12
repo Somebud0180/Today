@@ -53,7 +53,7 @@ struct NoteCardView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.top, 12)
-                .padding(.bottom, isLandscape ? 44 : 64)
+                .padding(.bottom, (isLandscape ? 44 : 64) + abs(dragOffset * 2))
                 .background {
                     UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 16)
                         .fill(Color.gray.opacity(0.2))
@@ -61,7 +61,6 @@ struct NoteCardView: View {
                         .ignoresSafeArea(edges: .bottom)
                 }
                 .frame(maxWidth: isLandscape ? 512 : nil, maxHeight: .infinity, alignment: .bottom)
-                .offset(y: dragOffset < dragThreshold ? dragOffset : 0)
                 .gesture(
                     DragGesture()
                         .updating($dragOffset) { value, state, _ in
