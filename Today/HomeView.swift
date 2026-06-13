@@ -45,8 +45,9 @@ struct HomeView: View {
     @State private var didPerformInitialScroll = false
     @State private var isPad = UIDevice.current.userInterfaceIdiom == .pad
     @State private var topBarHeight: CGFloat = 0.0
+    @State private var showDeleteConfirmaton: Bool = false
     
-    @State private var selectedEntries: [PersistentIdentifier] = []
+    @State private var selectedEntries: [JournalEntry] = []
     
     private let minimumCardWidth: [CGFloat] = [60, 80, 100, 120, 150]
     private let gridSpacing: [CGFloat] = [4, 8, 12, 16, 20]
@@ -150,10 +151,27 @@ struct HomeView: View {
                     )
                 }
                 .simultaneousGesture(zoomGesture)
+                .navigationBarTitleDisplayMode(.inline)
+                .alert("Delete Entries?", isPresented: $showDeleteConfirmaton, actions: {
+                    Button("Cancel", role: .cancel) {
+                        
+                    }
+                    
+                    Button("Delete", role: .destructive) {
+                        for entry in selectedEntries {
+                            modelContext.delete(entry)
+                        }
+                        
+                        withAnimation(.snappy) {
+                            editMode?.wrappedValue = .inactive
+                            selectedEntries.removeAll()
+                        }
+                    }
+                })
                 .toolbar {
                     ToolbarItemGroup(placement: .topBarTrailing) {
                         if editMode?.wrappedValue.isEditing == true {
-                            Group {
+                            ControlGroup {
                                 Button(action: {
                                     
                                 }, label: {
@@ -162,7 +180,7 @@ struct HomeView: View {
                                 })
                                 
                                 Button(action: {
-                                    
+                                    showDeleteConfirmaton = true
                                 }, label: {
                                     Label("Delete Selected Entries", systemImage: "trash.fill")
                                         .labelStyle(.iconOnly)
@@ -171,8 +189,10 @@ struct HomeView: View {
                             .disabled(selectedEntries.isEmpty)
                             
                             Button(action: {
-                                withAnimation(.snappy) { editMode?.wrappedValue = .inactive }
-                                selectedEntries.removeAll()
+                                withAnimation(.snappy) {
+                                    editMode?.wrappedValue = .inactive
+                                    selectedEntries.removeAll()
+                                }
                             }, label: {
                                 Label("Done", systemImage: "checkmark")
                                     .labelStyle(.iconOnly)
@@ -194,13 +214,6 @@ struct HomeView: View {
                             })
                     }
                 }
-                .navigationBarTitleDisplayMode(.inline)
-                .onChange(of: blurHeight) {
-                    debugPrint("Blur Height \(blurHeight)")
-                    debugPrint("Top Bar Height \(topBarHeight)")
-                    debugPrint("Proxy Height \(proxy.size.height)")
-                    debugPrint("Title Padding Height \(getTitleTopPadding(proxy))")
-                }
                 .background(
                     Image("Background1")
                         .resizable()
@@ -217,7 +230,7 @@ struct HomeView: View {
         LazyVGrid(columns: metrics.columns, alignment: .center, spacing: metrics.spacing) {
             ForEach(journalEntries) { journalEntry in
                 let isEditing = editMode?.wrappedValue.isEditing == true
-                let isSelected = selectedEntries.contains(journalEntry.id)
+                let isSelected = selectedEntries.contains(journalEntry)
                 
                 NavigationLink {
                     JournalView(selectedEntry: journalEntry)
@@ -252,9 +265,9 @@ struct HomeView: View {
                                 .onTapGesture {
                                     withAnimation(.snappy) {
                                         if isSelected {
-                                            selectedEntries = selectedEntries.filter { $0 != journalEntry.id }
+                                            selectedEntries = selectedEntries.filter { $0 != journalEntry }
                                         } else {
-                                            selectedEntries.append(journalEntry.id)
+                                            selectedEntries.append(journalEntry)
                                         }
                                     }
                                 }
