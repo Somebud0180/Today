@@ -13,6 +13,9 @@ struct DefaultSettings {
     static let autoPlayOnOpen: Bool = false
     static let remindMeToJournal: Bool = true
     static let reminderTime: Date = Calendar.current.date(bySettingHour: 20, minute: 0, second: 0, of: Date()) ?? Date()
+    static let enableAI: Bool = false
+    static let enableTranscription: Bool = true
+    static let transcribeOnSave: Bool = false
 }
 
 struct ContentView: View {
@@ -21,9 +24,6 @@ struct ContentView: View {
     @Query private var journalEntries: [JournalEntry]
     
     @AppStorage("preferredColorScheme") private var preferredColorScheme: PreferredColorScheme = DefaultSettings.preferredColorTheme
-    @AppStorage("autoPlayOnOpen") private var autoPlayOnOpen: Bool = DefaultSettings.autoPlayOnOpen
-    @AppStorage("remindMeToJournal") private var remindMeToJournal: Bool = DefaultSettings.remindMeToJournal
-    @AppStorage("reminderTime") private var reminderTime: Date = DefaultSettings.reminderTime
     
     @State var tabSelection: Int = 0
     
