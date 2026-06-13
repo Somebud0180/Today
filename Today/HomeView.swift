@@ -30,6 +30,7 @@ private struct ZoomTransitionState {
 }
 
 struct HomeView: View {
+    @Environment(\.editMode) private var editMode
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \JournalEntry.date, order: .forward) private var journalEntries: [JournalEntry]
@@ -44,6 +45,8 @@ struct HomeView: View {
     @State private var didPerformInitialScroll = false
     @State private var isPad = UIDevice.current.userInterfaceIdiom == .pad
     @State private var topBarHeight: CGFloat = 0.0
+    
+    @State private var selectedEntries: [PersistentIdentifier] = []
     
     private let minimumCardWidth: [CGFloat] = [60, 80, 100, 120, 150]
     private let gridSpacing: [CGFloat] = [4, 8, 12, 16, 20]
@@ -149,12 +152,39 @@ struct HomeView: View {
                 .simultaneousGesture(zoomGesture)
                 .toolbar {
                     ToolbarItemGroup(placement: .topBarTrailing) {
-                        Button(action: {
-                            // Edit
-                        }, label: {
-                            Label("Select", systemImage: "checkmark.circle")
-                                .labelStyle(.titleOnly)
-                        })
+                        if editMode?.wrappedValue.isEditing == true {
+                            Group {
+                                Button(action: {
+                                    
+                                }, label: {
+                                    Label("Export Selected Entries", systemImage: "square.and.arrow.up")
+                                        .labelStyle(.iconOnly)
+                                })
+                                
+                                Button(action: {
+                                    
+                                }, label: {
+                                    Label("Delete Selected Entries", systemImage: "trash.fill")
+                                        .labelStyle(.iconOnly)
+                                })
+                            }
+                            .disabled(selectedEntries.isEmpty)
+                            
+                            Button(action: {
+                                withAnimation(.snappy) { editMode?.wrappedValue = .inactive }
+                                selectedEntries.removeAll()
+                            }, label: {
+                                Label("Done", systemImage: "checkmark")
+                                    .labelStyle(.iconOnly)
+                            })
+                        } else {
+                            Button(action: {
+                                withAnimation(.snappy) { editMode?.wrappedValue = .active }
+                            }, label: {
+                                Label("Select", systemImage: "checkmark.circle")
+                                    .labelStyle(.titleOnly)
+                            })
+                        }
                         
                         NavigationLink(
                             destination: SettingsView(),
@@ -186,6 +216,9 @@ struct HomeView: View {
     private func gridLayer(metrics: ViewLayoutMetrics) -> some View {
         LazyVGrid(columns: metrics.columns, alignment: .center, spacing: metrics.spacing) {
             ForEach(journalEntries) { journalEntry in
+                let isEditing = editMode?.wrappedValue.isEditing == true
+                let isSelected = selectedEntries.contains(journalEntry.id)
+                
                 NavigationLink {
                     JournalView(selectedEntry: journalEntry)
                         .toolbar(.hidden, for: .tabBar)
@@ -196,6 +229,8 @@ struct HomeView: View {
                 }
                 .buttonStyle(.plain)
                 .id(journalEntry.date)
+                .allowsHitTesting(!isEditing)
+                .opacity(isEditing && !isSelected ? 0.7 : 1.0)
                 .contextMenu {
                     Button(role: .destructive) {
                         modelContext.delete(journalEntry)
@@ -209,6 +244,31 @@ struct HomeView: View {
                         Label("Cancel", systemImage: "xmark")
                     }
                 }
+                .background(
+                    Group {
+                        if isEditing {
+                            Color.clear
+                                .contentShape(RoundedRectangle(cornerRadius: 16))
+                                .onTapGesture {
+                                    withAnimation(.snappy) {
+                                        if isSelected {
+                                            selectedEntries = selectedEntries.filter { $0 != journalEntry.id }
+                                        } else {
+                                            selectedEntries.append(journalEntry.id)
+                                        }
+                                    }
+                                }
+                        }
+                    }
+                )
+                .overlay(
+                    Group {
+                        if isEditing && isSelected {
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.accentColor, lineWidth: 2)
+                        }
+                    }
+                )
             }
         }
     }
