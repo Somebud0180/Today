@@ -158,11 +158,11 @@ struct HomeView: View {
                     }
                     
                     Button("Delete", role: .destructive) {
-                        for entry in selectedEntries {
-                            modelContext.delete(entry)
-                        }
-                        
                         withAnimation(.snappy) {
+                            for entry in selectedEntries {
+                                modelContext.delete(entry)
+                            }
+                            
                             editMode?.wrappedValue = .inactive
                             selectedEntries.removeAll()
                         }
