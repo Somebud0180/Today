@@ -24,9 +24,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		AA8C50DB2FAB9A7000FC23FF /* Today.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Today.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		AA8C50EA2FAB9A7300FC23FF /* TodayTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TodayTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		AA8C50F42FAB9A7300FC23FF /* TodayUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TodayUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA8C50DB2FAB9A7000FC23FF /* Today.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = Today.app; path = "/Users/ethanlagera/Documents/XCode/Today/build/Debug-iphoneos/Today.app"; sourceTree = "<absolute>"; };
+		AA8C50EA2FAB9A7300FC23FF /* TodayTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = TodayTests.xctest; path = "/Users/ethanlagera/Documents/XCode/Today/build/Debug-iphoneos/Today.app/PlugIns/TodayTests.xctest"; sourceTree = "<absolute>"; };
+		AA8C50F42FAB9A7300FC23FF /* TodayUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = TodayUITests.xctest; path = "/Users/ethanlagera/Documents/XCode/Today/build/Debug-iphoneos/TodayUITests-Runner.app/PlugIns/TodayUITests.xctest"; sourceTree = "<absolute>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -91,18 +91,7 @@
 				AA8C50DD2FAB9A7000FC23FF /* Today */,
 				AA8C50ED2FAB9A7300FC23FF /* TodayTests */,
 				AA8C50F72FAB9A7300FC23FF /* TodayUITests */,
-				AA8C50DC2FAB9A7000FC23FF /* Products */,
 			);
-			sourceTree = "<group>";
-		};
-		AA8C50DC2FAB9A7000FC23FF /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				AA8C50DB2FAB9A7000FC23FF /* Today.app */,
-				AA8C50EA2FAB9A7300FC23FF /* TodayTests.xctest */,
-				AA8C50F42FAB9A7300FC23FF /* TodayUITests.xctest */,
-			);
-			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -209,7 +198,7 @@
 			mainGroup = AA8C50D22FAB9A7000FC23FF;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
-			productRefGroup = AA8C50DC2FAB9A7000FC23FF /* Products */;
+			productRefGroup = AA8C50D22FAB9A7000FC23FF;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (

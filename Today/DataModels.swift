@@ -84,11 +84,9 @@ class JournalEntry: Identifiable {
         self.title = title
         self.note = note
         self.mediaTypeRaw = mediaType.rawValue
-        // store only the filename to keep stored identifiers stable across container moves
         self.mediaURLString = mediaURL.lastPathComponent
         self.thumbnailURLString = thumbURLString
 
-        // Only encode power frames for legacy audio recordings
         if mediaType == .audio, let powerFrames = powerFrames, !powerFrames.isEmpty {
             do {
                 self.powerMetricsData = try JSONEncoder().encode(powerFrames)
@@ -98,7 +96,6 @@ class JournalEntry: Identifiable {
             }
         }
 
-        // Encode waveform data for audio recordings
         if mediaType == .audio, let waveform {
             do {
                 self.waveformData = try JSONEncoder().encode(waveform)
@@ -192,6 +189,52 @@ class JournalEntry: Identifiable {
         return samples[startIndex..<endIndex].map { CGFloat($0) }
     }
     
+    /// Returns a URL suitable for sharing this entry's media (with note embedded as video metadata for videos)
+    func exportMediaURLForSharing() async -> URL? {
+        switch mediaType {
+        case .audio:
+            return mediaURL
+        case .video:
+            // Try to embed the note as video metadata and return the new file's URL
+            if let url = try? await exportVideoWithCaption(note: note) {
+                return url
+            } else {
+                return mediaURL
+            }
+        }
+    }
+    
+    /// Exports a copy of the video with the note embedded as description metadata (MOV)
+    private func exportVideoWithCaption(note: String) async throws -> URL? {
+        guard let originalURL = mediaURL else { return nil }
+        let asset = AVURLAsset(url: originalURL)
+        guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality) else { return nil }
+        
+        // Prepare temp output URL
+        let tempDir = FileManager.default.temporaryDirectory
+        let outputURL = tempDir.appendingPathComponent("exported_\(uuid.uuidString).mov")
+        // Remove any existing file
+        try? FileManager.default.removeItem(at: outputURL)
+        exportSession.outputURL = outputURL
+        exportSession.outputFileType = .mov
+        
+        // Copy existing metadata, add 'description' item
+        var metadata = try await asset.load(.metadata)
+        let descriptionItem = AVMutableMetadataItem()
+        descriptionItem.keySpace = .common
+        descriptionItem.key = AVMetadataKey.commonKeyDescription as NSString
+        descriptionItem.value = note as NSString
+        metadata.removeAll { ($0.key as? String) == (descriptionItem.key as? String) && $0.keySpace == descriptionItem.keySpace }
+        metadata.append(descriptionItem)
+        exportSession.metadata = metadata
+        
+        await exportSession.export()
+        guard exportSession.status == .completed else {
+            return nil
+        }
+        return outputURL
+    }
+    
     static func audioWaveformThumbnailLevels(_ linearSamples: [Float], maxBars: Int = 24) -> [CGFloat]? {
         guard maxBars > 0, !linearSamples.isEmpty else {
             return nil
@@ -234,3 +277,4 @@ class JournalEntry: Identifiable {
         return box.data
     }
 }
+

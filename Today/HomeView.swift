@@ -172,12 +172,10 @@ struct HomeView: View {
                     ToolbarItemGroup(placement: .topBarTrailing) {
                         if editMode?.wrappedValue.isEditing == true {
                             ControlGroup {
-                                Button(action: {
-                                    
-                                }, label: {
+                                ShareLink(items: getSelectedEntryURL) {
                                     Label("Export Selected Entries", systemImage: "square.and.arrow.up")
                                         .labelStyle(.iconOnly)
-                                })
+                                }
                                 
                                 Button(action: {
                                     showDeleteConfirmaton = true
@@ -407,14 +405,6 @@ struct HomeView: View {
     }
     
     private func getTitleHorizontalPadding(_ proxy: GeometryProxy) -> CGFloat {
-        debugPrint("Top safe area inset \(proxy.safeAreaInsets.top)")
-        debugPrint("Leading safe area inset \(proxy.safeAreaInsets.leading)")
-        debugPrint("Bottom safe area inset \(proxy.safeAreaInsets.bottom)")
-        debugPrint("Trailing safe area inset \(proxy.safeAreaInsets.trailing)")
-        
-        
-        debugPrint("TopLeading safe area inset \(proxy.containerCornerInsets.topLeading)")
-        
         if isPad {
             return proxy.containerCornerInsets.topLeading.width + 16
         } else {
@@ -423,6 +413,12 @@ struct HomeView: View {
             } else {
                 return 24
             }
+        }
+    }
+    
+    private func getSelectedEntryURL() -> [URL] {
+        for entry in selectedEntries {
+            return entry.exportMediaURLForSharing()
         }
     }
 }
