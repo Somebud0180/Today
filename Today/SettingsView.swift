@@ -13,7 +13,6 @@ struct SettingsView: View {
     @AppStorage("autoPlayOnOpen") private var autoPlayOnOpen: Bool = DefaultSettings.autoPlayOnOpen
     @AppStorage("remindMeToJournal") private var remindMeToJournal: Bool = DefaultSettings.remindMeToJournal
     @AppStorage("reminderTime") private var reminderTime: Date = DefaultSettings.reminderTime
-    @AppStorage("enableAI") private var enableAI: Bool = DefaultSettings.enableAI
     @AppStorage("enableTranscription") private var enableTranscription: Bool = DefaultSettings.enableTranscription
     @AppStorage("transcribeOnSave") private var transcribeOnSave: Bool = DefaultSettings.transcribeOnSave
     
@@ -74,16 +73,11 @@ struct SettingsView: View {
                     }
                 }
                 
-                Section(header: Text("Apple Intelligence"), footer: Text("All features run on-device. Your data stays safe and never leaves your device.")) {
-                    Toggle("Enable Apple Intelligence", isOn: $enableAI)
+                Section(header: Text("Audio Transcription"), footer: Text("All features run on-device. Your data stays safe and never leaves your device.")) {
+                    Toggle("Enable audio transcription", isOn: $enableTranscription)
                     
-                    Group {
-                        Toggle("Enable audio transcription", isOn: $enableTranscription)
-                        
-                        Toggle("Automatically transcribe entry on save", isOn: $transcribeOnSave)
-                            .disabled(!enableTranscription)
-                    }
-                    .disabled(!enableAI)
+                    Toggle("Automatically transcribe entry on save", isOn: $transcribeOnSave)
+                        .disabled(!enableTranscription)
                 }
                 
                 Section(header: Text("Export")) {

@@ -13,8 +13,7 @@ struct DefaultSettings {
     static let autoPlayOnOpen: Bool = false
     static let remindMeToJournal: Bool = true
     static let reminderTime: Date = Calendar.current.date(bySettingHour: 20, minute: 0, second: 0, of: Date()) ?? Date()
-    static let enableAI: Bool = false
-    static let enableTranscription: Bool = true
+    static let enableTranscription: Bool = false
     static let transcribeOnSave: Bool = false
 }
 
