@@ -29,6 +29,19 @@ struct CreateView: View {
     @Environment(\.modelContext) private var modelContext
     @Binding var tabSelection: Int
     
+    @AppStorage("enableTranscription") private var enableTranscription: Bool = DefaultSettings.enableTranscription
+    @AppStorage("transcribeOnSave") private var transcribeOnSave: Bool = DefaultSettings.transcribeOnSave
+    
+    @State private var trsManager: AudioTranscriptionManager?
+    
+    init(tabSelection: Binding<Int>) {
+        _tabSelection = tabSelection
+        
+        if enableTranscription {
+            self.trsManager = AudioTranscriptionManager()
+        }
+    }
+    
     @State private var animateGradient: Bool = false
     @State private var gradientColors: [Color] = [
         Color.purple.opacity(0.5),
@@ -64,8 +77,6 @@ struct CreateView: View {
     @State private var keyboardHeight: CGFloat = 0.0
     @State private var isKeyboardVisible: Bool = false
     @State private var saveBottomPadding: CGFloat = 0.0
-    
-    private var trsManager: AudioTranscriptionManager = AudioTranscriptionManager()
     
     private var pageTransition: AnyTransition {
         switch transitionDirection {
@@ -251,9 +262,10 @@ struct CreateView: View {
                 }
             }
             .onChange(of: recordedAudioURL) {
-                if let recordedAudioURL {
+                if let recordedAudioURL, let trsManager, transcribeOnSave {
                     Task {
                         transcript = await trsManager.transcribeAudio(recordedAudioURL)
+                        debugPrint("[Transcript] \(transcript?.text ?? "No Transcript.")")
                     }
                 }
             }

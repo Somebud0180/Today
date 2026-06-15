@@ -76,7 +76,14 @@ struct SettingsView: View {
                 Section(header: Text("Audio Transcription"), footer: Text("All features run on-device. Your data stays safe and never leaves your device.")) {
                     Toggle("Enable audio transcription", isOn: $enableTranscription)
                     
-                    Toggle("Automatically transcribe entry on save", isOn: $transcribeOnSave)
+                    Toggle(isOn: $transcribeOnSave) {
+                        VStack(alignment: .leading) {
+                            Text("Transcribe entry on save")
+                            Text("Transcribe audio upon creating an entry, you may do this manually within the entry.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                         .disabled(!enableTranscription)
                 }
                 
