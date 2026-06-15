@@ -261,12 +261,19 @@ struct CreateView: View {
                     .transition(pageTransition)
                 }
             }
-            .onChange(of: recordedAudioURL) {
+            .onChange(of: activePage) {
                 if let recordedAudioURL, let trsManager, transcribeOnSave {
                     Task {
                         transcript = await trsManager.transcribeAudio(recordedAudioURL)
                         debugPrint("[Transcript] \(transcript?.text ?? "No Transcript.")")
                     }
+                }
+            }
+            .onChange(of: enableTranscription) {
+                if enableTranscription && trsManager == nil {
+                    trsManager = AudioTranscriptionManager()
+                } else if !enableTranscription && trsManager != nil {
+                    trsManager = nil
                 }
             }
         }

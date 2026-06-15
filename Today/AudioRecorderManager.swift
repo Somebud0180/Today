@@ -311,18 +311,6 @@ extension AudioRecorderManager {
         self.deactivateAudioSessionAndNotifyOthers()
     }
     
-    // not used in this demo
-    func deleteRecording() throws {
-        guard self.recorder?.isRecording == false else {
-            throw _Error.failToDeleteRecording("Please stop recording before delete.")
-        }
-        
-        let result = self.recorder?.deleteRecording()
-        if result == false {
-            throw _Error.failToDeleteRecording("Failed To delete recording.")
-        }
-    }
-    
     /// Discard the recorded file and clear internal playback metadata.
     /// This will stop any playback/recording and remove the destination file on disk.
     func discardRecording() throws {
