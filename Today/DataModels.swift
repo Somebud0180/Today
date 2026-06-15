@@ -46,6 +46,7 @@ class JournalEntry: Identifiable {
     var date: Date = Date()
     var title: String = ""
     var note: String = ""
+    var transcript: String = ""
     var mediaTypeRaw: String = MediaType.video.rawValue
     var mediaURLString: String = ""
     var thumbnailURLString: String? = nil
@@ -56,6 +57,7 @@ class JournalEntry: Identifiable {
 
     init?(title: String,
           note: String,
+          transcript: String,
           mediaData: Data,
           fileExtension: String,
           mediaType: MediaType,
@@ -83,6 +85,7 @@ class JournalEntry: Identifiable {
         self.date = Date()
         self.title = title
         self.note = note
+        self.transcript = transcript
         self.mediaTypeRaw = mediaType.rawValue
         self.mediaURLString = mediaURL.lastPathComponent
         self.thumbnailURLString = thumbURLString
