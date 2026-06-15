@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import FluidAudio
 #if canImport(JournalingSuggestions)
 import JournalingSuggestions
 #endif
@@ -45,6 +46,7 @@ struct CreateView: View {
     @State private var suggestionTitle: String = ""
     @State private var entryTitle: String = ""
     @State private var entryNote: String = ""
+    @State private var transcript: ASRResult?
     
     @FocusState private var titleFieldFocused: Bool
     @FocusState private var noteFieldFocused: Bool
@@ -62,6 +64,8 @@ struct CreateView: View {
     @State private var keyboardHeight: CGFloat = 0.0
     @State private var isKeyboardVisible: Bool = false
     @State private var saveBottomPadding: CGFloat = 0.0
+    
+    private var trsManager: AudioTranscriptionManager = AudioTranscriptionManager()
     
     private var pageTransition: AnyTransition {
         switch transitionDirection {
@@ -244,6 +248,13 @@ struct CreateView: View {
                     }
                     .ignoresSafeArea(.keyboard)
                     .transition(pageTransition)
+                }
+            }
+            .onChange(of: recordedAudioURL) {
+                if let recordedAudioURL {
+                    Task {
+                        transcript = await trsManager.transcribeAudio(recordedAudioURL)
+                    }
                 }
             }
         }
