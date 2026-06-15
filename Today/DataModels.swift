@@ -228,11 +228,12 @@ class JournalEntry: Identifiable {
         metadata.append(descriptionItem)
         exportSession.metadata = metadata
         
-        await exportSession.export()
-        guard exportSession.status == .completed else {
+        do {
+            try await exportSession.export(to: outputURL, as: .mov)
+            return outputURL
+        } catch {
             return nil
         }
-        return outputURL
     }
     
     static func audioWaveformThumbnailLevels(_ linearSamples: [Float], maxBars: Int = 24) -> [CGFloat]? {
