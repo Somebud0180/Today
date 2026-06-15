@@ -172,10 +172,10 @@ struct HomeView: View {
                     ToolbarItemGroup(placement: .topBarTrailing) {
                         if editMode?.wrappedValue.isEditing == true {
                             ControlGroup {
-                                ShareLink(items: getSelectedEntryURL) {
-                                    Label("Export Selected Entries", systemImage: "square.and.arrow.up")
-                                        .labelStyle(.iconOnly)
-                                }
+//                                ShareLink(items: getSelectedEntryURL) {
+//                                    Label("Export Selected Entries", systemImage: "square.and.arrow.up")
+//                                        .labelStyle(.iconOnly)
+//                                }
                                 
                                 Button(action: {
                                     showDeleteConfirmaton = true
@@ -416,11 +416,11 @@ struct HomeView: View {
         }
     }
     
-    private func getSelectedEntryURL() -> [URL] {
-        for entry in selectedEntries {
-            return entry.exportMediaURLForSharing()
-        }
-    }
+//    private func getSelectedEntryURL() -> [URL] {
+//        for entry in selectedEntries {
+//            return entry.exportMediaURLForSharing()
+//        }
+//    }
 }
 
 #Preview {

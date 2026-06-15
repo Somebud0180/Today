@@ -11,6 +11,7 @@ import SwiftUI
 import AVFAudio
 import UniformTypeIdentifiers
 import Combine
+import FluidAudio
 
 class AudioRecorderManager: NSObject, ObservableObject {
     
@@ -116,6 +117,8 @@ class AudioRecorderManager: NSObject, ObservableObject {
     private(set) var didRecordingEnd: Bool = false
     private(set) var recorderState: RecorderState = .stopped
     
+    private var transcriptionModels: AsrModels?
+    private var asrManager: AsrManager
     
     var error: (any Error)? {
         didSet {
@@ -137,6 +140,7 @@ class AudioRecorderManager: NSObject, ObservableObject {
     var recordedContentsDuration: TimeInterval?
     var availableRecordingOptions: [RecordingOption] = []
     var destinationURL: URL?
+    var transcript: ASRResult?
     
     private var player: AVAudioPlayer? {
         didSet {
@@ -185,8 +189,19 @@ class AudioRecorderManager: NSObject, ObservableObject {
         )
         let defaultFileURL = directoryPath?.appendingPathComponent("recording.m4a", conformingTo: .mpeg4Audio)
         self.destinationURL = defaultFileURL
+        self.asrManager = AsrManager()
         
         super.init()
+        
+        Task {
+            do {
+                let models = try await AsrModels.downloadAndLoad(version: .v3)
+                self.transcriptionModels = models
+                try await self.asrManager.loadModels(models)
+            } catch {
+                self.error = error
+            }
+        }
         
         do {
             try self.configureAudioSession()
@@ -310,6 +325,10 @@ extension AudioRecorderManager {
         self.stopWaveformSampling()
         self.preparePlayer()
         self.deactivateAudioSessionAndNotifyOthers()
+        
+        Task {
+            await self.performTranscription()
+        }
     }
     
     // not used in this demo
@@ -347,6 +366,23 @@ extension AudioRecorderManager {
         self.recordedWaveformSamplesDb = []
         self.recordedWaveformSamplesLinear = []
         self.recordedWaveformDuration = 0
+    }
+}
+
+// MARK: - Audio Transcription
+extension AudioRecorderManager {
+    private func performTranscription() async {        
+        if let audioURL = self.destinationURL {
+            guard let destinationURL else { return }
+            do {
+                var localDecoderState = try TdtDecoderState()
+                let result = try await self.asrManager.transcribe(audioURL, decoderState: &localDecoderState)
+                self.transcript = result
+                debugPrint("[Transcript] \(result.text)")
+            } catch(let error) {
+                self.error = error
+            }
+        }
     }
 }
 
@@ -723,3 +759,4 @@ extension AudioRecorderManager {
     }
     
 }
+
