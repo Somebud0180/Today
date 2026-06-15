@@ -34,14 +34,6 @@ struct CreateView: View {
     
     @State private var trsManager: AudioTranscriptionManager?
     
-    init(tabSelection: Binding<Int>) {
-        _tabSelection = tabSelection
-        
-        if enableTranscription {
-            self.trsManager = AudioTranscriptionManager()
-        }
-    }
-    
     @State private var animateGradient: Bool = false
     @State private var gradientColors: [Color] = [
         Color.purple.opacity(0.5),
@@ -259,22 +251,23 @@ struct CreateView: View {
                     }
                     .ignoresSafeArea(.keyboard)
                     .transition(pageTransition)
-                }
-            }
-            .onChange(of: activePage) {
-                if let recordedAudioURL, let trsManager, transcribeOnSave {
-                    Task {
-                        transcript = await trsManager.transcribeAudio(recordedAudioURL)
-                        debugPrint("[Transcript] \(transcript?.text ?? "No Transcript.")")
+                    .onAppear {
+                        debugPrint("Audio Exists: \(recordedAudioURL != nil), TRSMan Exists: \(trsManager != nil)")
+                        
+                        if let recordedAudioURL, let trsManager, transcribeOnSave {
+                            Task {
+                                transcript = await trsManager.transcribeAudio(recordedAudioURL)
+                                debugPrint("[Transcript] \(transcript?.text ?? "No Transcript.")")
+                            }
+                        }
                     }
                 }
             }
             .onChange(of: enableTranscription) {
-                if enableTranscription && trsManager == nil {
-                    trsManager = AudioTranscriptionManager()
-                } else if !enableTranscription && trsManager != nil {
-                    trsManager = nil
-                }
+                setupTRSManager()
+            }
+            .onAppear() {
+                setupTRSManager()
             }
         }
     }
@@ -524,6 +517,14 @@ struct CreateView: View {
             
         }
 
+    }
+    
+    func setupTRSManager() {
+        if enableTranscription && trsManager == nil {
+            trsManager = AudioTranscriptionManager()
+        } else if !enableTranscription && trsManager != nil {
+            trsManager = nil
+        }
     }
     
     func getCardPosY(_ proxy: GeometryProxy) -> CGFloat {
