@@ -474,6 +474,7 @@ struct CreateView: View {
                 tempEntry = JournalEntry(
                     title: entryTitle,
                     note: entryNote,
+                    transcript: transcript?.text ?? "",
                     mediaData: try! Data(contentsOf: activeURL),
                     fileExtension: fileExtension,
                     mediaType: mediaType,

@@ -45,7 +45,7 @@ struct JournalView: View {
                     
                     VStack {
                         Spacer()
-                        NoteCardView(note: bindingFor(\.note), isLandscape: $isLandscape)
+                        NoteCardView(note: bindingFor(\.note), transcript: bindingFor(\.transcript), isLandscape: $isLandscape)
                     }
                     .ignoresSafeArea()
                 } else if isDownloading {
@@ -197,6 +197,7 @@ struct JournalView: View {
     @Previewable @State var entry = JournalEntry(
         title: "Sample Entry",
         note: "This is a sample journal entry.",
+        transcript: "",
         mediaData: try! Data(contentsOf: Bundle.main.url(forResource: "example", withExtension: "mp4")!),
         fileExtension: "mp4",
         mediaType: .video

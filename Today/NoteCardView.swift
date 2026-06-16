@@ -9,8 +9,10 @@ import SwiftUI
 
 struct NoteCardView: View {
     @Binding var note: String
+    @Binding var transcript: String
     @Binding var isLandscape: Bool
     @State private var isExpanded: Bool = false
+    @State private var selectedTab: Int = 0
     @FocusState private var isEditing: Bool
     @GestureState private var dragOffset: CGFloat = 0
     @GestureState private var expandedDragOffset: CGFloat = 0
@@ -18,6 +20,7 @@ struct NoteCardView: View {
     private let dragThreshold: CGFloat = 32
     
     var body: some View {
+        
         ZStack {
             // Background overlay (only visible when expanded)
             if isExpanded {
@@ -39,21 +42,44 @@ struct NoteCardView: View {
                         .fill(Color.gray.opacity(0.5))
                         .frame(width: 40, height: 5)
                     
-                    Text(note.isEmpty ? "Enter a note..." : note)
-                        .fontWeight(.medium)
-                        .foregroundStyle(note.isEmpty ? Color.secondary : Color.white)
-                        .padding(.horizontal)
-                        .lineLimit(1)
-                        .onTapGesture {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                isExpanded = true
-                                isEditing = true
+                    TabView(selection: $selectedTab) {
+                        Tab {
+                            VStack(spacing: 12) {
+                                Text(note.isEmpty ? "Enter a note..." : note)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(note.isEmpty ? Color.secondary : Color.white)
+                                    .padding(.horizontal)
+                                    .lineLimit(1)
+                                    .onTapGesture {
+                                        withAnimation(.easeInOut(duration: 0.3)) {
+                                            isExpanded = true
+                                            isEditing = true
+                                        }
+                                    }
                             }
                         }
+                        
+                        Tab {
+                            VStack(spacing: 12) {
+                                Text(transcript.isEmpty ? "No transcript" : transcript)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(transcript.isEmpty ? Color.secondary : Color.white)
+                                    .padding(.horizontal)
+                                    .lineLimit(1)
+                                    .onTapGesture {
+                                        withAnimation(.easeInOut(duration: 0.3)) {
+                                            isExpanded = true
+                                        }
+                                    }
+                            }
+                        }
+                    }
+                    .tabViewStyle(.page)
+                    .frame(maxHeight: 96)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.top, 12)
-                .padding(.bottom, (isLandscape ? 44 : 64) + abs(dragOffset * 2))
+                .padding(.bottom, abs(dragOffset * 2))
                 .background {
                     UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: 16)
                         .fill(Color.gray.opacity(0.2))
@@ -85,27 +111,51 @@ struct NoteCardView: View {
             
             // Expanded state - centered overlay card
             if isExpanded {
-                VStack(spacing: 16) {
-                    VStack(spacing: 8) {
-                        RoundedRectangle(cornerRadius: 2.5)
-                            .fill(Color.gray.opacity(0.5))
-                            .frame(width: 40, height: 5)
+                VStack(spacing: 8) {
+                    RoundedRectangle(cornerRadius: 2.5)
+                        .fill(Color.gray.opacity(0.5))
+                        .frame(width: 40, height: 5)
+                        .padding(.top, 12)
+                    
+                    TabView(selection: $selectedTab) {
+                        Tab {
+                            VStack(spacing: 8) {
+                                Text("Note")
+                                    .font(.headline)
+                                    .foregroundStyle(.white)
+                                    .padding(.bottom, 12)
+                                
+                                Divider()
+                                
+                                TextField("Enter a note...", text: $note, axis: .vertical)
+                                    .focused($isEditing)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(.white)
+                                    .padding()
+                                
+                                Spacer()
+                            }
+                        }
                         
-                        Text("Note")
-                            .font(.headline)
-                            .foregroundStyle(.white)
+                        Tab {
+                            VStack(spacing: 8) {
+                                Text("Transcript")
+                                    .font(.headline)
+                                    .foregroundStyle(.white)
+                                    .padding(.bottom, 12)
+                                
+                                Divider()
+                                
+                                Text(transcript.isEmpty ? "No transcript" : transcript)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(.white)
+                                    .padding()
+                                
+                                Spacer()
+                            }
+                        }
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    
-                    // Text field
-                    TextField("Enter a note...", text: $note, axis: .vertical)
-                        .focused($isEditing)
-                        .fontWeight(.medium)
-                        .foregroundStyle(.white)
-                        .padding()
-                    
-                    Spacer()
+                    .tabViewStyle(.page)
                 }
                 .frame(maxWidth: .infinity, maxHeight: 500)
                 .background {
@@ -137,20 +187,6 @@ struct NoteCardView: View {
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-        }
-    }
-}
-
-#Preview {
-    @Previewable @State var note = "This is a sample note that can be expanded by tapping or swiping upwards."
-    @Previewable @State var isLandscape = false
-    
-    ZStack {
-        Color.black.ignoresSafeArea()
-        
-        VStack {
-            Spacer()
-            NoteCardView(note: $note, isLandscape: $isLandscape)
         }
     }
 }
