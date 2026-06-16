@@ -10,9 +10,11 @@ import SwiftData
 import UIKit
 
 struct JogBookView: View {
+    @AppStorage("selectedBackground") private var selectedBackground: String = DefaultSettings.selectedBackground
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @Query private var journalEntries: [JournalEntry]
+    
     @State var calendarGridColumn: [GridItem] = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
     @State var selectedMonthYear: Date = Calendar.current.dateComponents([.year, .month], from: Date()).date ?? Date()
     @State var selectedDay: Date? = nil
@@ -88,7 +90,7 @@ struct JogBookView: View {
             .navigationBarTitleDisplayMode(.inline)
             .background {
                 GeometryReader { proxy in
-                    Image("Background1")
+                    Image(selectedBackground)
                         .resizable()
                         .scaledToFill()
                         .ignoresSafeArea()

@@ -30,6 +30,7 @@ private struct ZoomTransitionState {
 }
 
 struct HomeView: View {
+    @AppStorage("selectedBackground") private var selectedBackground: String = DefaultSettings.selectedBackground
     @Environment(\.editMode) private var editMode
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
@@ -213,7 +214,7 @@ struct HomeView: View {
                     }
                 }
                 .background(
-                    Image("Background1")
+                    Image(selectedBackground)
                         .resizable()
                         .scaledToFill()
                         .ignoresSafeArea(.all)

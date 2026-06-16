@@ -10,6 +10,7 @@ import SwiftData
 
 struct DefaultSettings {
     static let preferredColorTheme: PreferredColorScheme = .system
+    static let selectedBackground: String = "Background1"
     static let autoPlayOnOpen: Bool = false
     static let remindMeToJournal: Bool = true
     static let reminderTime: Date = Calendar.current.date(bySettingHour: 20, minute: 0, second: 0, of: Date()) ?? Date()

@@ -11,6 +11,7 @@ import UserNotifications
 struct OnboardingView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @AppStorage("selectedBackground") private var selectedBackground: String = DefaultSettings.selectedBackground
     @State var currentStep: Int = 0
     @State var animateGlyph: Bool = false
     @State var calendarGridColumn: [GridItem] = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
@@ -238,7 +239,7 @@ struct OnboardingView: View {
                     .presentationDetents([.fraction(0.3)])
             }
             .background(
-                Image("Background1")
+                Image(selectedBackground)
                     .resizable()
                     .scaledToFill()
                     .ignoresSafeArea()

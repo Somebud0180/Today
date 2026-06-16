@@ -13,6 +13,7 @@ struct JournalView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
     @AppStorage("autoPlayOnOpen") private var autoPlayOnOpen: Bool = DefaultSettings.autoPlayOnOpen
+    @AppStorage("selectedBackground") private var selectedBackground: String = DefaultSettings.selectedBackground
     
     let selectedEntry: JournalEntry
     @State private var isLandscape: Bool = false
@@ -80,7 +81,7 @@ struct JournalView: View {
                 GeometryReader { proxy in
                     Color.gray.opacity(0.8)
                         .background(
-                            Image("Background1")
+                            Image(selectedBackground)
                                 .resizable()
                                 .scaledToFill()
                                 .blur(radius: 24)
