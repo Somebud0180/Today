@@ -43,36 +43,20 @@ struct NoteCardView: View {
                         .frame(width: 40, height: 5)
                     
                     TabView(selection: $selectedTab) {
-                        Tab {
-                            VStack(spacing: 12) {
-                                Text(note.isEmpty ? "Enter a note..." : note)
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(note.isEmpty ? Color.secondary : Color.white)
-                                    .padding(.horizontal)
-                                    .lineLimit(1)
-                                    .onTapGesture {
-                                        withAnimation(.easeInOut(duration: 0.3)) {
-                                            isExpanded = true
-                                            isEditing = true
-                                        }
-                                    }
+                        NotePreviewView(note: note) {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                isExpanded = true
+                                isEditing = true
                             }
                         }
+                        .tag(0)
                         
-                        Tab {
-                            VStack(spacing: 12) {
-                                Text(transcript.isEmpty ? "No transcript" : transcript)
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(transcript.isEmpty ? Color.secondary : Color.white)
-                                    .padding(.horizontal)
-                                    .lineLimit(1)
-                                    .onTapGesture {
-                                        withAnimation(.easeInOut(duration: 0.3)) {
-                                            isExpanded = true
-                                        }
-                                    }
+                        TranscriptPreviewView(transcript: transcript) {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                isExpanded = true
                             }
                         }
+                        .tag(1)
                     }
                     .tabViewStyle(.page)
                     .frame(maxHeight: 96)
@@ -118,42 +102,11 @@ struct NoteCardView: View {
                         .padding(.top, 12)
                     
                     TabView(selection: $selectedTab) {
-                        Tab {
-                            VStack(spacing: 8) {
-                                Text("Note")
-                                    .font(.headline)
-                                    .foregroundStyle(.white)
-                                    .padding(.bottom, 12)
-                                
-                                Divider()
-                                
-                                TextField("Enter a note...", text: $note, axis: .vertical)
-                                    .focused($isEditing)
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(.white)
-                                    .padding()
-                                
-                                Spacer()
-                            }
-                        }
+                        NoteExpandedView(note: $note, isEditing: $isEditing)
+                            .tag(0)
                         
-                        Tab {
-                            VStack(spacing: 8) {
-                                Text("Transcript")
-                                    .font(.headline)
-                                    .foregroundStyle(.white)
-                                    .padding(.bottom, 12)
-                                
-                                Divider()
-                                
-                                Text(transcript.isEmpty ? "No transcript" : transcript)
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(.white)
-                                    .padding()
-                                
-                                Spacer()
-                            }
-                        }
+                        TranscriptExpandedView(transcript: transcript)
+                            .tag(1)
                     }
                     .tabViewStyle(.page)
                 }
@@ -191,3 +144,72 @@ struct NoteCardView: View {
     }
 }
 
+struct NotePreviewView: View {
+    let note: String
+    let onTap: () -> Void
+    
+    var body: some View {
+        Text(note.isEmpty ? "Enter a note..." : note)
+            .fontWeight(.medium)
+            .foregroundStyle(note.isEmpty ? Color.secondary : Color.white)
+            .padding(.horizontal)
+            .lineLimit(1)
+            .onTapGesture(perform: onTap)
+    }
+}
+
+struct TranscriptPreviewView: View {
+    let transcript: String
+    let onTap: () -> Void
+    
+    var body: some View {
+        Text(transcript.isEmpty ? "No transcript" : transcript)
+            .fontWeight(.medium)
+            .foregroundStyle(transcript.isEmpty ? Color.secondary : Color.white)
+            .padding(.horizontal)
+            .lineLimit(1)
+            .onTapGesture(perform: onTap)
+    }
+}
+
+struct NoteExpandedView: View {
+    @Binding var note: String
+    let isEditing: FocusState<Bool>.Binding
+    
+    var body: some View {
+        Text("Note")
+            .font(.headline)
+            .foregroundStyle(.white)
+            .padding(.bottom, 12)
+        
+        Divider()
+        
+        TextField("Enter a note...", text: $note, axis: .vertical)
+            .focused(isEditing)
+            .fontWeight(.medium)
+            .foregroundStyle(.white)
+            .padding()
+        
+        Spacer()
+    }
+}
+
+struct TranscriptExpandedView: View {
+    let transcript: String
+    
+    var body: some View {
+        Text("Transcript")
+            .font(.headline)
+            .foregroundStyle(.white)
+            .padding(.bottom, 12)
+        
+        Divider()
+        
+        Text(transcript.isEmpty ? "No transcript" : transcript)
+            .fontWeight(.medium)
+            .foregroundStyle(.white)
+            .padding()
+        
+        Spacer()
+    }
+}
