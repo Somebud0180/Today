@@ -133,6 +133,7 @@ class AudioRecorderManager: NSObject, ObservableObject {
         }
     }
     
+    @Published var activeMicrophoneName: String = "Select Audio Input"
     var recordedContentsDuration: TimeInterval?
     var availableRecordingOptions: [RecordingOption] = []
     var destinationURL: URL?
@@ -190,6 +191,8 @@ class AudioRecorderManager: NSObject, ObservableObject {
         do {
             try self.configureAudioSession()
             self.setupAvailableRecordingOptions()
+            self.updateActiveMicrophoneName()
+            self.setupRouteChangeListener()
         } catch(let error) {
             self.error = error
         }
@@ -197,6 +200,33 @@ class AudioRecorderManager: NSObject, ObservableObject {
     
     deinit {
         self.deactivateAudioSessionAndNotifyOthers()
+    }
+}
+
+// MARK: - Microphone
+extension AudioRecorderManager {
+    private func updateActiveMicrophoneName() {
+        // Grab the user-selected input data source name, or fallback to the generic port name
+        if let currentInput = audioSession.currentRoute.inputs.first {
+            let name = currentInput.selectedDataSource?.dataSourceName ?? currentInput.portName
+            DispatchQueue.main.async {
+                self.activeMicrophoneName = name
+            }
+        }
+    }
+    
+    private func setupRouteChangeListener() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleRouteChange),
+            name: AVAudioSession.routeChangeNotification,
+            object: nil
+        )
+    }
+    
+    @objc private func handleRouteChange(notification: Notification) {
+        // Whenever the route changes, refresh our published string
+        updateActiveMicrophoneName()
     }
 }
 

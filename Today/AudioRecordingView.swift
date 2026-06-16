@@ -171,7 +171,22 @@ struct AudioRecordingView: View {
     func buttonView() -> some View {
         VStack {
             if !hasRecording {
-                // Record button (red circle inside white ring)
+                AVInputPickerButton {
+                    HStack {
+                        Image(systemName: "microphone.fill")
+                        Text(manager.activeMicrophoneName)
+                    }
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(12)
+                    .glassEffect(
+                        .regular.interactive(),
+                        in: Capsule()
+                        )
+                }
+                .disabled(isRecording)
+                .opacity(isRecording ? 0.5 : 1.0)
+                
                 Button(action: toggleRecording) {
                     Text(isRecording ? "Stop Recording" : "Start Recording")
                         .frame(maxWidth: .infinity)
