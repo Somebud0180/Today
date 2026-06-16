@@ -172,16 +172,13 @@ struct AudioRecordingView: View {
         VStack {
             if !hasRecording {
                 AVInputPickerButton {
-                    HStack {
-                        Image(systemName: "microphone.fill")
-                        Text(manager.activeMicrophoneName)
-                    }
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(12)
-                    .glassEffect(
-                        .regular.interactive(),
-                        in: Capsule()
+                    Label(manager.activeMicrophoneName, systemImage: "microphone.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(12)
+                        .glassEffect(
+                            .regular.interactive(),
+                            in: Capsule()
                         )
                 }
                 .disabled(isRecording)
