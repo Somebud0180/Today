@@ -20,6 +20,12 @@ struct NoteCardView: View {
     private let dragThreshold: CGFloat = 32
     
     var body: some View {
+        var cardTitle: String {
+            switch selectedTab {
+            case 0: return "Note"
+            default: return "Transcript"
+            }
+        }
         
         ZStack {
             // Background overlay (only visible when expanded)
@@ -95,11 +101,20 @@ struct NoteCardView: View {
             
             // Expanded state - centered overlay card
             if isExpanded {
-                VStack(spacing: 8) {
-                    RoundedRectangle(cornerRadius: 2.5)
-                        .fill(Color.gray.opacity(0.5))
-                        .frame(width: 40, height: 5)
-                        .padding(.top, 12)
+                VStack(spacing: 16) {
+                    VStack(spacing: 12) {
+                        RoundedRectangle(cornerRadius: 2.5)
+                            .fill(Color.gray.opacity(0.5))
+                            .frame(width: 40, height: 5)
+                        
+                        Text(cardTitle)
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 12)
+                    
+                    Divider()
                     
                     TabView(selection: $selectedTab) {
                         NoteExpandedView(note: $note, isEditing: $isEditing)
@@ -109,6 +124,11 @@ struct NoteCardView: View {
                             .tag(1)
                     }
                     .tabViewStyle(.page)
+                    .onChange(of: selectedTab) {
+                        if selectedTab > 0 {
+                            isEditing = false
+                        }
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: 500)
                 .background {
@@ -177,20 +197,15 @@ struct NoteExpandedView: View {
     let isEditing: FocusState<Bool>.Binding
     
     var body: some View {
-        Text("Note")
-            .font(.headline)
-            .foregroundStyle(.white)
-            .padding(.bottom, 12)
-        
-        Divider()
-        
-        TextField("Enter a note...", text: $note, axis: .vertical)
-            .focused(isEditing)
-            .fontWeight(.medium)
-            .foregroundStyle(.white)
-            .padding()
-        
-        Spacer()
+        VStack(spacing: 0) {
+            TextField("Enter a note...", text: $note, axis: .vertical)
+                .focused(isEditing)
+                .fontWeight(.medium)
+                .foregroundStyle(.white)
+                .padding()
+            
+            Spacer()
+        }
     }
 }
 
@@ -198,18 +213,13 @@ struct TranscriptExpandedView: View {
     let transcript: String
     
     var body: some View {
-        Text("Transcript")
-            .font(.headline)
-            .foregroundStyle(.white)
-            .padding(.bottom, 12)
-        
-        Divider()
-        
-        Text(transcript.isEmpty ? "No transcript" : transcript)
-            .fontWeight(.medium)
-            .foregroundStyle(.white)
-            .padding()
-        
-        Spacer()
+        VStack(spacing: 0) {
+            Text(transcript.isEmpty ? "No transcript" : transcript)
+                .fontWeight(.medium)
+                .foregroundStyle(.white)
+                .padding()
+            
+            Spacer()
+        }
     }
 }
