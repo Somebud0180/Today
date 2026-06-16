@@ -213,13 +213,30 @@ struct TranscriptExpandedView: View {
     let transcript: String
     
     var body: some View {
-        VStack(spacing: 0) {
-            Text(transcript.isEmpty ? "No transcript" : transcript)
-                .fontWeight(.medium)
-                .foregroundStyle(.white)
+        VStack {
+            if transcript.isEmpty {
+                Spacer()
+                
+                Group {
+                    Image(systemName: "waveform.slash")
+                        .resizable()
+                        .frame(maxWidth: 72, maxHeight: 72)
+                    
+                    Text("No Transcript")
+                        .fontWeight(.medium)
+                }
+                .foregroundStyle(.secondary)
                 .padding()
-            
-            Spacer()
+                
+                Spacer()
+            } else {
+                Text(transcript)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.white)
+                    .padding()
+                
+                Spacer()
+            }
         }
     }
 }
