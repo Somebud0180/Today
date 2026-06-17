@@ -52,6 +52,7 @@ struct CreateView: View {
     @State private var entryTitle: String = ""
     @State private var entryNote: String = ""
     @State private var transcript: ASRResult?
+    @State private var transcriptSuccess: Bool = true
     
     @FocusState private var titleFieldFocused: Bool
     @FocusState private var noteFieldFocused: Bool
@@ -214,6 +215,29 @@ struct CreateView: View {
                                 }
                                 
                                 VStack(spacing: 12) {
+                                    if transcript == nil {
+                                        HStack {
+                                            Spacer()
+                                            
+                                            HStack {
+                                                Text(transcriptSuccess ? "Transcribing entry" : "Transcribing failed")
+                                                    .fontWeight(.medium)
+                                                Image(systemName: transcriptSuccess ? "progress.indicator" : "xmark")
+                                                    .symbolEffectsRemoved(!transcriptSuccess)
+                                                    .symbolEffect(.rotate.byLayer, options: transcriptSuccess ? .repeat(.continuous) : .default)
+                                                    .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp.byLayer)))
+                                            }
+                                            .padding(4)
+                                            .padding(.horizontal, 8)
+                                            .glassEffect(
+                                                .regular,
+                                                in: Capsule()
+                                            )
+                                        }
+                                        .padding(.horizontal, 24)
+                                        .padding(.vertical, 12)
+                                    }
+                                    
                                     Spacer()
                                     
                                     if !isSaving,
@@ -252,12 +276,17 @@ struct CreateView: View {
                     .ignoresSafeArea(.keyboard)
                     .transition(pageTransition)
                     .onAppear {
-                        debugPrint("Audio Exists: \(recordedAudioURL != nil), TRSMan Exists: \(trsManager != nil)")
-                        
                         if let recordedAudioURL, let trsManager, transcribeOnSave {
                             Task {
-                                transcript = await trsManager.transcribeAudio(recordedAudioURL)
-                                debugPrint("[Transcript] \(transcript?.text ?? "No Transcript.")")
+                                let result = await trsManager.transcribeAudio(recordedAudioURL)
+                                let (newTranscript, newSuccess) = result
+                                
+                                await MainActor.run {
+                                    withAnimation(.snappy) {
+                                        transcript = newTranscript
+                                        transcriptSuccess = newSuccess
+                                    }
+                                }
                             }
                         }
                     }
@@ -407,13 +436,6 @@ struct CreateView: View {
                     .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
             }
             
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.gray.opacity(0.25))
-                .glassEffect(
-                    .clear.tint(.gray.opacity(0.25)),
-                    in: RoundedRectangle(cornerRadius: 16)
-                )
-            
             VStack(alignment: .leading) {
                 Text(
                     entryTitle.isEmpty ? Date().formatted(date: .numeric, time: .omitted) : entryTitle
@@ -493,6 +515,7 @@ struct CreateView: View {
                     .padding(12)
             }
             .buttonStyle(.glassProminent)
+            .disabled(enableTranscription && (transcript == nil && transcriptSuccess))
             
             Button(action: {
                 transitionDirection = .backward

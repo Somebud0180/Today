@@ -49,7 +49,7 @@ class AudioTranscriptionManager {
         }
     }
     
-    private func waitUntilASRReady(timeout: Duration = .seconds(15)) async -> Bool {
+    private func waitUntilASRReady(timeout: Duration = .seconds(20)) async -> Bool {
         let start = ContinuousClock.now
         while await !asrManager.isAvailable {
             // Check for timeout
@@ -62,24 +62,24 @@ class AudioTranscriptionManager {
         return true
     }
     
-    func transcribeAudio(_ audioURL: URL) async -> ASRResult? {
+    func transcribeAudio(_ audioURL: URL) async -> (ASRResult?, Bool) {
         let ready = await waitUntilASRReady()
         
         guard ready else {
             self.error = NSError(domain: "ASR", code: -1, userInfo: [NSLocalizedDescriptionKey: "ASR not ready after timeout"])
-            return .none
+            return (.none, false)
         }
         
         do {
             var localDecoderState = try TdtDecoderState()
             let result = try await asrManager.transcribe(audioURL, decoderState: &localDecoderState)
-            return result
+            return (result, true)
         } catch {
             await MainActor.run {
                 self.error = error
             }
         }
         
-        return .none
+        return (.none, false)
     }
 }
