@@ -640,16 +640,16 @@ struct CreateView: View {
     func performSaveAnimation(_ proxy: GeometryProxy) {
         cardOffset = .zero
         
-        withAnimation(.easeInOut(duration: 0.5)) {
+        withAnimation(.snappy) {
             cardScale = 1.05
             shadowOpacity = 0.35
         }
         
-        withAnimation(.easeInOut(duration: 0.5).delay(1.0)) {
+        withAnimation(.snappy.delay(1.0)) {
             cardOffset = CGSize(width: 20, height: 0)
         }
         
-        withAnimation(.easeInOut(duration: 0.5).delay(1.5)) {
+        withAnimation(.snappy.delay(1.5)) {
             cardOffset = CGSize(width: -proxy.size.width, height: 0)
         }
         
