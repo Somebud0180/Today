@@ -12,8 +12,8 @@ import AVFAudio
 import UniformTypeIdentifiers
 import Combine
 
+@MainActor
 class AudioRecorderManager: NSObject, ObservableObject {
-    
     enum RecordingOption {
         case frontStereo
         case backStereo
@@ -40,31 +40,16 @@ class AudioRecorderManager: NSObject, ObservableObject {
                     .bottom
             }
         }
-        
     }
     
     enum RecorderState: Equatable {
-        // remaining time til start
         case reserved(TimeInterval)
         case stopped
-        // time since stared, recording metrics
         case paused(TimeInterval, [PowerMetrics])
-        
-        // time since stared, recording metrics
         case started(TimeInterval, [PowerMetrics])
     }
     
-    // Power in decibels full-scale (dBFS)
-    // value ranges from –160 dBFS, indicating minimum power, to 0 dBFS, indicating maximum power.
-    struct PowerMetrics: Equatable, Hashable {
-        var channelName: String?
-        var channelNumber: Int
-        var average: Float
-        var peak: Float
-    }
-    
-    enum _Error: Error {
-        
+    enum _Error: LocalizedError {
         case permissionDenied
         case unknownPermission
         
@@ -81,7 +66,7 @@ class AudioRecorderManager: NSObject, ObservableObject {
         case failToResumePlaying(String)
         case failToStopPlaying
         
-        var message: String {
+        var errorDescription: String? {
             switch self  {
                 
             case .permissionDenied:
@@ -90,32 +75,50 @@ class AudioRecorderManager: NSObject, ObservableObject {
                 "Unknown Recording Permission."
                 
             case .builtinMicNotFound:
-                "Built in Mic is not found."
+                "Built in microphone not found."
                 
             case .failToGetDestinationURL:
-                "Failed to get DestinationURL."
+                "Failed to get file."
             case .failToDeleteRecording(let s):
                 s
             case .failToStartRecording(let s):
                 s
             case .failToResumeRecording:
-                "Failed To Resume Recording."
+                "Failed to resume recording."
             case .failToStopRecording:
-                "Failed T oStop Recording."
+                "Failed to stop recording."
             case .failToResumePlaying(let s):
                 s
             case .failToStopPlaying:
-                "Failed To Stop Playing Recording"
+                "Failed to pause recording"
             }
         }
-        
     }
     
+    /// Power in decibels full-scale (dBFS)
+    struct PowerMetrics: Equatable, Hashable {
+        var channelName: String?
+        var channelNumber: Int
+        var average: Float // Ranges from –160 dBFS, indicating minimum power, to 0 dBFS.
+        var peak: Float
+    }
     
-    private(set) var isPlayingRecording: Bool = false
-    private(set) var didRecordingEnd: Bool = false
-    private(set) var recorderState: RecorderState = .stopped
+    /// Published UI State
+    @Published private(set) var recorderState: RecorderState = .stopped
+    @Published private(set) var isPlayingRecording: Bool = false
+    @Published private(set) var didRecordingEnd: Bool = false
     
+    @Published var activeMicrophoneName: String = "Select Audio Input"
+    @Published var availableRecordingOptions: [RecordingOption] = []
+    
+    @Published var destinationURL: URL?
+    @Published var recordedContentsDuration: TimeInterval?
+    
+    @Published var showError: Bool = false {
+        didSet {
+            if !showError { self.error = nil }
+        }
+    }
     var error: (any Error)? {
         didSet {
             if let error = self.error {
@@ -125,46 +128,33 @@ class AudioRecorderManager: NSObject, ObservableObject {
         }
     }
     
-    var showError: Bool = false {
-        didSet {
-            if !showError {
-                self.error = nil
-            }
-        }
+    /// Computed Properties
+    var latestWaveformSampleLinear: Float {
+        recordedWaveformSamplesLinear.last ?? 0
+    }
+    var playbackTime: TimeInterval {
+        player?.currentTime ?? 0
     }
     
-    @Published var activeMicrophoneName: String = "Select Audio Input"
-    var recordedContentsDuration: TimeInterval?
-    var availableRecordingOptions: [RecordingOption] = []
-    var destinationURL: URL?
+    /// Waveform State (High-Frequency)
+    private(set) var recordedWaveformSamplesDb: [Float] = []
+    private(set) var recordedWaveformSamplesLinear: [Float] = []
+    private(set) var recordedWaveformDuration: TimeInterval = 0
     
+    /// AVFoundation Core
+    private let audioSession: AVAudioSession = AVAudioSession.sharedInstance()
+    private var recorder: AVAudioRecorder?
     private var player: AVAudioPlayer? {
         didSet {
             self.recordedContentsDuration = self.player?.duration
         }
     }
     
-    private var recorder: AVAudioRecorder?
+    /// Configuration Constants
     private let waveformSampleRateHz: Int = 60
-    /// Ignore a tiny amount of leading metering noise so the saved waveform starts on the real attack.
     private let waveformLeadingNoiseThreshold: Float = 0.035
     private let waveformLeadingPadSamples: Int = 1
-    private var waveformCancellable: AnyCancellable?
-    private(set) var recordedWaveformSamplesDb: [Float] = []
-    private(set) var recordedWaveformSamplesLinear: [Float] = []
-    private(set) var recordedWaveformDuration: TimeInterval = 0
     
-    var latestWaveformSampleLinear: Float {
-        recordedWaveformSamplesLinear.last ?? 0
-    }
-    
-    var playbackTime: TimeInterval {
-        player?.currentTime ?? 0
-    }
-    
-    private let audioSession: AVAudioSession = AVAudioSession.sharedInstance()
-    
-    // https://developer.apple.com/documentation/avfaudio/avaudiorecorder/init(url:settings:)#Discussion
     private var audioSettings: [String: Any] = [
         AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
         AVSampleRateKey: 22050,
@@ -173,19 +163,11 @@ class AudioRecorderManager: NSObject, ObservableObject {
         AVEncoderAudioQualityKey: AVAudioQuality.max.rawValue
     ]
     
-    
+    /// Combine Cancellables
     private var timerCancellable: AnyCancellable?
+    private var waveformCancellable: AnyCancellable?
     
     override init() {
-        let directoryPath = try? FileManager.default.url(
-            for: .documentDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        )
-        let defaultFileURL = directoryPath?.appendingPathComponent("recording.m4a", conformingTo: .mpeg4Audio)
-        self.destinationURL = defaultFileURL
-        
         super.init()
         
         do {
@@ -198,8 +180,10 @@ class AudioRecorderManager: NSObject, ObservableObject {
         }
     }
     
-    deinit {
+    isolated deinit {
         self.deactivateAudioSessionAndNotifyOthers()
+        self.stopWaveformSampling()
+        self.stopTimer()
     }
 }
 
@@ -235,8 +219,6 @@ extension AudioRecorderManager {
     
     // Start in (time) seconds, for (duration) seconds
     func startRecording(in time: TimeInterval?, forDuration duration: TimeInterval?, recordingOption: RecordingOption, enableMetering: Bool) async throws {
-        print(#function)
-        
         self.activateAudioSessionForAppAudio()
         
         guard self.recorderState == .stopped else {
@@ -255,9 +237,9 @@ extension AudioRecorderManager {
         
         self.stopPlayingRecording(deactivateAudio: false)
         
-        guard let fileURL = self.destinationURL else {
-            throw _Error.failToGetDestinationURL
-        }
+        let fileName = UUID().uuidString + ".m4a"
+        let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+        self.destinationURL = fileURL
         
         if FileManager.default.fileExists(atPath: fileURL.path) {
             try? FileManager.default.removeItem(at: fileURL)
@@ -268,13 +250,9 @@ extension AudioRecorderManager {
         
         self.recorder = try AVAudioRecorder(url: fileURL, settings: self.audioSettings)
         self.recorder?.delegate = self
-        
-        // A Boolean value that indicates whether you’ve enabled the recorder to generate audio-level metering data.
-        // By default, the recorder doesn’t generate audio-level metering data.
-        // Because metering uses computing resources, enable it only if you intend to use it.
         self.recorder?.isMeteringEnabled = enableMetering
         
-        let currentTime = recorder!.deviceCurrentTime
+        let currentTime = self.recorder?.deviceCurrentTime ?? 0
         
         let result = switch (time == nil, duration == nil) {
         case (true, true) :
@@ -416,28 +394,28 @@ extension AudioRecorderManager {
 extension AudioRecorderManager: AVAudioRecorderDelegate {
     // Tells the delegate when recording stops or finishes due to reaching its time limit, for example, that defined by duration when calling AVAudioRecorder.record(forDuration:).
     // The system doesn’t call this method if the recorder stops due to an interruption.
-    func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
-        print(#function)
-        print("Finishes successfully: \(flag)")
-        
-        guard recorder == self.recorder else {
-            return
-        }
-        
-        if !flag {
-            self.error = _Error.failToStopRecording
-        } else if self.recorderState != .stopped {
-            self.stopRecording()
+    nonisolated func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
+        Task { @MainActor in
+            guard recorder == self.recorder else {
+                return
+            }
+            
+            if !flag {
+                self.error = _Error.failToStopRecording
+            } else if self.recorderState != .stopped {
+                self.stopRecording()
+            }
         }
     }
     
     // Tells the delegate that the audio recorder encountered an encoding error during recording.
-    func audioRecorderEncodeErrorDidOccur(_ recorder: AVAudioRecorder, error: (any Error)?) {
-        print(#function)
-        guard recorder == self.recorder else {
-            return
+    nonisolated func audioRecorderEncodeErrorDidOccur(_ recorder: AVAudioRecorder, error: (any Error)?) {
+        Task { @MainActor in
+            guard recorder == self.recorder else {
+                return
+            }
+            self.error = error
         }
-        self.error = error
     }
 }
 
@@ -445,9 +423,6 @@ extension AudioRecorderManager: AVAudioRecorderDelegate {
 // MARK: - AVAudioPlayerDelegate
 extension AudioRecorderManager: AVAudioPlayerDelegate {
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        print(#function)
-        print("Finishes successfully: \(flag)")
-        
         guard player == self.player else {
             return
         }
@@ -460,7 +435,6 @@ extension AudioRecorderManager: AVAudioPlayerDelegate {
     }
     
     func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: (any Error)?) {
-        print(#function)
         guard player == self.player else {
             return
         }
@@ -548,6 +522,7 @@ extension AudioRecorderManager {
     // ie: should only be called when recorderState is .stopped
     private func configureStereo(recordingOption: RecordingOption) throws {
         guard let preferredInput = audioSession.preferredInput,
+              preferredInput.portType == .builtInMic,
               let dataSources = preferredInput.dataSources,
               let newDataSource = dataSources.first(where: { $0.orientation == recordingOption.audioOrientation }),
               let supportedPolarPatterns = newDataSource.supportedPolarPatterns else {
@@ -592,7 +567,6 @@ extension AudioRecorderManager {
 extension AudioRecorderManager {
     
     private func startTimer() {
-        print(#function)
         self.stopTimer()
         self.timerCancellable = Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
             .sink(receiveValue: { [weak self] _  in
@@ -672,7 +646,7 @@ extension AudioRecorderManager {
         guard !recordedWaveformSamplesDb.isEmpty else { return nil }
         
         let sampleDuration = Double(recordedWaveformSamplesDb.count) / Double(waveformSampleRateHz)
-        let duration = recordedWaveformDuration > 0 ? max(0, recordedWaveformDuration - Double(recordedWaveformSamplesDb.count - recordedWaveformSamplesDb.count) / Double(waveformSampleRateHz)) : sampleDuration
+        let duration = recordedWaveformDuration > 0 ? recordedWaveformDuration : sampleDuration
         return CodableAudioWaveform(
             samplesDb: recordedWaveformSamplesDb,
             samplesLinear: recordedWaveformSamplesLinear,
