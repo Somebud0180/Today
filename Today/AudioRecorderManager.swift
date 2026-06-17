@@ -479,7 +479,17 @@ extension AudioRecorderManager {
     
     
     private func configureAudioSession() throws {
-        try audioSession.setCategory(.playAndRecord, mode: .default, options: [.allowAirPlay, .allowBluetoothA2DP, .allowBluetoothHFP, .bluetoothHighQualityRecording, .interruptSpokenAudioAndMixWithOthers])
+        try audioSession.setCategory(
+            .playAndRecord,
+            mode: .default,
+            options: [
+                .allowAirPlay,
+                .allowBluetoothA2DP,
+                .allowBluetoothHFP,
+                .bluetoothHighQualityRecording,
+                .interruptSpokenAudioAndMixWithOthers
+            ]
+        )
         
         // not required, only for retrieving the input source a little easier
         // when configuring for stereo
