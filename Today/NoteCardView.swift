@@ -34,7 +34,7 @@ struct NoteCardView: View {
                     .opacity(0.4)
                     .ignoresSafeArea()
                     .onTapGesture {
-                        withAnimation(.easeInOut(duration: 0.3)) {
+                        withAnimation(.snappy) {
                             isExpanded = false
                         }
                     }
@@ -50,7 +50,7 @@ struct NoteCardView: View {
                     
                     TabView(selection: $selectedTab) {
                         NotePreviewView(note: note) {
-                            withAnimation(.easeInOut(duration: 0.3)) {
+                            withAnimation(.snappy) {
                                 isExpanded = true
                                 isEditing = true
                             }
@@ -58,7 +58,7 @@ struct NoteCardView: View {
                         .tag(0)
                         
                         TranscriptPreviewView(transcript: transcript) {
-                            withAnimation(.easeInOut(duration: 0.3)) {
+                            withAnimation(.snappy) {
                                 isExpanded = true
                             }
                         }
@@ -85,14 +85,14 @@ struct NoteCardView: View {
                         .onEnded { value in
                             let verticalDistance = value.translation.height
                             if verticalDistance < -dragThreshold {
-                                withAnimation(.easeInOut(duration: 0.3)) {
+                                withAnimation(.snappy) {
                                     isExpanded = true
                                 }
                             }
                         }
                 )
                 .onTapGesture {
-                    withAnimation(.easeInOut(duration: 0.3)) {
+                    withAnimation(.snappy) {
                         isExpanded = true
                     }
                 }
@@ -148,7 +148,7 @@ struct NoteCardView: View {
                         .onEnded { value in
                             let verticalDistance = value.translation.height
                             if verticalDistance > dragThreshold {
-                                withAnimation(.easeInOut(duration: 0.3)) {
+                                withAnimation(.snappy) {
                                     isExpanded = false
                                     isEditing = false
                                 }

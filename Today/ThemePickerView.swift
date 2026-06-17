@@ -21,7 +21,7 @@ struct ThemePickerView: View {
                         selection: Binding(get: {
                             preferredColorScheme
                         }, set: { newValue, _ in
-                            withAnimation(.easeInOut(duration: 0.5)) {
+                            withAnimation(.snappy) {
                                 preferredColorScheme = newValue
                             }
                         })

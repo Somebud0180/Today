@@ -153,7 +153,7 @@ struct CreateView: View {
                             hasTemporaryRecording: $screenHasRecording
                         ) {
                             transitionDirection = .backward
-                            withAnimation(.easeInOut(duration: 0.3)) {
+                            withAnimation(.snappy) {
                                 activePage = .menu
                             }
                         }
@@ -167,7 +167,7 @@ struct CreateView: View {
                             hasTemporaryRecording: $screenHasRecording
                         ) {
                             transitionDirection = .backward
-                            withAnimation(.easeInOut(duration: 0.3)) {
+                            withAnimation(.snappy) {
                                 activePage = .menu
                             }
                         }
@@ -334,7 +334,7 @@ struct CreateView: View {
         Group {
             Button(action: {
                 transitionDirection = .forward
-                withAnimation(.easeInOut(duration: 0.3)) {
+                withAnimation(.snappy) {
                     activePage = .video
                 }
             }) {
@@ -360,7 +360,7 @@ struct CreateView: View {
             
             Button(action: {
                 transitionDirection = .forward
-                withAnimation(.easeInOut(duration: 0.3)) {
+                withAnimation(.snappy) {
                     activePage = .audio
                 }
             }) {
@@ -524,7 +524,7 @@ struct CreateView: View {
                     waveform: mediaType == .audio ? recordedAudioWaveform : nil
                 )
                 
-                withAnimation(.easeInOut(duration: 0.3)) {
+                withAnimation(.snappy) {
                     isSaving = true
                 }
                 
@@ -540,7 +540,7 @@ struct CreateView: View {
             
             Button(action: {
                 transitionDirection = .backward
-                withAnimation(.easeInOut(duration: 0.3)) {
+                withAnimation(.snappy) {
                     if recordedAudioURL != nil {
                         activePage = .audio
                     } else if recordedVideoURL != nil {
@@ -586,7 +586,7 @@ struct CreateView: View {
             return
         }
         
-        withAnimation(.easeInOut(duration: 0.3)) {
+        withAnimation(.snappy) {
             isKeyboardVisible = true
             keyboardHeight = keyboardFrame.height
         }
@@ -595,7 +595,7 @@ struct CreateView: View {
     }
     
     func handleKeyboardWillHide() {
-        withAnimation(.easeInOut(duration: 0.3)) {
+        withAnimation(.snappy) {
             isKeyboardVisible = false
             keyboardHeight = 0
             saveBottomPadding = 0
@@ -604,13 +604,13 @@ struct CreateView: View {
     
     func recalculateSaveBottomPadding() {
         guard isKeyboardVisible else {
-            withAnimation(.easeInOut(duration: 0.3)) {
+            withAnimation(.snappy) {
                 saveBottomPadding = 0
             }
             return
         }
         
-        withAnimation(.easeInOut(duration: 0.3)) {
+        withAnimation(.snappy) {
             saveBottomPadding = max(0, keyboardHeight - saveBottomInset)
         }
     }

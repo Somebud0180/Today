@@ -38,6 +38,7 @@ struct JournalView: View {
                             AudioPlayerView(viewModel: vm)
                         }
                     }
+                    .ignoresSafeArea(.keyboard)
                     .onTapGesture {
                         titleFieldFocused = false
                     }
@@ -48,7 +49,7 @@ struct JournalView: View {
                         Spacer()
                         NoteCardView(note: bindingFor(\.note), transcript: bindingFor(\.transcript), isLandscape: $isLandscape)
                     }
-                    .ignoresSafeArea()
+                    .ignoresSafeArea(.container)
                 } else if isDownloading {
                     VStack(spacing: 16) {
                         ProgressView()
@@ -92,6 +93,7 @@ struct JournalView: View {
                         .onAppear { isLandscape = proxy.size.width > proxy.size.height }
                         .onChange(of: proxy.size) { isLandscape = proxy.size.width > proxy.size.height }
                 }
+                .ignoresSafeArea(.keyboard)
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
