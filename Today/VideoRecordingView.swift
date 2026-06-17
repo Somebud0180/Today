@@ -40,7 +40,6 @@ struct VideoRecordingView: View {
     var body: some View {
         GeometryReader { proxy in
             let isLandscape = proxy.size.width > proxy.size.height
-            let adaptiveLayout = isLandscape ? AnyLayout(HStackLayout(spacing: 0)) : AnyLayout(VStackLayout())
             
             ZStack {
                 if !manager.showConfirmation {
@@ -60,30 +59,47 @@ struct VideoRecordingView: View {
                         .transition(.opacity)
                 }
                 
-                adaptiveLayout {
-                    if manager.showConfirmation {
-                        AspectFitPlayerView(player: videoViewModel.player)
-                            .frame(maxHeight: .infinity)
-                            .background(.black)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .padding(.bottom, 12)
-                            .onTapGesture {
-                                videoViewModel.togglePlayback()
-                            }
-                    }
-                    
-                    Spacer()
-                    
-                    adaptiveLayout {
-                        Spacer()
+                if isLandscape {
+                    HStack(spacing: 12) {
+                        if manager.showConfirmation {
+                            AspectFitPlayerView(player: videoViewModel.player)
+                                .frame(maxHeight: .infinity)
+                                .background(.black)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .onTapGesture {
+                                    videoViewModel.togglePlayback()
+                                }
+                        } else {
+                            Spacer()
+                        }
                         
-                        zoomStopsRow(isLandscape: isLandscape)
-                        
-                        bottomControls(isLandscape: isLandscape)
+                        HStack(spacing: 6) {
+                            zoomStopsRow(isLandscape: true)
+                            bottomControls(isLandscape: true)
+                        }
+                        .frame(maxWidth: proxy.size.width * 0.5, alignment: .trailing)
                     }
+                    .padding(.bottom, 24)
+                } else {
+                    VStack(spacing: 12) {
+                        if manager.showConfirmation {
+                            AspectFitPlayerView(player: videoViewModel.player)
+                                .frame(maxHeight: .infinity)
+                                .background(.black)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .onTapGesture {
+                                    videoViewModel.togglePlayback()
+                                }
+                        } else {
+                            Spacer()
+                        }
+                        
+                        zoomStopsRow(isLandscape: false)
+                        bottomControls(isLandscape: false)
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 24)
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 24)
             }
         }
         .navigationTitle("Video Entry")
