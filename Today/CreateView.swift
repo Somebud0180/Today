@@ -53,6 +53,7 @@ struct CreateView: View {
     @State private var entryNote: String = ""
     @State private var transcript: ASRResult?
     @State private var transcriptSuccess: Bool = true
+    @State private var transcriptionInProgress: Bool = false
     
     @FocusState private var titleFieldFocused: Bool
     @FocusState private var noteFieldFocused: Bool
@@ -197,6 +198,8 @@ struct CreateView: View {
                                         let fileExtension = activeURL.pathExtension.isEmpty
                                         ? (mediaType == .video ? "mov" : "m4a")
                                         : activeURL.pathExtension
+
+                                        transcriptionProgress
                                         
                                         saveFields(activeURL: activeURL, fileExtension: fileExtension, mediaType: mediaType, proxy: proxy)
                                             .padding(24)
@@ -215,27 +218,8 @@ struct CreateView: View {
                                 }
                                 
                                 VStack(spacing: 12) {
-                                    if transcript == nil {
-                                        HStack {
-                                            Spacer()
-                                            
-                                            HStack {
-                                                Text(transcriptSuccess ? "Transcribing entry" : "Transcribing failed")
-                                                    .fontWeight(.medium)
-                                                Image(systemName: transcriptSuccess ? "progress.indicator" : "xmark")
-                                                    .symbolEffectsRemoved(!transcriptSuccess)
-                                                    .symbolEffect(.rotate.byLayer, options: transcriptSuccess ? .repeat(.continuous) : .default)
-                                                    .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp.byLayer)))
-                                            }
-                                            .padding(4)
-                                            .padding(.horizontal, 8)
-                                            .glassEffect(
-                                                .regular,
-                                                in: Capsule()
-                                            )
-                                        }
-                                        .padding(.horizontal, 24)
-                                        .padding(.vertical, 12)
+                                    if !isSaving {
+                                        transcriptionProgress
                                     }
                                     
                                     Spacer()
@@ -276,19 +260,7 @@ struct CreateView: View {
                     .ignoresSafeArea(.keyboard)
                     .transition(pageTransition)
                     .onAppear {
-                        if let recordedAudioURL, let trsManager, transcribeOnSave {
-                            Task {
-                                let result = await trsManager.transcribeAudio(recordedAudioURL)
-                                let (newTranscript, newSuccess) = result
-                                
-                                await MainActor.run {
-                                    withAnimation(.snappy) {
-                                        transcript = newTranscript
-                                        transcriptSuccess = newSuccess
-                                    }
-                                }
-                            }
-                        }
+                        performTranscription()
                     }
                 }
             }
@@ -412,6 +384,42 @@ struct CreateView: View {
             }
         }
         .buttonStyle(.plain)
+    }
+    
+    var transcriptionProgress: some View {
+        Group {
+            if enableTranscription {
+                let transcriptExist = transcript != nil
+                let performEffect = transcriptSuccess && !transcriptExist
+                
+                HStack {
+                    Spacer()
+                    
+                    Button(action: {
+                        performTranscription()
+                    }, label: {
+                        HStack {
+                            Text(transcriptSuccess ? transcriptExist ? "Entry transcribed" : "Transcribing entry" : "Transcribing failed")
+                                .fontWeight(.medium)
+                            Image(systemName: transcriptSuccess ? transcriptExist ? "checkmark" : "progress.indicator" : "xmark")
+                                .symbolEffectsRemoved(!transcriptSuccess)
+                                .symbolEffect(.variableColor.iterative.nonReversing, options: performEffect ? .repeat(.continuous) : .default)
+                                .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp.byLayer)))
+                        }
+                        .padding(4)
+                        .padding(.horizontal, 8)
+                        .glassEffect(
+                            .regular,
+                            in: Capsule()
+                        )
+                    })
+                    .buttonStyle(.plain)
+                    .contentShape(Capsule())
+                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
+            }
+        }
     }
     
     func previewCard(finalWidth: CGFloat, height: CGFloat, proxy: GeometryProxy, isLandscape: Bool) -> some View {
@@ -664,6 +672,30 @@ struct CreateView: View {
         activePage = .menu
         entryTitle = ""
         entryNote = ""
+        transcript = nil
+        transcriptSuccess = true
+    }
+    
+    func performTranscription() {
+        guard transcript == nil else { return }
+        
+        if let recordedAudioURL, let trsManager, transcribeOnSave && !transcriptionInProgress {
+            transcriptionInProgress = true
+            transcriptSuccess = true
+            
+            Task {
+                let result = await trsManager.transcribeAudio(recordedAudioURL)
+                let (newTranscript, newSuccess) = result
+                
+                await MainActor.run {
+                    withAnimation(.snappy) {
+                        transcript = newTranscript
+                        transcriptSuccess = newSuccess
+                        transcriptionInProgress = false
+                    }
+                }
+            }
+        }
     }
 }
 
