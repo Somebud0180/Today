@@ -85,7 +85,7 @@ struct JournalView: View {
                                 .resizable()
                                 .scaledToFill()
                                 .blur(radius: 24)
-                                .ignoresSafeArea()
+                                .ignoresSafeArea(.all)
                                 .animation(.easeInOut(duration: 0.5), value: colorScheme)
                         )
                         .ignoresSafeArea()

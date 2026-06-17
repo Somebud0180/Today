@@ -93,7 +93,7 @@ struct JogBookView: View {
                     Image(selectedBackground)
                         .resizable()
                         .scaledToFill()
-                        .ignoresSafeArea()
+                        .ignoresSafeArea(.all)
                         .animation(.easeInOut(duration: 0.5), value: colorScheme)
                         .onAppear { isLandscape = proxy.size.width > proxy.size.height }
                         .onChange(of: proxy.size) { isLandscape = proxy.size.width > proxy.size.height }

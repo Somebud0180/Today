@@ -242,7 +242,7 @@ struct OnboardingView: View {
                 Image(selectedBackground)
                     .resizable()
                     .scaledToFill()
-                    .ignoresSafeArea()
+                    .ignoresSafeArea(.all)
                     .animation(.easeInOut(duration: 0.5), value: colorScheme)
             )
             .onAppear {
