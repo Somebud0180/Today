@@ -187,15 +187,18 @@ struct WaveformView: View {
         let barsToShow = max(1, Int(size.width / (barWidth + barSpacing)))
         let source = levels.isEmpty ? Array(repeating: minAmplitude, count: barsToShow) : Array(levels.prefix(barsToShow))
         
+        let totalSpacing = CGFloat(source.count + 1) * barSpacing
+        let dynamicBarWidth = max(barWidth, (size.width - totalSpacing) / CGFloat(max(1, source.count)))
+        
         for i in 0..<source.count {
             let level = source[i]
             let height = max(minAmplitude, level) * size.height * 0.8
-            let x = CGFloat(i) * (barWidth + barSpacing) + barSpacing
+            let x = CGFloat(i) * (dynamicBarWidth + barSpacing) + barSpacing
             let y = (size.height - height) / 2
 
             var path = Path()
             path.addRoundedRect(
-                in: CGRect(x: x, y: y, width: barWidth, height: height),
+                in: CGRect(x: x, y: y, width: dynamicBarWidth, height: height),
                 cornerSize: CGSize(width: barWidth / 2, height: barWidth / 2)
             )
 
