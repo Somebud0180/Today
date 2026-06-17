@@ -50,6 +50,7 @@ struct AudioRecordingView: View {
                         stopwatchView()
                         Spacer()
                         waveformView()
+                        Spacer()
                     }
                     
                     VStack(spacing: 0) {
