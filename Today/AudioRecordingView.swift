@@ -25,6 +25,7 @@ struct AudioRecordingView: View {
     @State private var isPlaying: Bool = false
     @State private var firstTimePlaying: Bool = true
     @State private var showDiscardConfirmation: Bool = false
+    @State private var showInputPicker = false
     @State private var localRecordedURL: URL? = nil
     @State private var isLandscape: Bool = false
     
@@ -171,16 +172,17 @@ struct AudioRecordingView: View {
     func buttonView() -> some View {
         VStack {
             if !hasRecording {
-                AVInputPickerButton {
-                    Label(manager.activeMicrophoneName, systemImage: "microphone.fill")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(12)
-                        .glassEffect(
-                            .regular.interactive(),
-                            in: Capsule()
-                        )
+                Button {
+                    showInputPicker = true
+                } label: {
+                    AVInputPickerButton(isPresented: $showInputPicker) {
+                        Label(manager.activeMicrophoneName, systemImage: "microphone.fill")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(12)
+                    }
                 }
+                .buttonStyle(.glassProminent)
                 .disabled(isRecording)
                 .opacity(isRecording ? 0.5 : 1.0)
                 

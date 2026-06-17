@@ -9,74 +9,85 @@ import SwiftUI
 import AVKit
 
 struct AVInputPickerButton<Content: View>: UIViewRepresentable {
+    @Binding var isPresented: Bool
     let content: Content
     
-    init(@ViewBuilder content: () -> Content) {
+    init(isPresented: Binding<Bool>, @ViewBuilder content: () -> Content) {
+        self._isPresented = isPresented
         self.content = content()
     }
     
-    func makeUIView(context: Context) -> UIButton {
-        let button = UIButton(type: .custom)
-        button.backgroundColor = .clear
+    func makeUIView(context: Context) -> UIView {
+        let containerView = UIView(frame: .zero)
+        containerView.backgroundColor = .clear
         
-        // Host the SwiftUI content inside a UIKit controller
         let hostingController = UIHostingController(rootView: content)
         hostingController.view.backgroundColor = .clear
-        hostingController.view.isUserInteractionEnabled = false // Let touches pass through to the button
+        hostingController.view.isUserInteractionEnabled = false
         
-        // Save a reference to the hosting controller in the coordinator for size calculations
         context.coordinator.hostingController = hostingController
         
-        // Add the hosting view as a subview of the button
         let hostedView = hostingController.view!
         hostedView.translatesAutoresizingMaskIntoConstraints = false
-        button.addSubview(hostedView)
+        containerView.addSubview(hostedView)
         
-        // Pin the hosted view bounds tightly to the UIKit button layout
         NSLayoutConstraint.activate([
-            hostedView.topAnchor.constraint(equalTo: button.topAnchor),
-            hostedView.bottomAnchor.constraint(equalTo: button.bottomAnchor),
-            hostedView.leadingAnchor.constraint(equalTo: button.leadingAnchor),
-            hostedView.trailingAnchor.constraint(equalTo: button.trailingAnchor)
+            hostedView.topAnchor.constraint(equalTo: containerView.topAnchor),
+            hostedView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
+            hostedView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            hostedView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor)
         ])
         
-        // Attach the system picker interaction
         let interaction = AVInputPickerInteraction()
-        button.addInteraction(interaction)
+        containerView.addInteraction(interaction)
         context.coordinator.interaction = interaction
         
-        button.addTarget(context.coordinator, action: #selector(Coordinator.handleTap), for: .touchUpInside)
-        
-        return button
+        return containerView
     }
     
-    func updateUIView(_ uiView: UIButton, context: Context) {
-        // Update the root view configuration smoothly using our saved reference
+    func updateUIView(_ uiView: UIView, context: Context) {
         context.coordinator.hostingController?.rootView = content
+        
+        guard let interaction = context.coordinator.interaction else { return }
+        
+        // Match the interaction state to the SwiftUI binding state
+        if isPresented && !interaction.isPresented {
+            interaction.present()
+        } else if !isPresented && interaction.isPresented {
+            interaction.dismiss()
+        }
     }
     
-    // This communicates the intrinsic size of your SwiftUI content back to the parent layout engine
-    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UIButton, context: Context) -> CGSize? {
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UIView, context: Context) -> CGSize? {
         guard let hostingController = context.coordinator.hostingController else { return nil }
-        
-        // Convert SwiftUI's proposed size into standard UIKit dimensions
         let targetWidth = proposal.width ?? UIView.layoutFittingExpandedSize.width
         let targetHeight = proposal.height ?? UIView.layoutFittingCompressedSize.height
-        
-        // Ask the hosting controller to calculate the ideal size of its internal SwiftUI view tree
         return hostingController.sizeThatFits(in: CGSize(width: targetWidth, height: targetHeight))
     }
     
     func makeCoordinator() -> Coordinator {
-        Coordinator()
+        Coordinator(isPresented: $isPresented)
     }
     
     class Coordinator: NSObject {
         var interaction: AVInputPickerInteraction?
         var hostingController: UIHostingController<Content>?
+        var isPresented: Binding<Bool>
         
-        @objc func handleTap() {
-            interaction?.present()
+        init(isPresented: Binding<Bool>) {
+            self.isPresented = isPresented
+            super.init()
+            
+            // Watch for changes on the interaction state if needed, or polling if required.
+            // Ideally, the system dismisses it via physical tap outs, so we monitor it.
+            Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+                guard let self = self, let interaction = self.interaction else { return }
+                if self.isPresented.wrappedValue != interaction.isPresented {
+                    DispatchQueue.main.async {
+                        self.isPresented.wrappedValue = interaction.isPresented
+                    }
+                }
+            }
         }
     }
 }
