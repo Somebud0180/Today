@@ -54,6 +54,7 @@ struct CreateView: View {
     @State private var transcript: ASRResult?
     @State private var transcriptSuccess: Bool = true
     @State private var transcriptionInProgress: Bool = false
+    @State private var invokedTranscription: Bool = false
     
     @FocusState private var titleFieldFocused: Bool
     @FocusState private var noteFieldFocused: Bool
@@ -260,7 +261,9 @@ struct CreateView: View {
                     .ignoresSafeArea(.keyboard)
                     .transition(pageTransition)
                     .onAppear {
-                        performTranscription()
+                        if transcribeOnSave {
+                            performTranscription()
+                        }
                     }
                 }
             }
@@ -389,8 +392,12 @@ struct CreateView: View {
     var transcriptionProgress: some View {
         Group {
             if enableTranscription {
+                let showPrompt = !transcribeOnSave && !invokedTranscription
                 let transcriptExist = transcript != nil
-                let performEffect = transcriptSuccess && !transcriptExist
+                
+                let showProgress = !showPrompt && (transcriptSuccess && !transcriptExist)
+                let transcriptStatusText = transcriptSuccess ? transcriptExist ? "Entry transcribed" : "Transcribing entry" : "Transcribing failed"
+                let transcriptStatusSymbol = transcriptSuccess ? "checkmark" : "xmark"
                 
                 HStack {
                     Spacer()
@@ -399,12 +406,18 @@ struct CreateView: View {
                         performTranscription()
                     }, label: {
                         HStack {
-                            Text(transcriptSuccess ? transcriptExist ? "Entry transcribed" : "Transcribing entry" : "Transcribing failed")
+                            Text(showPrompt ? "Transcribe entry" : transcriptStatusText)
                                 .fontWeight(.medium)
-                            Image(systemName: transcriptSuccess ? transcriptExist ? "checkmark" : "progress.indicator" : "xmark")
-                                .symbolEffectsRemoved(!transcriptSuccess)
-                                .symbolEffect(.variableColor.iterative.nonReversing, options: performEffect ? .repeat(.continuous) : .default)
-                                .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp.byLayer)))
+                            
+                            Group {
+                                if showProgress {
+                                    Image(systemName: "progress.indicator")
+                                        .symbolEffect(.variableColor.iterative.nonReversing, options: .repeat(.continuous))
+                                } else {
+                                    Image(systemName: showPrompt ? "questionmark" : transcriptStatusSymbol)
+                                }
+                            }
+                            .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp.byLayer)))
                         }
                         .padding(4)
                         .padding(.horizontal, 8)
@@ -674,12 +687,15 @@ struct CreateView: View {
         entryNote = ""
         transcript = nil
         transcriptSuccess = true
+        transcriptionInProgress = false
+        invokedTranscription = false
     }
     
     func performTranscription() {
         guard transcript == nil else { return }
         
-        if let recordedAudioURL, let trsManager, transcribeOnSave && !transcriptionInProgress {
+        if let recordedAudioURL, let trsManager, enableTranscription && !transcriptionInProgress {
+            invokedTranscription = true
             transcriptionInProgress = true
             transcriptSuccess = true
             
