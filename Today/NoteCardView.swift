@@ -233,6 +233,7 @@ struct TranscriptExpandedView: View {
                 Text(transcript)
                     .fontWeight(.medium)
                     .foregroundStyle(.white)
+                    .textSelection(.enabled)
                     .padding()
                 
                 Spacer()
