@@ -74,7 +74,7 @@ struct SettingsView: View {
                     }
                 }
                 
-                Section(header: Text("Audio Transcription"), footer: Text("All features run on-device. Your data stays safe and never leaves your device.")) {
+                Section(header: Text("Audio Transcription"), footer: Text("All features run on-device. Your entries stay safe and never leave your device.")) {
                     Toggle("Enable audio transcription", isOn: $enableTranscription)
                     
                     Toggle(isOn: $transcribeOnSave) {
@@ -88,9 +88,19 @@ struct SettingsView: View {
                         .disabled(!enableTranscription)
                     
                     HStack {
-                        Text("Transcription Model Status: ")
+                        Text("Transcription Status: ")
+                        
                         Spacer()
+                        
                         Text(transcriptionManager.modelLoadState.description)
+                        
+                        switch transcriptionManager.modelLoadState {
+                        case .loading, .downloading:
+                            Image(systemName: "progress.indicator")
+                                .symbolEffect(.variableColor.iterative.nonReversing, options: .repeat(.continuous))
+                        default:
+                            EmptyView()
+                        }
                     }
                 }
                 
