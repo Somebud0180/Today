@@ -677,10 +677,17 @@ struct CreateView: View {
         guard transcript == nil, enableTranscription, !transcriptionInProgress else { return }
         
         guard recordedAudioURL != nil || recordedVideoURL != nil else {
-            invokedTranscription = true
-            transcriptionInProgress = false
-            transcriptSuccess = false
+            withAnimation(.snappy) {
+                transcriptionInProgress = false
+                transcriptSuccess = false
+            }
             return
+        }
+        
+        withAnimation(.snappy) {
+            invokedTranscription = true
+            transcriptionInProgress = true
+            transcriptSuccess = true // optimistic until proven otherwise
         }
             
         Task {
