@@ -40,6 +40,29 @@ struct ExportView: View {
     }
     
     var body: some View {
+        var exportImage: String {
+            if organizationIndex == 1 {
+                switch includedIndex {
+                case 0: 
+                    return "ExportM"
+                case 1: 
+                    return "ExportN"
+                default: 
+                    return "ExportMN"
+                }
+            } else {
+                switch groupingIndex {
+                case 0:
+                    return "ExportGroupD"
+                case 1:
+                    return "ExportGroupM"
+                default:
+                    return "ExportGroupY"
+                }
+            }
+        }
+        
+        
         NavigationStack {
             Form {
                 Section {
@@ -108,51 +131,22 @@ struct ExportView: View {
                 }
                 
                 Section(header: Text("Preview & Export")) {
-                    VStack(spacing: 12) {
-                        NavigationLink {
-                            NavigationStack {
-                                Form {
-                                    NavigationLink {
-                                        NavigationStack {
-                                            Form {
-                                                Text("Notes.txt")
-                                                Text("Media.mov")
-                                            }
-                                        }
-                                    } label: {
-                                        Text("May 30, 2026")
-                                    }
-                                    
-                                    NavigationLink {
-                                        NavigationStack {
-                                            Form {
-                                                Text("Notes.txt")
-                                                Text("Media.mov")
-                                            }
-                                        }
-                                    } label: {
-                                        Text("May 31, 2026")
-                                    }
-                                }
-                            }
-                        } label: {
-                            Text("May 2026")
-                        }
+                    VStack(spacing: 6) {
+                        Image("ExportBackground")
+                            .resizable()
+                            .scaledToFit()
+                            .overlay(
+                                Image(exportImage)
+                                    .resizable()
+                                    .scaledToFit()
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
                         
-                        Divider()
-                            .padding(.top, 4)
-                            .padding(.bottom, 6)
-                        
-                        NavigationLink {
-                            
-                        } label: {
-                            Text("June 2026")
-                        }
-                    }
-                    .padding(12)
-                    .background {
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(.regularMaterial)
+                        Text("Your export will look something like this")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     
                     Button("Export") {
