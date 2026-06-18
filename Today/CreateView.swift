@@ -481,9 +481,6 @@ struct CreateView: View {
         .offset(cardOffset)
         .shadow(color: .black.opacity(shadowOpacity), radius: 10, x: 0, y: shadowOffsetY)
         .onAppear(perform: showCardAnimation)
-        .onAppear {
-            debugPrint("Recorded waveform samples: \(recordedAudioWaveform?.samplesLinear.count ?? 0)")
-        }
     }
     
     func saveFields(activeURL: URL, fileExtension: String, mediaType: MediaType, proxy: GeometryProxy) -> some View {
@@ -677,23 +674,31 @@ struct CreateView: View {
     }
     
     func performTranscription() {
-        guard transcript == nil else { return }
+        guard transcript == nil, enableTranscription, !transcriptionInProgress else { return }
         
-        if let recordedAudioURL, enableTranscription && !transcriptionInProgress {
+        guard recordedAudioURL != nil || recordedVideoURL != nil else {
             invokedTranscription = true
-            transcriptionInProgress = true
-            transcriptSuccess = true
+            transcriptionInProgress = false
+            transcriptSuccess = false
+            return
+        }
             
-            Task {
-                let result = await transcriptionManager.transcribeAudio(recordedAudioURL)
-                let (newTranscript, newSuccess) = result
-                
-                await MainActor.run {
-                    withAnimation(.snappy) {
-                        transcript = newTranscript
-                        transcriptSuccess = newSuccess
-                        transcriptionInProgress = false
-                    }
+        Task {
+            let result: (ASRResult?, Bool)
+            if let recordedAudioURL {
+                result = await transcriptionManager.transcribeAudio(recordedAudioURL)
+            } else if let recordedVideoURL {
+                result = await transcriptionManager.transcribeVideo(recordedVideoURL)
+            } else {
+                result = (nil, false)
+            }
+            
+            let (newTranscript, newSuccess) = result
+            await MainActor.run {
+                withAnimation(.snappy) {
+                    transcript = newTranscript
+                    transcriptSuccess = newSuccess
+                    transcriptionInProgress = false
                 }
             }
         }

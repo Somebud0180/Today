@@ -241,24 +241,11 @@ extension AudioTranscriptionManager {
             throw NSError(domain: "AudioExtraction", code: -2, userInfo: [NSLocalizedDescriptionKey: "Unable to create export session"])
         }
         
-        exportSession.outputURL = outputURL
         exportSession.outputFileType = .m4a
         exportSession.timeRange = await CMTimeRange(start: .zero, duration: try asset.load(.duration))
         
         try? FileManager.default.removeItem(at: outputURL)
         
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            exportSession.exportAsynchronously {
-                switch exportSession.status {
-                case .completed:
-                    continuation.resume()
-                case .failed, .cancelled:
-                    let error = exportSession.error ?? NSError(domain: "AudioExtraction", code: -3, userInfo: [NSLocalizedDescriptionKey: "Export failed or cancelled"])
-                    continuation.resume(throwing: error)
-                default:
-                    break
-                }
-            }
-        }
+        try await exportSession.export(to: outputURL, as: .m4a)
     }
 }
