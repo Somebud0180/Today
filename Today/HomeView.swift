@@ -235,6 +235,7 @@ struct HomeView: View {
                 NavigationLink {
                     JournalView(selectedEntry: journalEntry)
                         .toolbar(.hidden, for: .tabBar)
+                        .environmentObject(transcriptionManager)
                         .navigationTransition(.zoom(sourceID: journalEntry, in: namespace))
                 } label: {
                     GridCardView(for: journalEntry, size: metrics.cardSize)

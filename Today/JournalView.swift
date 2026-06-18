@@ -9,6 +9,7 @@ import SwiftUI
 import SwiftData
 
 struct JournalView: View {
+    @EnvironmentObject var transcriptionManager: AudioTranscriptionManager
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
@@ -47,7 +48,8 @@ struct JournalView: View {
                     
                     VStack {
                         Spacer()
-                        NoteCardView(note: bindingFor(\.note), transcript: bindingFor(\.transcript), isLandscape: $isLandscape)
+                        NoteCardView(entry: selectedEntry, isLandscape: $isLandscape)
+                            .environmentObject(transcriptionManager)
                     }
                     .ignoresSafeArea(.container)
                 } else if isDownloading {

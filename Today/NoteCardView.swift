@@ -6,13 +6,21 @@
 //
 
 import SwiftUI
+import SwiftData
+import FluidAudio
 
 struct NoteCardView: View {
-    @Binding var note: String
-    @Binding var transcript: String
+    @EnvironmentObject var transcriptionManager: AudioTranscriptionManager
+    @Environment(\.modelContext) private var modelContext
+    
+    var entry: JournalEntry
     @Binding var isLandscape: Bool
+    
     @State private var isExpanded: Bool = false
     @State private var selectedTab: Int = 0
+    @State private var transcriptionInProgress: Bool = false
+    @State private var finishedTranscription: Bool = false
+    
     @FocusState private var isEditing: Bool
     @GestureState private var dragOffset: CGFloat = 0
     @GestureState private var expandedDragOffset: CGFloat = 0
@@ -49,20 +57,11 @@ struct NoteCardView: View {
                         .frame(width: 40, height: 5)
                     
                     TabView(selection: $selectedTab) {
-                        NotePreviewView(note: note) {
-                            withAnimation(.snappy) {
-                                isExpanded = true
-                                isEditing = true
-                            }
-                        }
-                        .tag(0)
+                        NotePreviewView
+                            .tag(0)
                         
-                        TranscriptPreviewView(transcript: transcript) {
-                            withAnimation(.snappy) {
-                                isExpanded = true
-                            }
-                        }
-                        .tag(1)
+                        TranscriptPreviewView
+                            .tag(1)
                     }
                     .tabViewStyle(.page)
                     .frame(maxHeight: 96)
@@ -117,10 +116,10 @@ struct NoteCardView: View {
                     Divider()
                     
                     TabView(selection: $selectedTab) {
-                        NoteExpandedView(note: $note, isEditing: $isEditing)
+                        NoteExpandedView
                             .tag(0)
                         
-                        TranscriptExpandedView(transcript: transcript)
+                        TranscriptExpandedView
                             .tag(1)
                     }
                     .tabViewStyle(.page)
@@ -162,59 +161,51 @@ struct NoteCardView: View {
             }
         }
     }
-}
-
-struct NotePreviewView: View {
-    let note: String
-    let onTap: () -> Void
     
-    var body: some View {
-        Text(note.isEmpty ? "Enter a note..." : note)
+    var NotePreviewView: some View {
+        Text(entry.note.isEmpty ? "Enter a note..." : entry.note)
             .fontWeight(.medium)
-            .foregroundStyle(note.isEmpty ? Color.secondary : Color.white)
+            .foregroundStyle(entry.note.isEmpty ? Color.secondary : Color.white)
             .padding(.horizontal)
             .lineLimit(1)
-            .onTapGesture(perform: onTap)
+            .onTapGesture {
+                withAnimation(.snappy) {
+                    isExpanded = true
+                    isEditing = true
+                }
+            }
     }
-}
-
-struct TranscriptPreviewView: View {
-    let transcript: String
-    let onTap: () -> Void
     
-    var body: some View {
-        Text(transcript.isEmpty ? "No transcript" : transcript)
+    var TranscriptPreviewView: some View {
+        Text(entry.transcript.isEmpty ? "No transcript" : entry.transcript)
             .fontWeight(.medium)
-            .foregroundStyle(transcript.isEmpty ? Color.secondary : Color.white)
+            .foregroundStyle(entry.transcript.isEmpty ? Color.secondary : Color.white)
             .padding(.horizontal)
             .lineLimit(1)
-            .onTapGesture(perform: onTap)
+            .onTapGesture {
+                withAnimation(.snappy) {
+                    isExpanded = true
+                }
+            }
     }
-}
-
-struct NoteExpandedView: View {
-    @Binding var note: String
-    let isEditing: FocusState<Bool>.Binding
     
-    var body: some View {
-        VStack(spacing: 0) {
-            TextField("Enter a note...", text: $note, axis: .vertical)
-                .focused(isEditing)
-                .fontWeight(.medium)
-                .foregroundStyle(.white)
-                .padding()
-            
-            Spacer()
+    var NoteExpandedView: some View {
+        Group {
+            VStack(spacing: 0) {
+                TextField("Enter a note...", text: bindingFor(\.note), axis: .vertical)
+                    .focused($isEditing)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.white)
+                    .padding()
+                
+                Spacer()
+            }
         }
     }
-}
-
-struct TranscriptExpandedView: View {
-    let transcript: String
     
-    var body: some View {
+    var TranscriptExpandedView: some View {
         VStack {
-            if transcript.isEmpty {
+            if entry.transcript.isEmpty {
                 Spacer()
                 
                 Group {
@@ -228,9 +219,23 @@ struct TranscriptExpandedView: View {
                 .foregroundStyle(.secondary)
                 .padding()
                 
+                Button("Transcribe Entry", action: {
+                    Task {
+                        await transcribeEntry()
+                    }
+                })
+                .buttonStyle(.glass)
+                .disabled(transcriptionInProgress || finishedTranscription)
+                
+                if finishedTranscription {
+                    Text("The entry couldn't be transcribed. It may not be recognizable by the app.")
+                        .foregroundStyle(.secondary)
+                        .padding()
+                }
+                
                 Spacer()
             } else {
-                Text(transcript)
+                Text(entry.transcript)
                     .fontWeight(.medium)
                     .foregroundStyle(.white)
                     .textSelection(.enabled)
@@ -239,5 +244,41 @@ struct TranscriptExpandedView: View {
                 Spacer()
             }
         }
+    }
+    
+    func transcribeEntry() async {
+        guard entry.transcript.isEmpty && !transcriptionInProgress && !finishedTranscription else { return }
+        
+        transcriptionInProgress = true
+        
+        let result: (ASRResult?, Bool)
+        if entry.mediaType == .audio, let audioURL = entry.mediaURL  {
+            result = await transcriptionManager.transcribeAudio(audioURL)
+        } else if entry.mediaType == .video, let videoURL = entry.mediaURL {
+            result = await transcriptionManager.transcribeVideo(videoURL)
+        } else {
+            result = (.none, false)
+        }
+        
+        if let transcript = result.0?.text {
+            Task { @MainActor in
+                withAnimation(.snappy) {
+                    entry.transcript = transcript
+                    transcriptionInProgress = false
+                    finishedTranscription = true
+                    try? modelContext.save()
+                }
+            }
+        }
+    }
+    
+    private func bindingFor<Value>(_ keyPath: ReferenceWritableKeyPath<JournalEntry, Value>) -> Binding<Value> {
+        Binding(
+            get: { entry[keyPath: keyPath] },
+            set: { newValue in
+                entry[keyPath: keyPath] = newValue
+                try? modelContext.save()
+            }
+        )
     }
 }
