@@ -10,6 +10,8 @@ import SwiftData
 
 @main
 struct TodayApp: App {
+    @StateObject private var transcriptionManager = AudioTranscriptionManager()
+    
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([JournalEntry.self])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
@@ -24,6 +26,7 @@ struct TodayApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(transcriptionManager)
         }
         .modelContainer(sharedModelContainer)
     }

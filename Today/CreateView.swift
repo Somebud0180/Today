@@ -26,13 +26,12 @@ struct CreateView: View {
         case save
     }
     
+    @EnvironmentObject var transcriptionManager: AudioTranscriptionManager
     @Environment(\.modelContext) private var modelContext
     @Binding var tabSelection: Int
     
     @AppStorage("enableTranscription") private var enableTranscription: Bool = DefaultSettings.enableTranscription
     @AppStorage("transcribeOnSave") private var transcribeOnSave: Bool = DefaultSettings.transcribeOnSave
-    
-    @State private var trsManager: AudioTranscriptionManager?
     
     @State private var animateGradient: Bool = false
     @State private var gradientColors: [Color] = [
@@ -266,12 +265,6 @@ struct CreateView: View {
                         }
                     }
                 }
-            }
-            .onChange(of: enableTranscription) {
-                setupTRSManager()
-            }
-            .onAppear() {
-                setupTRSManager()
             }
         }
     }
@@ -564,14 +557,6 @@ struct CreateView: View {
 
     }
     
-    func setupTRSManager() {
-        if enableTranscription && trsManager == nil {
-            trsManager = AudioTranscriptionManager()
-        } else if !enableTranscription && trsManager != nil {
-            trsManager = nil
-        }
-    }
-    
     func getCardPosY(_ proxy: GeometryProxy) -> CGFloat {
         if isSaving {
             return proxy.size.height / 2
@@ -694,13 +679,13 @@ struct CreateView: View {
     func performTranscription() {
         guard transcript == nil else { return }
         
-        if let recordedAudioURL, let trsManager, enableTranscription && !transcriptionInProgress {
+        if let recordedAudioURL, enableTranscription && !transcriptionInProgress {
             invokedTranscription = true
             transcriptionInProgress = true
             transcriptSuccess = true
             
             Task {
-                let result = await trsManager.transcribeAudio(recordedAudioURL)
+                let result = await transcriptionManager.transcribeAudio(recordedAudioURL)
                 let (newTranscript, newSuccess) = result
                 
                 await MainActor.run {

@@ -31,6 +31,7 @@ private struct ZoomTransitionState {
 
 struct HomeView: View {
     @AppStorage("selectedBackground") private var selectedBackground: String = DefaultSettings.selectedBackground
+    @EnvironmentObject var transcriptionManager: AudioTranscriptionManager
     @Environment(\.editMode) private var editMode
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
@@ -206,7 +207,7 @@ struct HomeView: View {
                         }
                         
                         NavigationLink(
-                            destination: SettingsView(),
+                            destination: SettingsView().environmentObject(transcriptionManager),
                             label: {
                                 Label("Settings", systemImage: "gearshape")
                                     .labelStyle(.iconOnly)

@@ -19,6 +19,7 @@ struct DefaultSettings {
 }
 
 struct ContentView: View {
+    @EnvironmentObject var transcriptionManager: AudioTranscriptionManager
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Query private var journalEntries: [JournalEntry]
@@ -32,11 +33,13 @@ struct ContentView: View {
             Tab("Home", systemImage: "note", value: 0) {
                 HomeView()
                     .preferredColorScheme(preferredColorScheme.colorScheme)
+                    .environmentObject(transcriptionManager)
             }
             
             Tab("Create Entry", systemImage: "note.text.badge.plus", value: 1) {
                 CreateView(tabSelection: $tabSelection)
                     .preferredColorScheme(preferredColorScheme.colorScheme)
+                    .environmentObject(transcriptionManager)
             }
             
             Tab("Jog Book", systemImage: "ellipsis.calendar", value: 2) {

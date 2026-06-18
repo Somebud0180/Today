@@ -16,6 +16,7 @@ struct SettingsView: View {
     @AppStorage("enableTranscription") private var enableTranscription: Bool = DefaultSettings.enableTranscription
     @AppStorage("transcribeOnSave") private var transcribeOnSave: Bool = DefaultSettings.transcribeOnSave
     
+    @EnvironmentObject var transcriptionManager: AudioTranscriptionManager
     @State var authorizationStatus: UNAuthorizationStatus = .notDetermined
     
     var body: some View {
@@ -85,6 +86,12 @@ struct SettingsView: View {
                         }
                     }
                         .disabled(!enableTranscription)
+                    
+                    HStack {
+                        Text("Transcription Model Status: ")
+                        Spacer()
+                        Text(transcriptionManager.modelLoadState.description)
+                    }
                 }
                 
                 Section(header: Text("Export")) {
