@@ -50,6 +50,9 @@ struct HomeView: View {
     @State private var showDeleteConfirmaton: Bool = false
     
     @State private var selectedEntries: [JournalEntry] = []
+    @State private var isPreparingShare = false
+    @State private var sharedURLs: [URL] = []
+    @State private var showShareSheet = false
     
     private let minimumCardWidth: [CGFloat] = [60, 80, 100, 120, 150]
     private let gridSpacing: [CGFloat] = [4, 8, 12, 16, 20]
@@ -125,7 +128,7 @@ struct HomeView: View {
                         Text("Today")
                             .font(.largeTitle)
                             .fontWeight(.bold)
-                        Text(Date().formatted(date: .long, time: .omitted))
+                        Text(isPreparingShare ? "Exporting entry..." : Date().formatted(date: .long, time: .omitted))
                             .font(.headline)
                             .fontWeight(.semibold)
                     }
@@ -170,40 +173,65 @@ struct HomeView: View {
                         }
                     }
                 })
+                .sheet(isPresented: $showShareSheet) {
+                    ShareSheet(
+                        items: sharedURLs,
+                        completion: { activityType, completed, _, error in
+                            if completed {
+                                debugPrint("Share succeeded! Activity: \(activityType?.rawValue ?? "Unknown")")
+                            } else if let error = error {
+                                debugPrint("Share failed: \(error.localizedDescription)")
+                            }
+                        }
+                    )
+                }
                 .toolbar {
                     ToolbarItemGroup(placement: .topBarTrailing) {
-                        if editMode?.wrappedValue.isEditing == true {
-                            ControlGroup {
-//                                ShareLink(items: getSelectedEntryURL) {
-//                                    Label("Export Selected Entries", systemImage: "square.and.arrow.up")
-//                                        .labelStyle(.iconOnly)
-//                                }
+                        
+                        ControlGroup {
+                            if isPreparingShare {
+                                Label("Exporting", systemImage: "progress.indicator")
+                                    .labelStyle(.iconOnly)
+                                    .symbolEffect(.variableColor.iterative.nonReversing, options: .repeat(.continuous))
+                                    .padding(.vertical)
+                            }
+                            
+                            if editMode?.wrappedValue.isEditing == true {
+                                Group {
+                                    Button(action: {
+                                        Task { await prepareEntriesForSharing(selectedEntries) }
+                                    }, label: {
+                                        Label("Export Selected Entries", systemImage: "square.and.arrow.up")
+                                            .labelStyle(.iconOnly)
+                                    })
+                                    .disabled(isPreparingShare)
+                                    
+                                    Button(action: {
+                                        showDeleteConfirmaton = true
+                                    }, label: {
+                                        Label("Delete Selected Entries", systemImage: "trash.fill")
+                                            .labelStyle(.iconOnly)
+                                    })
+                                }
+                                .disabled(selectedEntries.isEmpty)
                                 
                                 Button(action: {
-                                    showDeleteConfirmaton = true
+                                    withAnimation(.snappy) {
+                                        editMode?.wrappedValue = .inactive
+                                        selectedEntries.removeAll()
+                                    }
                                 }, label: {
-                                    Label("Delete Selected Entries", systemImage: "trash.fill")
+                                    Label("Done", systemImage: "checkmark")
                                         .labelStyle(.iconOnly)
                                 })
+                            } else {
+                                Button(action: {
+                                    withAnimation(.snappy) { editMode?.wrappedValue = .active }
+                                }, label: {
+                                    Label("Select", systemImage: "checkmark.circle")
+                                        .labelStyle(.titleOnly)
+                                })
                             }
-                            .disabled(selectedEntries.isEmpty)
-                            
-                            Button(action: {
-                                withAnimation(.snappy) {
-                                    editMode?.wrappedValue = .inactive
-                                    selectedEntries.removeAll()
-                                }
-                            }, label: {
-                                Label("Done", systemImage: "checkmark")
-                                    .labelStyle(.iconOnly)
-                            })
-                        } else {
-                            Button(action: {
-                                withAnimation(.snappy) { editMode?.wrappedValue = .active }
-                            }, label: {
-                                Label("Select", systemImage: "checkmark.circle")
-                                    .labelStyle(.titleOnly)
-                            })
                         }
                         
                         NavigationLink(
@@ -246,16 +274,16 @@ struct HomeView: View {
                 .allowsHitTesting(!isEditing)
                 .opacity(isEditing && !isSelected ? 0.7 : 1.0)
                 .contextMenu {
+                    Button {
+                        Task { await prepareEntryForSharing(journalEntry) }
+                    } label: {
+                        Label("Export Entry", systemImage: "square.and.arrow.up")
+                    }
+                    
                     Button(role: .destructive) {
                         modelContext.delete(journalEntry)
                     } label: {
                         Label("Delete Entry", systemImage: "trash")
-                    }
-                    
-                    Button(role: .close) {
-                        // No action needed, context menu will dismiss automatically
-                    } label: {
-                        Label("Cancel", systemImage: "xmark")
                     }
                 }
                 .background(
@@ -419,11 +447,36 @@ struct HomeView: View {
         }
     }
     
-//    private func getSelectedEntryURL() -> [URL] {
-//        for entry in selectedEntries {
-//            return entry.exportMediaURLForSharing()
-//        }
-//    }
+    private func prepareEntryForSharing(_ entry: JournalEntry) async {
+        await prepareEntriesForSharing([entry])
+    }
+    
+    private func prepareEntriesForSharing(_ selectedEntries: [JournalEntry]) async {
+        await MainActor.run {
+            withAnimation(.snappy) {
+                isPreparingShare = true
+            }
+        }
+        
+        var urls: [URL] = []
+        for entry in selectedEntries {
+            if let url = await entry.exportMediaURLForSharing() {
+                urls.append(url)
+            }
+        }
+        
+        await MainActor.run {
+            self.sharedURLs = urls
+            
+            withAnimation(.snappy) {
+                self.isPreparingShare = false
+            }
+            
+            if !urls.isEmpty {
+                showShareSheet = true
+            }
+        }
+    }
 }
 
 #Preview {
