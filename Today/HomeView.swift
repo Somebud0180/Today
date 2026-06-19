@@ -64,49 +64,67 @@ struct HomeView: View {
             NavigationStack {
                 let transition = zoomTransition(in: proxy.size)
                 let blurHeight = topBarHeight
+                let viewportHeight = proxy.size.height - topBarHeight
                 
                 ZStack(alignment: .top) {
-                    ScrollView(.vertical, showsIndicators: true) {
-                        ZStack(alignment: .topLeading) {
-                            gridLayer(metrics: transition.currentMetrics)
-                                .scaleEffect(transition.currentScale, anchor: .center)
-                                .opacity(transition.currentOpacity)
+                    ScrollViewReader { reader in
+                        ScrollView(.vertical, showsIndicators: true) {
+                            VStack(spacing: 0) {
+                                ZStack(alignment: .topLeading) {
+                                    gridLayer(metrics: transition.currentMetrics)
+                                        .scaleEffect(transition.currentScale, anchor: .center)
+                                        .opacity(transition.currentOpacity)
+                                    
+                                    if transition.nextStep != transition.currentStep {
+                                        gridLayer(metrics: transition.nextMetrics)
+                                            .scaleEffect(transition.nextScale, anchor: .center)
+                                            .opacity(transition.nextOpacity)
+                                    }
+                                }
+                                .scrollTargetLayout(isEnabled: false)
+                                .padding(gridPadding)
+                                .frame(maxWidth: .infinity)
+                                
+                                welcomeScreen
+                                    .frame(maxWidth: .infinity, maxHeight: viewportHeight)
+                                    .id("welcome")
+                                    .ignoresSafeArea(edges: .bottom)
+                                    .scrollTransition(.animated, axis: .vertical) { content, phase in
+                                        content.opacity(phase.isIdentity ? 1 : 0.9)
+                                    }
+                            }
+                        }
+                        .scrollTargetBehavior(.paging)
+                        .scrollEdgeEffectHidden()
+                        .onAppear {
+                            DispatchQueue.main.async {
+                                withAnimation(.snappy) {
+                                    reader.scrollTo("welcome", anchor: .top)
+                                }
+                            }
                             
-                            if transition.nextStep != transition.currentStep {
-                                gridLayer(metrics: transition.nextMetrics)
-                                    .scaleEffect(transition.nextScale, anchor: .center)
-                                    .opacity(transition.nextOpacity)
+                            if let lastDate = journalEntries.last?.date {
+                                DispatchQueue.main.async {
+                                    withTransaction(\.scrollTargetAnchor, .bottom) {
+                                        scrollPosition.scrollTo(id: lastDate)
+                                    }
+                                }
                             }
                         }
-                        .scrollTargetLayout()
-                        .padding(gridPadding)
-                        .frame(maxWidth: .infinity)
-                    }
-                    .scrollEdgeEffectHidden()
-                    .scrollPosition($scrollPosition, anchor: .bottom)
-                    .defaultScrollAnchor(.bottom, for: .initialOffset)
-                    .onAppear {
-                        guard !didPerformInitialScroll, let lastDate = journalEntries.last?.date else { return }
-                        didPerformInitialScroll = true
-                        DispatchQueue.main.async {
-                            withTransaction(\.scrollTargetAnchor, .bottom) {
-                                scrollPosition.scrollTo(id: lastDate)
+                        .onChange(of: journalEntries.last?.date) { _, newDate in
+                            guard let newDate else { return }
+                            if isFollowingBottom {
+                                withAnimation(.easeOut) {
+                                    scrollPosition.scrollTo(id: newDate)
+                                }
                             }
                         }
-                    }
-                    .onChange(of: journalEntries.last?.date) { _, newDate in
-                        guard let newDate else { return }
-                        if isFollowingBottom {
-                            withAnimation(.easeOut) {
-                                scrollPosition.scrollTo(id: newDate)
+                        .onScrollTargetVisibilityChange(idType: Date.self, threshold: 0.6) { visibleIDs in
+                            if let lastDate = journalEntries.last?.date {
+                                isFollowingBottom = visibleIDs.contains(lastDate)
+                            } else {
+                                isFollowingBottom = true
                             }
-                        }
-                    }
-                    .onScrollTargetVisibilityChange(idType: Date.self, threshold: 0.6) { visibleIDs in
-                        if let lastDate = journalEntries.last?.date {
-                            isFollowingBottom = visibleIDs.contains(lastDate)
-                        } else {
-                            isFollowingBottom = true
                         }
                     }
                     
@@ -251,6 +269,20 @@ struct HomeView: View {
                 )
             }
         }
+    }
+    
+    var welcomeScreen: some View {
+        VStack {
+            Text("Good day")
+                .font(.title)
+                .fontWeight(.semibold)
+            
+            Text("How are you feeling today?")
+                .font(.title3)
+            
+            Spacer(minLength: 128)
+        }
+        .padding()
     }
     
     @ViewBuilder
