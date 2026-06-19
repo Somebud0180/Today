@@ -283,9 +283,12 @@ struct VideoRecordingView: View {
     
     private var recordButton: some View {
         Button(action: toggleRecording) {
-            Circle()
-                .fill(manager.isRecording ? Color.red : Color.white)
-                .padding(8)
+            Image(systemName: manager.isRecording ? "square.fill" : "circle.fill")
+                .resizable()
+                .scaledToFit()
+                .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp.byLayer), options: .nonRepeating))
+                .foregroundStyle(Color.red)
+                .padding(manager.isRecording ? 16 : 8)
                 .glassEffect(
                     .regular.interactive(),
                     in: Circle()
