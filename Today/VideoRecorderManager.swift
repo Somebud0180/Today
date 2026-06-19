@@ -36,6 +36,7 @@ final class VideoRecorderManager: NSObject, ObservableObject {
         }
     }
 
+    @Published private(set) var recordingDuration: TimeInterval = 0
     @Published private(set) var isSessionRunning = false
     @Published private(set) var isRecording = false
     @Published private(set) var activePosition: AVCaptureDevice.Position = .front
@@ -48,7 +49,7 @@ final class VideoRecorderManager: NSObject, ObservableObject {
     @Published private(set) var errorMessage: String?
     @Published var showConfirmation: Bool = false
     @Published var showError = false
-
+    
     private let session = AVCaptureSession()
     private let sessionQueue = DispatchQueue(label: "VideoRecorderManager.session")
     private var isConfigured = false
@@ -58,6 +59,8 @@ final class VideoRecorderManager: NSObject, ObservableObject {
     private weak var previewLayer: AVCaptureVideoPreviewLayer?
     private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
     private var rotationObserverTokens: [NSKeyValueObservation] = []
+    private var recordingStartDate: Date?
+    private var durationCancellable: AnyCancellable?
 
     private var zoomBaseFactor: CGFloat = 1.0
     // zoomBaseFactor is stored in "display" zoom units (the user-facing zoom where 1.0 == wide lens)
@@ -181,6 +184,11 @@ extension VideoRecorderManager {
             }
             self.lastRecordingURL = nil
             self.showConfirmation = false
+            
+            DispatchQueue.main.async {
+                self.recordingDuration = 0
+                self.recordingStartDate = nil
+            }
         }
     }
 }
@@ -689,14 +697,26 @@ extension VideoRecorderManager: AVCaptureFileOutputRecordingDelegate {
     func fileOutput(_ output: AVCaptureFileOutput, didStartRecordingTo fileURL: URL, from connections: [AVCaptureConnection]) {
         DispatchQueue.main.async {
             self.isRecording = true
+            self.recordingStartDate = Date()
+            self.recordingDuration = 0
+            
+            self.durationCancellable?.cancel()
+            self.durationCancellable = Timer.publish(every: 0.2, on: .main, in: .common)
+                .autoconnect()
+                .sink { [weak self = self] _ in
+                    guard let self, let start = self.recordingStartDate else { return }
+                    self.recordingDuration = Date().timeIntervalSince(start)
+                }
         }
     }
 
     func fileOutput(_ output: AVCaptureFileOutput, didFinishRecordingTo outputFileURL: URL, from connections: [AVCaptureConnection], error: Error?) {
         DispatchQueue.main.async {
             self.isRecording = false
+            self.durationCancellable?.cancel()
+            self.durationCancellable = nil
         }
-
+        
         if let error {
             let nsError = error as NSError
             // Ignore normal stop flow errors (19914, -19431) from AVFoundation
@@ -709,7 +729,7 @@ extension VideoRecorderManager: AVCaptureFileOutputRecordingDelegate {
             setErrorOnMain(RecorderError.recordingFailed(error.localizedDescription))
             return
         }
-
+        
         DispatchQueue.main.async {
             self.lastRecordingURL = outputFileURL
         }

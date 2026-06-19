@@ -49,6 +49,19 @@ struct VideoRecordingView: View {
                         .gesture(focusGesture(in: proxy.size))
                         .simultaneousGesture(exposureGesture(in: proxy.size))
                         .simultaneousGesture(zoomGesture)
+                    
+                    ZStack(alignment: .top) {
+                        if manager.isRecording {
+                            Text(formatDuration(manager.recordingDuration))
+                                .font(.title3)
+                                .padding(4)
+                                .glassEffect(
+                                    .regular.tint(.red),
+                                    in: RoundedRectangle(cornerRadius: 4)
+                                )
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 }
                 
                 if let focusPoint, focusVisible {
@@ -318,6 +331,18 @@ struct VideoRecordingView: View {
         .opacity(manager.isRecording ? 0.5 : 1.0)
     }
     
+    func formatDuration(_ seconds: TimeInterval) -> String {
+        let total = Int(seconds)
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        let secs = total % 60
+        
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, secs)
+        } else {
+            return String(format: "%02d:%02d", minutes, secs)
+        }
+    }
     
     private func toggleRecording() {
         if manager.isRecording {
