@@ -323,7 +323,8 @@ extension VideoRecorderManager {
             targetDeviceZoom = min(max(targetDeviceZoom, minDeviceZoom), maxDeviceZoom)
             do {
                 try device.lockForConfiguration()
-                device.videoZoomFactor = targetDeviceZoom
+                let rate: Float = 24.0
+                device.ramp(toVideoZoomFactor: targetDeviceZoom, withRate: rate)
                 device.unlockForConfiguration()
                 DispatchQueue.main.async {
                     // publish display zoom
