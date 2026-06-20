@@ -110,7 +110,7 @@ struct HomeView: View {
                                 }
                             }
                         }
-                        .onScrollTargetVisibilityChange(idType: Date.self, threshold: 0.6) { visibleIDs in
+                        .onScrollTargetVisibilityChange(idType: Date.self, threshold: 0.2) { visibleIDs in
                             if let lastDate = journalEntries.last?.date {
                                 isFollowingBottom = visibleIDs.contains(lastDate)
                             } else {
@@ -366,6 +366,7 @@ struct HomeView: View {
                 )
             }
         }
+        .scrollTargetLayout()
     }
     
     // MARK: - Zoom Transition
