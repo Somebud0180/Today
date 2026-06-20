@@ -11,15 +11,18 @@ import UserNotifications
 struct OnboardingView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    
     @AppStorage("selectedBackground") private var selectedBackground: String = DefaultSettings.selectedBackground
+    @AppStorage("remindMeToJournal") private var remindMeToJournal: Bool = DefaultSettings.remindMeToJournal
+    @AppStorage("reminderTime") private var reminderTime: Date = DefaultSettings.reminderTime
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = DefaultSettings.hasCompletedOnboarding
+    
     @State var currentStep: Int = 0
     @State var animateGlyph: Bool = false
     @State var calendarGridColumn: [GridItem] = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
     @State var showNotificaitonsSheet: Bool = false
     @State var authorizationStatus: UNAuthorizationStatus = .notDetermined
-    
-    @AppStorage("remindMeToJournal") private var remindMeToJournal: Bool = DefaultSettings.remindMeToJournal
-    @AppStorage("reminderTime") private var reminderTime: Date = DefaultSettings.reminderTime
+    @State var showDismissConfirmation: Bool = false
     
     var body: some View {
         NavigationStack {
@@ -32,11 +35,54 @@ struct OnboardingView: View {
                 .ignoresSafeArea()
                 
                 VStack {
+                    HStack {
+                            Button(action: {
+                                currentStep = max(0, currentStep - 1)
+                            }, label: {
+                                Label("Back", systemImage: "chevron.backward")
+                                    .font(.title)
+                                    .labelStyle(.iconOnly)
+                                    .padding(8)
+                                    .frame(minWidth: 44, minHeight: 44)
+                                    .glassEffect(
+                                        .regular,
+                                        in: Circle()
+                                    )
+                            })
+                            .buttonStyle(.plain)
+                            .contentShape(Circle())
+                            .opacity(currentStep > 0 ? 1 : 0)
+                            .disabled(currentStep > 0 ? false : true)
+                        
+                        Spacer()
+                        
+                        progressBar
+                            .padding(.horizontal)
+                        
+                        Spacer()
+                        
+                        Button(action: {
+                            showDismissConfirmation = true
+                        }, label: {
+                            Label("Dismiss", systemImage: "xmark")
+                                .font(.title)
+                                .labelStyle(.iconOnly)
+                                .padding(8)
+                                .frame(minWidth: 44, minHeight: 44)
+                                .glassEffect(
+                                    .regular,
+                                    in: Circle()
+                                )
+                        })
+                        .buttonStyle(.plain)
+                        .contentShape(Circle())
+                    }
+                    
                     switch currentStep {
                     case 0:
                         Text("Welcome to")
                             .font(.title)
-                            .fontWeight(.bold)
+                            .fontWeight(.medium)
                         
                         Text("Today")
                             .font(.largeTitle)
@@ -44,12 +90,7 @@ struct OnboardingView: View {
                         
                         Spacer()
                         
-                        Button("Continue") {
-                            currentStep += 1
-                        }
-                        .buttonStyle(RoundProminentButton())
-                        .font(.title2)
-                        .fontWeight(.semibold)
+                        continueButton
                         
                     case 1:
                         Text("Journal your everyday life")
@@ -58,7 +99,9 @@ struct OnboardingView: View {
                         
                         Text("Pick between audio and video entries")
                             .font(.title3)
-                            .fontWeight(.bold)
+                            .fontWeight(.medium)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
                         
                         Spacer()
                         
@@ -78,22 +121,18 @@ struct OnboardingView: View {
                         
                         Spacer()
                         
-                        Button("Continue") {
-                            currentStep += 1
-                        }
-                        .buttonStyle(RoundProminentButton())
-                        .font(.title2)
-                        .fontWeight(.semibold)
+                        continueButton
                         
                     case 2:
                         Text("The Jog Book")
                             .font(.title)
                             .fontWeight(.bold)
                         
-                        Text("Keep a track of your daily entries through the journal log book.")
+                        Text("Keep a track of your daily entries through the journal log book. Look back on your entries on a given day with ease.")
                             .font(.title3)
-                            .fontWeight(.bold)
+                            .fontWeight(.medium)
                             .multilineTextAlignment(.center)
+                            .padding(.horizontal)
                         
                         Spacer()
                         
@@ -102,8 +141,8 @@ struct OnboardingView: View {
                                 Group {
                                     Text("Jog Book")
                                         .font(.title)
-                                        .fontWeight(.semibold)
-                                        .foregroundStyle(colorScheme == .dark ? .black : .white)
+                                        .fontWeight(.medium)
+                                        .foregroundStyle(.black)
                                     
                                     Spacer ()
                                     
@@ -121,22 +160,28 @@ struct OnboardingView: View {
                             .padding(.vertical, 8)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .foregroundStyle(colorScheme == .dark ? .white : .black)
+                                    .foregroundStyle(.white)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             )
                             
                             
-                            LazyVGrid(columns: calendarGridColumn, spacing: 8) {
-                                let daysInCurrentMonth = Calendar.current.range(of: .day, in: .month, for: Date())?.count ?? 30
-                                
-                                ForEach(0..<daysInCurrentMonth, id: \.self) { block in
-                                    let isActive = Float.random(in: 0...2) > 0.25
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .foregroundStyle(isActive ? .orange : .gray)
-                                        .aspectRatio(1, contentMode: .fit)
+                            GlassEffectContainer {
+                                LazyVGrid(columns: calendarGridColumn, spacing: 8) {
+                                    let daysInCurrentMonth = Calendar.current.range(of: .day, in: .month, for: Date())?.count ?? 30
+                                    
+                                    ForEach(0..<daysInCurrentMonth, id: \.self) { block in
+                                        let isActive = Float.random(in: 0...2) > 0.5
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .foregroundStyle(isActive ? Color.accentColor : Color.secondary)
+                                            .aspectRatio(1, contentMode: .fit)
+                                            .glassEffect(
+                                                .regular.interactive().tint(isActive ? Color.accentColor.opacity(0.5) : Color.secondary.opacity(0.5)),
+                                                in: RoundedRectangle(cornerRadius: 6)
+                                            )
+                                    }
                                 }
+                                .aspectRatio(4/3, contentMode: .fit)
                             }
-                            .aspectRatio(4/3, contentMode: .fit)
                         }
                         .padding(12)
                         .background(
@@ -152,12 +197,7 @@ struct OnboardingView: View {
                         
                         Spacer()
                         
-                        Button("Continue") {
-                            currentStep += 1
-                        }
-                        .buttonStyle(RoundProminentButton())
-                        .font(.title2)
-                        .fontWeight(.semibold)
+                        continueButton
                         
                     case 3:
                         Text("Get reminded")
@@ -166,8 +206,9 @@ struct OnboardingView: View {
                         
                         Text("Get a nudge everyday to reflect on your day and make a quick entry")
                             .font(.title3)
-                            .fontWeight(.bold)
+                            .fontWeight(.medium)
                             .multilineTextAlignment(.center)
+                            .padding(.horizontal)
                         
                         Spacer()
                         
@@ -206,16 +247,18 @@ struct OnboardingView: View {
                         }
                         .buttonStyle(RoundProminentButton())
                         .font(.title2)
-                        .fontWeight(.semibold)
+                        .fontWeight(.medium)
                         
                         Button("Continue") {
                             currentStep += 1
                         }
                         .buttonStyle(RoundGlassButton())
                         .font(.title2)
-                        .fontWeight(.semibold)
+                        .fontWeight(.medium)
                         
                     default:
+                        Spacer()
+                        
                         Text("Let's get started!")
                             .font(.title)
                             .fontWeight(.bold)
@@ -223,11 +266,12 @@ struct OnboardingView: View {
                         Spacer()
                         
                         Button("Continue") {
+                            hasCompletedOnboarding = true
                             dismiss()
                         }
                         .buttonStyle(RoundProminentButton())
                         .font(.title2)
-                        .fontWeight(.semibold)
+                        .fontWeight(.medium)
                     }
                 }
                 .padding(16)
@@ -237,6 +281,19 @@ struct OnboardingView: View {
                 notificationsSheet
                     .presentationBackgroundInteraction(.disabled)
                     .presentationDetents([.fraction(0.3)])
+            }
+            .alert("Skip introduction?", isPresented: $showDismissConfirmation) {
+                Button("Cancel", role: .cancel, action: {})
+                Button(
+                    "Confirm",
+                    role: .confirm,
+                    action: {
+                        hasCompletedOnboarding = true
+                        dismiss()
+                    }
+                )
+            } message: {
+                Text("Are you sure you want to skip the introduction? You can always return here via the settings.")
             }
             .background(
                 Image(selectedBackground)
@@ -251,6 +308,41 @@ struct OnboardingView: View {
                 }
             }
         }
+    }
+    
+    var progressBar: some View {
+        GlassEffectContainer {
+            HStack(spacing: 6) {
+                ForEach(1...5, id: \.self) { page in
+                    let isActive = page <= (currentStep + 1)
+                    
+                    RoundedRectangle(cornerRadius: 12)
+                        .foregroundStyle(isActive ? Color.accentColor : Color.secondary)
+                        .frame(maxWidth: .infinity, maxHeight: 12)
+                        .glassEffect(
+                            .regular.interactive().tint(isActive ? Color.accentColor : Color.secondary),
+                            in: RoundedRectangle(cornerRadius: 8)
+                        )
+                        .onTapGesture {
+                            currentStep = page - 1
+                        }
+                        .animation(.easeIn, value: isActive)
+                }
+            }
+        }
+        .transaction { tx in
+            // Block currentStep aimation. Fixes flickering of inactive pages as active.
+            tx.animation = nil
+        }
+    }
+    
+    var continueButton: some View {
+        Button("Continue") {
+            currentStep = min(4, currentStep + 1)
+        }
+        .buttonStyle(RoundProminentButton())
+        .font(.title2)
+        .fontWeight(.medium)
     }
     
     var notificationsSheet: some View {
@@ -278,7 +370,7 @@ struct OnboardingView: View {
             }
             .buttonStyle(RoundProminentButton())
             .font(.title2)
-            .fontWeight(.semibold)
+            .fontWeight(.medium)
             
             Divider()
             

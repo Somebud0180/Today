@@ -16,6 +16,7 @@ struct DefaultSettings {
     static let reminderTime: Date = Calendar.current.date(bySettingHour: 20, minute: 0, second: 0, of: Date()) ?? Date()
     static let enableTranscription: Bool = false
     static let transcribeOnSave: Bool = false
+    static let hasCompletedOnboarding: Bool = false
 }
 
 struct ContentView: View {
@@ -25,7 +26,9 @@ struct ContentView: View {
     @Query private var journalEntries: [JournalEntry]
     
     @AppStorage("preferredColorScheme") private var preferredColorScheme: PreferredColorScheme = DefaultSettings.preferredColorTheme
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = DefaultSettings.hasCompletedOnboarding
     
+    @State private var showOnboarding: Bool = false
     @State var tabSelection: Int = 0
     
     var body: some View {
@@ -46,6 +49,12 @@ struct ContentView: View {
                 JogBookView()
                     .preferredColorScheme(preferredColorScheme.colorScheme)
             }
+        }
+        .onAppear {
+            showOnboarding = !hasCompletedOnboarding
+        }
+        .fullScreenCover(isPresented: $showOnboarding) {
+            OnboardingView()
         }
     }
 }

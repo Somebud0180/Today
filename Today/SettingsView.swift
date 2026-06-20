@@ -9,6 +9,9 @@ import SwiftUI
 import UserNotifications
 
 struct SettingsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var transcriptionManager: AudioTranscriptionManager
+    
     @AppStorage("preferredColorScheme") private var preferredColorScheme: PreferredColorScheme = DefaultSettings.preferredColorTheme
     @AppStorage("autoPlayOnOpen") private var autoPlayOnOpen: Bool = DefaultSettings.autoPlayOnOpen
     @AppStorage("remindMeToJournal") private var remindMeToJournal: Bool = DefaultSettings.remindMeToJournal
@@ -16,8 +19,8 @@ struct SettingsView: View {
     @AppStorage("enableTranscription") private var enableTranscription: Bool = DefaultSettings.enableTranscription
     @AppStorage("transcribeOnSave") private var transcribeOnSave: Bool = DefaultSettings.transcribeOnSave
     
-    @EnvironmentObject var transcriptionManager: AudioTranscriptionManager
     @State var authorizationStatus: UNAuthorizationStatus = .notDetermined
+    @State var showOnboarding: Bool = false
     
     var body: some View {
         NavigationStack {
@@ -48,6 +51,10 @@ struct SettingsView: View {
                     } label: {
                         Text("App Appearance")
                     }
+                    
+                    Button("Restart introduction", action: {
+                        showOnboarding = true
+                    })
                 }
                 
                 Section(header: Text("Notifications")) {
@@ -118,6 +125,9 @@ struct SettingsView: View {
                 Task {
                     authorizationStatus = await NotificationsManager.notificatonPermissionStatus()
                 }
+            }
+            .fullScreenCover(isPresented: $showOnboarding) {
+                OnboardingView()
             }
         }
     }
