@@ -635,14 +635,14 @@ struct CreateView: View {
             cardOffset = CGSize(width: -proxy.size.width, height: 0)
         }
         
-        DispatchQueue.main.async {
+        Task { @MainActor in
             if let entry = tempEntry {
                 modelContext.insert(entry)
                 try? modelContext.save()
             }
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            
             if tempEntry != nil {
                 resetVariables()
                 tabSelection = 0

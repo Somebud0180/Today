@@ -296,6 +296,7 @@ struct VideoRecordingView: View {
         }
         .buttonStyle(.plain)
         .frame(width: 72, height: 72)
+        .sensoryFeedback(manager.isRecording ? .start : .stop, trigger: manager.isRecording)
     }
     
     private var flipButton: some View {

@@ -110,19 +110,15 @@ struct AudioRecordingView: View {
         .onAppear {
             if let recordedURL = recordedURL, recordedWaveform != nil, localRecordedURL == nil {
                 let fileName = recordedURL.lastPathComponent
+                let liveDirectory = FileManager.default.temporaryDirectory
+                let liveRestoredURL = liveDirectory.appendingPathComponent(fileName)
                 
-                if let liveDirectory = manager.destinationURL?.deletingLastPathComponent() {
-                    let liveRestoredURL = liveDirectory.appendingPathComponent(fileName)
-                    
-                    if FileManager.default.fileExists(atPath: liveRestoredURL.path) {
-                        self.localRecordedURL = liveRestoredURL
-                        manager.destinationURL = liveRestoredURL
-                        manager.getRecordedWaveform(from: recordedWaveform)
-                        
-                        manager.stopRecording()
-                    } else {
-                        print("DEBUG: File could not be found at live path: \(liveRestoredURL.path)")
-                    }
+                if FileManager.default.fileExists(atPath: liveRestoredURL.path) {
+                    self.localRecordedURL = liveRestoredURL
+                    manager.restoreAudio(from: liveRestoredURL)
+                    manager.getRecordedWaveform(from: recordedWaveform)
+                } else {
+                    print("DEBUG: File could not be found at live path: \(liveRestoredURL.path)")
                 }
             }
         }
@@ -164,8 +160,7 @@ struct AudioRecordingView: View {
             WaveformView(levels: levels, isRecording: isRecording || isPlaying, resetToken: waveformResetToken)
                 .frame(height: 120)
         }
-        .animation(.easeInOut, value: isRecording)
-        .animation(.easeInOut, value: isPlaying)
+        .animation(.easeInOut, value: isRecording || isPlaying)
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 24)
     }
@@ -195,6 +190,7 @@ struct AudioRecordingView: View {
                 }
                 .buttonStyle(.glassProminent)
                 .tint(.red)
+                .sensoryFeedback(isRecording ? .start : .stop, trigger: isRecording)
                 
                 // Back button
                 Button(action: {
@@ -227,7 +223,6 @@ struct AudioRecordingView: View {
                             try manager.resumePlayingRecording()
                             isPlaying = true
                             smoothedLevels = [0, 0, 0, 0, 0]
-                            levels = []
                             startPlaybackMetering()
                         } catch {
                             errorMessage = "Failed to play recording: \(error.localizedDescription)"
@@ -292,12 +287,9 @@ struct AudioRecordingView: View {
                     enableMetering: true
                 )
                 
+                if Task.isCancelled { return }
+                
                 waveformResetToken += 1
-                
-                // Haptic feedback: medium impact
-                let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                impactFeedback.impactOccurred()
-                
                 isRecording = true
                 elapsedTime = 0
                 levels = []
@@ -317,19 +309,14 @@ struct AudioRecordingView: View {
     private func stopRecording() {
         manager.stopRecording()
         isRecording = false
-        // Capture the finished recording URL for post-recording UI
-        if let url = manager.destinationURL, FileManager.default.fileExists(atPath: url.path) {
+        
+        if let url = manager.lastRecordingURL, FileManager.default.fileExists(atPath: url.path) {
             localRecordedURL = url
             hasTemporaryRecording = true
         }
         
-        // Haptic feedback: success notification
-        let notificationFeedback = UINotificationFeedbackGenerator()
-        notificationFeedback.notificationOccurred(.success)
-        
         recordingTask?.cancel()
         recordingTask = nil
-        
         meterPollTask?.cancel()
         meterPollTask = nil
     }

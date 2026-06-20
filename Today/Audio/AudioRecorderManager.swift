@@ -111,7 +111,7 @@ class AudioRecorderManager: NSObject, ObservableObject {
     @Published var activeMicrophoneName: String = "Select Audio Input"
     @Published var availableRecordingOptions: [RecordingOption] = []
     
-    @Published var destinationURL: URL?
+    @Published private(set) var lastRecordingURL: URL?
     @Published var recordedContentsDuration: TimeInterval?
     
     @Published var showError: Bool = false {
@@ -185,6 +185,11 @@ class AudioRecorderManager: NSObject, ObservableObject {
         self.stopWaveformSampling()
         self.stopTimer()
     }
+    
+    func restoreAudio(from url: URL) {
+        self.lastRecordingURL = url
+        self.preparePlayer()
+    }
 }
 
 // MARK: - Microphone
@@ -193,9 +198,7 @@ extension AudioRecorderManager {
         // Grab the user-selected input data source name, or fallback to the generic port name
         if let currentInput = audioSession.currentRoute.inputs.first {
             let name = currentInput.selectedDataSource?.dataSourceName ?? currentInput.portName
-            DispatchQueue.main.async {
-                self.activeMicrophoneName = name
-            }
+            self.activeMicrophoneName = name
         }
     }
     
@@ -236,18 +239,10 @@ extension AudioRecorderManager {
         try await self.checkPermission()
         
         self.stopPlayingRecording(deactivateAudio: false)
-        
-        let fileName = UUID().uuidString + ".m4a"
-        let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
-        self.destinationURL = fileURL
-        
-        if FileManager.default.fileExists(atPath: fileURL.path) {
-            try? FileManager.default.removeItem(at: fileURL)
-        }
-        
         try self.configureStereo(recordingOption: recordingOption)
         self.audioSettings[AVNumberOfChannelsKey] = (recordingOption == .mono) ? 1 : 2
         
+        let fileURL = self.makeRecordingURL()
         self.recorder = try AVAudioRecorder(url: fileURL, settings: self.audioSettings)
         self.recorder?.delegate = self
         self.recorder?.isMeteringEnabled = enableMetering
@@ -310,11 +305,14 @@ extension AudioRecorderManager {
     }
     
     func stopRecording() {
+        let finishedURL = self.recorder?.url
+        
         self.recorder?.stop()
         self.recorder = nil
         self.recorderState = .stopped
         self.stopTimer()
         self.stopWaveformSampling()
+        self.lastRecordingURL = finishedURL
         self.preparePlayer()
         self.deactivateAudioSessionAndNotifyOthers()
     }
@@ -332,11 +330,12 @@ extension AudioRecorderManager {
         self.stopTimer()
         self.stopWaveformSampling()
         
-        if let fileURL = self.destinationURL, FileManager.default.fileExists(atPath: fileURL.path) {
+        if let fileURL = self.lastRecordingURL, FileManager.default.fileExists(atPath: fileURL.path) {
             try FileManager.default.removeItem(at: fileURL)
         }
         
-        // clear player metadata
+        // Reset the published state
+        self.lastRecordingURL = nil
         self.player = nil
         self.recordedContentsDuration = nil
         self.recordedWaveformSamplesDb = []
@@ -348,7 +347,7 @@ extension AudioRecorderManager {
 // MARK: - Player
 extension AudioRecorderManager {
     private func preparePlayer() {
-        if let fileURL = self.destinationURL {
+        if let fileURL = self.lastRecordingURL {
             self.didRecordingEnd = false
             self.player = try? AVAudioPlayer(contentsOf: fileURL)
             self.player?.delegate = self
@@ -569,6 +568,21 @@ extension AudioRecorderManager {
         }
         
         try audioSession.setPreferredInputOrientation(audioOrientation)
+    }
+    
+    private func makeRecordingURL() -> URL {
+        let directory = FileManager.default.temporaryDirectory
+        let url = directory.appendingPathComponent("temp-audio.m4a")
+        
+        if FileManager.default.fileExists(atPath: url.path) {
+            do {
+                try FileManager.default.removeItem(at: url)
+            } catch {
+                print("Failed to delete existing temp audio: \(error.localizedDescription)")
+            }
+        }
+        
+        return url
     }
 }
 

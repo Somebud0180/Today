@@ -79,16 +79,20 @@ final class VideoRecorderManager: NSObject, ObservableObject {
         UIDevice.current.endGeneratingDeviceOrientationNotifications()
         rotationObserverTokens.forEach { $0.invalidate() }
         rotationObserverTokens.removeAll()
+        
         let sessionToStop = session
+        
         DispatchQueue.global(qos: .background).async {
             if sessionToStop.isRunning {
                 sessionToStop.stopRunning()
             }
             
-            do {
-                try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-            } catch {
-                print("Failed to deactivate AVAudioSession: \(error)")
+            Task {
+                do {
+                    try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+                } catch {
+                    print("Failed to deactivate AVAudioSession asynchronously: \(error)")
+                }
             }
         }
     }
@@ -167,7 +171,6 @@ extension VideoRecorderManager {
             
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
-                self.lastRecordingURL = url
                 output.startRecording(to: url, recordingDelegate: self)
             }
         }
