@@ -72,13 +72,6 @@ final class VideoRecorderManager: NSObject, ObservableObject {
 
     override init() {
         super.init()
-        UIDevice.current.beginGeneratingDeviceOrientationNotifications()
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleOrientationChange),
-            name: UIDevice.orientationDidChangeNotification,
-            object: nil
-        )
     }
 
     deinit {
@@ -86,8 +79,12 @@ final class VideoRecorderManager: NSObject, ObservableObject {
         UIDevice.current.endGeneratingDeviceOrientationNotifications()
         rotationObserverTokens.forEach { $0.invalidate() }
         rotationObserverTokens.removeAll()
-        session.stopRunning()
+        let sessionToStop = session
         DispatchQueue.global(qos: .background).async {
+            if sessionToStop.isRunning {
+                sessionToStop.stopRunning()
+            }
+            
             do {
                 try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
             } catch {
@@ -153,18 +150,26 @@ extension VideoRecorderManager {
                 self.session.startRunning()
             }
             guard !self.movieOutput.isRecording else { return }
-
+            
             self.syncVideoRotation()
-
+            
             let url = self.makeRecordingURL()
-            self.lastRecordingURL = url
-
-            if let connection = self.movieOutput.connection(with: .video),
+            DispatchQueue.main.async {
+                self.lastRecordingURL = url
+            }
+            
+            let output = self.movieOutput
+            
+            if let connection = output.connection(with: .video),
                connection.isVideoStabilizationSupported {
                 connection.preferredVideoStabilizationMode = .auto
             }
-
-            self.movieOutput.startRecording(to: url, recordingDelegate: self)
+            
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.lastRecordingURL = url
+                output.startRecording(to: url, recordingDelegate: self)
+            }
         }
     }
 
@@ -173,19 +178,26 @@ extension VideoRecorderManager {
             guard let self else { return }
             guard self.movieOutput.isRecording else { return }
             self.movieOutput.stopRecording()
-            self.showConfirmation = true
+            
+            DispatchQueue.main.async {
+                self.showConfirmation = true
+            }
         }
     }
 
     func discardRecording() {
         sessionQueue.async {
             if let url = self.lastRecordingURL, FileManager.default.fileExists(atPath: url.path) {
-                try? FileManager.default.removeItem(at: url)
+                do {
+                    try FileManager.default.removeItem(at: url)
+                } catch {
+                    debugPrint("Failed to discard video file: \(error.localizedDescription)")
+                }
             }
-            self.lastRecordingURL = nil
-            self.showConfirmation = false
             
             DispatchQueue.main.async {
+                self.lastRecordingURL = nil
+                self.showConfirmation = false
                 self.recordingDuration = 0
                 self.recordingStartDate = nil
             }
@@ -339,12 +351,6 @@ extension VideoRecorderManager {
 
 // MARK: - Orientation
 extension VideoRecorderManager {
-    @objc private func handleOrientationChange() {
-        sessionQueue.async { [weak self] in
-            self?.syncVideoRotation()
-        }
-    }
-
     private func configureRotationCoordinator(for device: AVCaptureDevice) {
         let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: previewLayer)
         setRotationCoordinator(coordinator)
@@ -523,9 +529,6 @@ extension VideoRecorderManager {
     }
 
     private func updateZoomStops(for device: AVCaptureDevice) {
-        let minZoom = device.minAvailableVideoZoomFactor
-        let maxZoom = device.maxAvailableVideoZoomFactor
-
         // Re-discover devices for the device's position to avoid stale availableLensOptions
         let devicesAtPosition = discoverDevices(for: device.position)
         let options = devicesAtPosition.map { lensOption(for: $0) }.sorted { $0.zoomHint < $1.zoomHint }
@@ -666,8 +669,17 @@ extension VideoRecorderManager {
 
     private func makeRecordingURL() -> URL {
         let directory = FileManager.default.temporaryDirectory
-        let filename = "video-\(UUID().uuidString).mov"
-        return directory.appendingPathComponent(filename)
+        let url = directory.appendingPathComponent("temp-video.mov")
+        
+        if FileManager.default.fileExists(atPath: url.path) {
+            do {
+                try FileManager.default.removeItem(at: url)
+            } catch {
+                print("Failed to delete existing temp video: \(error.localizedDescription)")
+            }
+        }
+        
+        return url
     }
 
     private func requestPermissions() async -> Bool {
@@ -690,7 +702,9 @@ extension VideoRecorderManager {
 // MARK: - AVCaptureFileOutputRecordingDelegate
 extension VideoRecorderManager: AVCaptureFileOutputRecordingDelegate {
     func fileOutput(_ output: AVCaptureFileOutput, didStartRecordingTo fileURL: URL, from connections: [AVCaptureConnection]) {
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            
             self.isRecording = true
             self.recordingStartDate = Date()
             self.recordingDuration = 0
@@ -698,7 +712,7 @@ extension VideoRecorderManager: AVCaptureFileOutputRecordingDelegate {
             self.durationCancellable?.cancel()
             self.durationCancellable = Timer.publish(every: 0.2, on: .main, in: .common)
                 .autoconnect()
-                .sink { [weak self = self] _ in
+                .sink { [weak self] _ in
                     guard let self, let start = self.recordingStartDate else { return }
                     self.recordingDuration = Date().timeIntervalSince(start)
                 }
