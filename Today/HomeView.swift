@@ -59,6 +59,7 @@ struct HomeView: View {
     private let gridSpacing: [CGFloat] = [4, 8, 12, 16, 20]
     private let cardAspectRatio: CGFloat = 2 / 3
     private let gridPadding: CGFloat = 10
+    private let welcomeScreenID = Date.distantFuture
     
     var body: some View {
         GeometryReader { proxy in
@@ -83,11 +84,13 @@ struct HomeView: View {
                                 }
                                 .padding(gridPadding)
                                 .frame(maxWidth: .infinity)
-                                .padding(.bottom, 44)
+                                .padding(.bottom, 24)
                                 
                                 welcomeScreen
                                     .containerRelativeFrame(.vertical)
-                                    .id("welcome")
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    .ignoresSafeArea(.all, edges: .bottom)
+                                    .id(welcomeScreenID)
                                     .scrollTransition(.animated, axis: .vertical) { content, phase in
                                         content.opacity(phase.isIdentity ? 1 : 0.4)
                                     }
@@ -98,7 +101,7 @@ struct HomeView: View {
                         .onAppear {
                             DispatchQueue.main.async {
                                 withAnimation(.snappy) {
-                                    reader.scrollTo("welcome", anchor: .bottom)
+                                    scrollPosition.scrollTo(id: welcomeScreenID, anchor: .bottom)
                                 }
                             }
                         }
@@ -117,11 +120,31 @@ struct HomeView: View {
                                 isFollowingBottom = true
                             }
                             
-                            let visibleDates = Array(visibleIDs).sorted()
-                            if let latestVisible = visibleDates.last {
-                                dateOnScreen = latestVisible
-                            } else {
-                                dateOnScreen = nil
+                            let hasWelcomeScreen = visibleIDs.contains(welcomeScreenID)
+                            let journalDates = visibleIDs.filter { $0 != welcomeScreenID }.sorted()
+                            
+                            
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                if hasWelcomeScreen {
+                                    dateOnScreen = nil
+                                } else if let latestVisibleEntry = journalDates.last {
+                                    dateOnScreen = latestVisibleEntry
+                                } else {
+                                    dateOnScreen = nil
+                                }
+                            }
+                        }
+                        .onChange(of: proxy.size) {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                withAnimation(.snappy) {
+                                    if dateOnScreen == nil {
+                                        debugPrint("Scroll to welcome")
+                                        scrollPosition.scrollTo(id: welcomeScreenID, anchor: .bottom)
+                                    } else if let currentDate = dateOnScreen {
+                                        debugPrint("Scroll to grid")
+                                        scrollPosition.scrollTo(id: currentDate, anchor: .bottom)
+                                    }
+                                }
                             }
                         }
                     }
@@ -272,8 +295,12 @@ struct HomeView: View {
     var welcomeScreen: some View {
         VStack {
             VStack {
-                Image(systemName: "chevron.compact.down")
-                Text("Swipe down to access your entries")
+                if journalEntries.isEmpty {
+                    Text("You don't have any entries yet")
+                } else {
+                    Image(systemName: "chevron.compact.down")
+                    Text("Swipe down to access your entries")
+                }
             }
             .foregroundStyle(.secondary)
             .font(.footnote)
