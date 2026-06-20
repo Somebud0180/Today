@@ -48,6 +48,7 @@ struct HomeView: View {
     @State private var isPad = UIDevice.current.userInterfaceIdiom == .pad
     @State private var topBarHeight: CGFloat = 0.0
     @State private var showDeleteConfirmaton: Bool = false
+    @State private var dateOnScreen: Date?
     
     @State private var selectedEntries: [JournalEntry] = []
     @State private var isPreparingShare = false
@@ -64,11 +65,10 @@ struct HomeView: View {
             NavigationStack {
                 let transition = zoomTransition(in: proxy.size)
                 let blurHeight = topBarHeight
-                let viewportHeight = proxy.size.height - topBarHeight
                 
                 ZStack(alignment: .top) {
                     ScrollViewReader { reader in
-                        ScrollView(.vertical, showsIndicators: true) {
+                        ScrollView(.vertical, showsIndicators: false) {
                             VStack(spacing: 0) {
                                 ZStack(alignment: .topLeading) {
                                     gridLayer(metrics: transition.currentMetrics)
@@ -81,33 +81,24 @@ struct HomeView: View {
                                             .opacity(transition.nextOpacity)
                                     }
                                 }
-                                .scrollTargetLayout(isEnabled: false)
                                 .padding(gridPadding)
                                 .frame(maxWidth: .infinity)
+                                .padding(.bottom, 44)
                                 
                                 welcomeScreen
-                                    .frame(maxWidth: .infinity, maxHeight: viewportHeight)
+                                    .containerRelativeFrame(.vertical)
                                     .id("welcome")
-                                    .ignoresSafeArea(edges: .bottom)
                                     .scrollTransition(.animated, axis: .vertical) { content, phase in
-                                        content.opacity(phase.isIdentity ? 1 : 0.9)
+                                        content.opacity(phase.isIdentity ? 1 : 0.4)
                                     }
                             }
                         }
-                        .scrollTargetBehavior(.paging)
-                        .scrollEdgeEffectHidden()
+                        .scrollTargetBehavior(.welcomeBoundary)
+                        .scrollPosition($scrollPosition)
                         .onAppear {
                             DispatchQueue.main.async {
                                 withAnimation(.snappy) {
-                                    reader.scrollTo("welcome", anchor: .top)
-                                }
-                            }
-                            
-                            if let lastDate = journalEntries.last?.date {
-                                DispatchQueue.main.async {
-                                    withTransaction(\.scrollTargetAnchor, .bottom) {
-                                        scrollPosition.scrollTo(id: lastDate)
-                                    }
+                                    reader.scrollTo("welcome", anchor: .bottom)
                                 }
                             }
                         }
@@ -124,6 +115,13 @@ struct HomeView: View {
                                 isFollowingBottom = visibleIDs.contains(lastDate)
                             } else {
                                 isFollowingBottom = true
+                            }
+                            
+                            let visibleDates = Array(visibleIDs).sorted()
+                            if let latestVisible = visibleDates.last {
+                                dateOnScreen = latestVisible
+                            } else {
+                                dateOnScreen = nil
                             }
                         }
                     }
@@ -146,7 +144,7 @@ struct HomeView: View {
                         Text("Today")
                             .font(.largeTitle)
                             .fontWeight(.bold)
-                        Text(isPreparingShare ? "Exporting entry..." : Date().formatted(date: .long, time: .omitted))
+                        Text(titleSubtext)
                             .font(.headline)
                             .fontWeight(.semibold)
                     }
@@ -273,16 +271,39 @@ struct HomeView: View {
     
     var welcomeScreen: some View {
         VStack {
+            VStack {
+                Image(systemName: "chevron.compact.down")
+                Text("Swipe down to access your entries")
+            }
+            .foregroundStyle(.secondary)
+            .font(.footnote)
+            
+            Spacer()
+            
             Text("Good day")
-                .font(.title)
-                .fontWeight(.semibold)
+                .font(.largeTitle)
+                .fontWeight(.bold)
+                .foregroundStyle(.white)
+                .shadow(radius: 4)
             
             Text("How are you feeling today?")
-                .font(.title3)
+                .font(.title2)
+                .foregroundStyle(.white)
+                .shadow(radius: 4)
             
-            Spacer(minLength: 128)
+            Spacer()
         }
         .padding()
+    }
+    
+    var titleSubtext: String {
+        if isPreparingShare {
+            return "Exporting entry..."
+        } else if let dateOnScreen {
+            return dateOnScreen.formatted(date: .long, time: .omitted)
+        } else {
+            return Date().formatted(date: .long, time: .omitted)
+        }
     }
     
     @ViewBuilder
@@ -509,6 +530,37 @@ struct HomeView: View {
             }
         }
     }
+}
+
+struct WelcomeBoundaryBehavior: ScrollTargetBehavior {
+    func updateTarget(_ target: inout ScrollTarget, context: TargetContext) {
+        guard context.contentSize.height > context.containerSize.height else { return }
+        
+        let maxOffset = context.contentSize.height - context.containerSize.height
+        let welcomeHeight = context.containerSize.height
+        let gridBottomOffset = maxOffset - welcomeHeight
+        
+        if target.rect.minY >= gridBottomOffset - 150 {
+            
+            let velocity = context.velocity.dy
+            
+            if velocity > 0.2 {
+                target.rect.origin.y = maxOffset
+            } else if velocity < -0.2 {
+                target.rect.origin.y = gridBottomOffset
+            } else {
+                if target.rect.minY > gridBottomOffset + (welcomeHeight * 0.15) {
+                    target.rect.origin.y = maxOffset
+                } else {
+                    target.rect.origin.y = gridBottomOffset
+                }
+            }
+        }
+    }
+}
+
+extension ScrollTargetBehavior where Self == WelcomeBoundaryBehavior {
+    static var welcomeBoundary: WelcomeBoundaryBehavior { .init() }
 }
 
 #Preview {
