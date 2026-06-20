@@ -34,8 +34,11 @@ struct NotificationsManager {
         // Create the notification trigger
         let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
         
-        // Choose a random identifier
-        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
+        // Set a predictable identifier
+        let identifier = Date().formatted(date: .numeric, time: .omitted)
+        
+        // Create request
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
         
         // Add our notification request
         UNUserNotificationCenter.current().add(request)
@@ -43,6 +46,11 @@ struct NotificationsManager {
     
     static func unregisterReminderNotifications() {
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+    }
+    
+    static func cancelCurrentReminderNotification() {
+        let currentDate = Date().formatted(date: .numeric, time: .omitted)
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [currentDate])
     }
     
     static func notificatonPermissionStatus() async -> UNAuthorizationStatus {

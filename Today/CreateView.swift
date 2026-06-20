@@ -635,12 +635,18 @@ struct CreateView: View {
             cardOffset = CGSize(width: -proxy.size.width, height: 0)
         }
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+        DispatchQueue.main.async {
             if let entry = tempEntry {
                 modelContext.insert(entry)
                 try? modelContext.save()
+            }
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            if tempEntry != nil {
                 resetVariables()
                 tabSelection = 0
+                NotificationsManager.cancelCurrentReminderNotification()
             }
         }
     }
