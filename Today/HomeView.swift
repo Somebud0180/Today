@@ -124,7 +124,7 @@ struct HomeView: View {
                             let journalDates = visibleIDs.filter { $0 != welcomeScreenID }.sorted()
                             
                             
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                                 if hasWelcomeScreen {
                                     dateOnScreen = nil
                                 } else if let latestVisibleEntry = journalDates.last {
@@ -138,10 +138,8 @@ struct HomeView: View {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                                 withAnimation(.snappy) {
                                     if dateOnScreen == nil {
-                                        debugPrint("Scroll to welcome")
                                         scrollPosition.scrollTo(id: welcomeScreenID, anchor: .bottom)
                                     } else if let currentDate = dateOnScreen {
-                                        debugPrint("Scroll to grid")
                                         scrollPosition.scrollTo(id: currentDate, anchor: .bottom)
                                     }
                                 }
@@ -197,9 +195,7 @@ struct HomeView: View {
                 .simultaneousGesture(zoomGesture)
                 .navigationBarTitleDisplayMode(.inline)
                 .alert("Delete Entries?", isPresented: $showDeleteConfirmaton, actions: {
-                    Button("Cancel", role: .cancel) {
-                        
-                    }
+                    Button("Cancel", role: .cancel) {}
                     
                     Button("Delete", role: .destructive) {
                         withAnimation(.snappy) {
@@ -417,7 +413,6 @@ struct HomeView: View {
                 let progress = clampedFactor - CGFloat(lowerStep)
                 
                 let direction = value.magnification > 1 ? "In" : "Out"
-                debugPrint("Zooming - Direction: \(direction), Base Step: \(baseStep), Raw Factor: \(rawFactor), Clamped Factor: \(clampedFactor), Lower Step: \(lowerStep), Upper Step: \(upperStep), Progress: \(progress)")
             }
             .onEnded { _ in
                 let finalStep = clampStep(Int(round(continuousZoomFactor)))

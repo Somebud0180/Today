@@ -283,15 +283,11 @@ struct OnboardingView: View {
                     .presentationDetents([.fraction(0.3)])
             }
             .alert("Skip introduction?", isPresented: $showDismissConfirmation) {
-                Button("Cancel", role: .cancel, action: {})
-                Button(
-                    "Confirm",
-                    role: .confirm,
-                    action: {
-                        hasCompletedOnboarding = true
-                        dismiss()
-                    }
-                )
+                Button("Cancel", role: .cancel) {}
+                Button("Confirm", role: .confirm) {
+                    hasCompletedOnboarding = true
+                    dismiss()
+                }
             } message: {
                 Text("Are you sure you want to skip the introduction? You can always return here via the settings.")
             }

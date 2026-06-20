@@ -525,18 +525,12 @@ extension VideoRecorderManager {
     private func updateZoomStops(for device: AVCaptureDevice) {
         let minZoom = device.minAvailableVideoZoomFactor
         let maxZoom = device.maxAvailableVideoZoomFactor
-        debugPrint("Device zoom range: \(minZoom)x - \(maxZoom)x")
 
         // Re-discover devices for the device's position to avoid stale availableLensOptions
         let devicesAtPosition = discoverDevices(for: device.position)
         let options = devicesAtPosition.map { lensOption(for: $0) }.sorted { $0.zoomHint < $1.zoomHint }
-//        let hints = devicesAtPosition.map { zoomHint(for: $0.deviceType) }
-        
         let stops = Array(Set(options.map { $0.zoomHint })).sorted()
-//        stops.insert(1.0)
-//        let filtered = stops.filter { $0 >= minZoom && $0 <= maxZoom }
-//        let sorted = filtered.sorted()
-
+        
         DispatchQueue.main.async {
             self.availableZoomStops = stops
             self.zoomFactor = self.displayZoom(for: device)
