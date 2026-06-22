@@ -136,7 +136,7 @@ struct ExportView: View {
                     }
                 }
                 
-                Section(header: Text("Preview & Export")) {
+                Section(header: Text("Preview & Export"), footer: Text("You can find your export in the app's folder in the Files app")) {
                     VStack(spacing: 6) {
                         Image("ExportBackground")
                             .resizable()
