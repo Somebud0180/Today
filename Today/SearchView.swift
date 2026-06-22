@@ -14,10 +14,10 @@ struct SearchView: View {
     @Environment(\.editMode) private var editMode
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismissSearch) private var dismissSearch
     @Query(sort: \JournalEntry.date, order: .forward) private var journalEntries: [JournalEntry]
     
-    @State var searchText: String
+    @Binding var searchText: String
+    @Binding var searchPresented: Bool
     
     @Namespace private var namespace
     @State private var showDeleteConfirmaton: Bool = false
@@ -162,7 +162,7 @@ struct SearchView: View {
                             Button(action: {
                                 withAnimation(.snappy) {
                                     editMode?.wrappedValue = .active
-                                    dismissSearch()
+                                    searchPresented = false
                                 }
                             }, label: {
                                 Label("Select", systemImage: "checkmark.circle")
@@ -329,6 +329,7 @@ struct SearchView: View {
 }
 
 #Preview {
-    SearchView(searchText: "")
+    @Previewable @State var searchPresented: Bool = false
+    SearchView(searchText: .constant(""), searchPresented: $searchPresented)
         .modelContainer(for: JournalEntry.self)
 }
