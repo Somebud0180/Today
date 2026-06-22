@@ -14,11 +14,12 @@ struct SearchView: View {
     @Environment(\.editMode) private var editMode
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismissSearch) private var dismissSearch
     @Query(sort: \JournalEntry.date, order: .forward) private var journalEntries: [JournalEntry]
     
+    @State var searchText: String
     
     @Namespace private var namespace
-    @State private var searchText: String = ""
     @State private var showDeleteConfirmaton: Bool = false
     @State private var topBarHeight: CGFloat = 0.0
     @State private var isPad = UIDevice.current.userInterfaceIdiom == .pad
@@ -68,7 +69,6 @@ struct SearchView: View {
                     ScrollView(.vertical, showsIndicators: true) {
                         gridLayer(metrics: metrics)
                             .padding(gridPadding)
-                            .padding(.top, titleTopPadding)
                     }
                     
                     LinearGradient(
@@ -110,8 +110,7 @@ struct SearchView: View {
                             }
                         )
                 }
-                .navigationBarTitleDisplayMode(.large)
-                .searchable(text: $searchText, prompt: "Search entries...")
+                .navigationBarTitleDisplayMode(.inline)
                 .alert("Delete Entries?", isPresented: $showDeleteConfirmaton, actions: {
                     Button("Cancel", role: .cancel) {}
                     
@@ -138,9 +137,10 @@ struct SearchView: View {
                         }
                     )
                 }
+                .toolbar(isEditing ? .hidden : .visible, for: .tabBar)
                 .toolbar(isEditing ? .visible : .hidden, for: .bottomBar)
                 .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
+                    ToolbarItemGroup(placement: .topBarTrailing) {
                         if isPreparingShare {
                             Label("Exporting", systemImage: "progress.indicator")
                                 .labelStyle(.iconOnly)
@@ -160,7 +160,10 @@ struct SearchView: View {
                             })
                         } else {
                             Button(action: {
-                                withAnimation(.snappy) { editMode?.wrappedValue = .active }
+                                withAnimation(.snappy) {
+                                    editMode?.wrappedValue = .active
+                                    dismissSearch()
+                                }
                             }, label: {
                                 Label("Select", systemImage: "checkmark.circle")
                                     .labelStyle(.titleOnly)
@@ -326,6 +329,6 @@ struct SearchView: View {
 }
 
 #Preview {
-    SearchView()
+    SearchView(searchText: "")
         .modelContainer(for: JournalEntry.self)
 }
