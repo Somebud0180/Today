@@ -45,6 +45,7 @@ final class VideoRecorderManager: NSObject, ObservableObject {
     @Published private(set) var availableZoomStops: [CGFloat] = []
     @Published private(set) var zoomFactor: CGFloat = 1.0
     @Published private(set) var exposureBias: Float = 0
+    @Published private(set) var showCenterStage: Bool = false
     @Published private(set) var lastRecordingURL: URL?
     @Published private(set) var errorMessage: String?
     @Published var showConfirmation: Bool = false
@@ -239,6 +240,12 @@ extension VideoRecorderManager {
             self.configureVideoInput(device: device)
         }
     }
+    
+    func setCenterStage(_ isOn: Bool) {
+        sessionQueue.async {
+            AVCaptureDevice.isCenterStageEnabled = isOn
+        }
+    }
 }
 
 // MARK: - Focus, exposure, zoom
@@ -337,6 +344,7 @@ extension VideoRecorderManager {
             var targetDeviceZoom = factor / deviceHint
             targetDeviceZoom = min(max(targetDeviceZoom, minDeviceZoom), maxDeviceZoom)
             do {
+                self.setCenterStage(false)
                 try device.lockForConfiguration()
                 let rate: Float = 24.0
                 device.ramp(toVideoZoomFactor: targetDeviceZoom, withRate: rate)
@@ -429,7 +437,7 @@ extension VideoRecorderManager {
         session.beginConfiguration()
         session.sessionPreset = .high
         defer { session.commitConfiguration() }
-
+        
         if let videoDeviceInput {
             session.removeInput(videoDeviceInput)
         }
@@ -460,6 +468,11 @@ extension VideoRecorderManager {
         session.beginConfiguration()
         defer { session.commitConfiguration() }
 
+        if device.deviceType == .builtInUltraWideCamera {
+            AVCaptureDevice.centerStageControlMode = .app
+            showCenterStage = true
+        }
+        
         if let videoDeviceInput {
             session.removeInput(videoDeviceInput)
         }
@@ -577,9 +590,9 @@ extension VideoRecorderManager {
             ]
         } else {
             preference = [
+                .builtInUltraWideCamera,
                 .builtInTrueDepthCamera,
-                .builtInWideAngleCamera,
-                .builtInUltraWideCamera
+                .builtInWideAngleCamera
             ]
         }
 

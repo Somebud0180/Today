@@ -86,13 +86,15 @@ struct VideoRecordingView: View {
                             Spacer()
                         }
                         
-                        HStack(spacing: 6) {
+                        HStack(spacing: 12) {
                             zoomStopsRow(isLandscape: true)
                             bottomControls(isLandscape: true)
                         }
                         .frame(maxWidth: proxy.size.width * 0.5, alignment: .trailing)
                     }
                     .padding(.bottom, 24)
+                    .padding(.trailing, 24)
+                    .ignoresSafeArea(.all, edges: .trailing)
                 } else {
                     VStack(spacing: 12) {
                         if manager.showConfirmation {
@@ -200,8 +202,25 @@ struct VideoRecordingView: View {
                 ForEach(sortedZoomStops, id: \ .self) { stop in
                     Button(action: { manager.setZoomFactor(stop) }) {
                         Text(zoomLabel(stop))
-                            .font(.subheadline)
-                            .padding(16)
+                            .font(.headline)
+                            .fontWeight(.regular)
+                            .padding(12)
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .glassEffect(
+                        .regular.interactive(),
+                        in: Circle()
+                    )
+                }
+                
+                if manager.showCenterStage && manager.activePosition == .front {
+                    Button(action: { manager.setCenterStage(true) }) {
+                        Label("Center Stage", systemImage: "person.fill.viewfinder")
+                            .labelStyle(.iconOnly)
+                            .font(.headline)
+                            .fontWeight(.regular)
+                            .padding(12)
                             .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -268,7 +287,7 @@ struct VideoRecordingView: View {
         }) {
             Label("Back", systemImage: "chevron.left")
                 .labelStyle(.iconOnly)
-                .font(.title)
+                .font(.title2)
                 .frame(width: 44, height: 44)
                 .glassEffect(
                     .regular.interactive(),
@@ -303,7 +322,7 @@ struct VideoRecordingView: View {
         Button(action: { manager.switchCamera() }) {
             Label("Flip Camera", systemImage: "arrow.triangle.2.circlepath.camera")
                 .labelStyle(.iconOnly)
-                .font(.title)
+                .font(.title2)
                 .frame(width: 44, height: 44)
                 .glassEffect(
                     .regular.interactive(),
