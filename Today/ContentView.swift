@@ -56,8 +56,8 @@ struct ContentView: View {
                     .environmentObject(transcriptionManager)
             }
         }
+        .tabViewStyle(.tabBarOnly)
         .tabViewSearchActivation(.searchTabSelection)
-        .tabBarMinimizeBehavior(.onScrollUp)
         .onAppear {
             showOnboarding = !hasCompletedOnboarding
         }

@@ -66,6 +66,8 @@ struct HomeView: View {
             NavigationStack {
                 let transition = zoomTransition(in: proxy.size)
                 let blurHeight = topBarHeight
+                let titleHorizontalPadding = TitlePadding.horizontal(proxy, isPad: isPad)
+                let titleTopPadding = TitlePadding.top(proxy, isPad: isPad)
                 
                 ZStack(alignment: .top) {
                     ScrollViewReader { reader in
@@ -170,10 +172,10 @@ struct HomeView: View {
                             .fontWeight(.semibold)
                     }
                     .foregroundStyle(.white)
-                    .padding(.leading, getTitleHorizontalPadding(proxy))
-                    .padding(.top, getTitleTopPadding(proxy))
-                    .animation(.snappy, value: getTitleHorizontalPadding(proxy))
-                    .animation(.snappy, value: getTitleTopPadding(proxy))
+                    .padding(.leading, titleHorizontalPadding)
+                    .padding(.top, titleTopPadding)
+                    .animation(.snappy, value: titleHorizontalPadding)
+                    .animation(.snappy, value: titleTopPadding)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .ignoresSafeArea()
                     .background(
@@ -491,30 +493,6 @@ struct HomeView: View {
     
     private func clamp(_ value: CGFloat, lower: CGFloat, upper: CGFloat) -> CGFloat {
         max(lower, min(upper, value))
-    }
-    
-    private func getTitleTopPadding(_ proxy: GeometryProxy) -> CGFloat {
-        if isPad {
-            return proxy.safeAreaInsets.top
-        } else {
-            if proxy.size.width > proxy.size.height {
-                return proxy.safeAreaInsets.top + 16
-            } else {
-                return proxy.safeAreaInsets.top
-            }
-        }
-    }
-    
-    private func getTitleHorizontalPadding(_ proxy: GeometryProxy) -> CGFloat {
-        if isPad {
-            return proxy.containerCornerInsets.topLeading.width + 16
-        } else {
-            if proxy.size.width > proxy.size.height {
-                return proxy.safeAreaInsets.leading / 2 + 16
-            } else {
-                return 24
-            }
-        }
     }
     
     private func prepareEntryForSharing(_ entry: JournalEntry) async {

@@ -20,6 +20,8 @@ struct SearchView: View {
     @Namespace private var namespace
     @State private var searchText: String = ""
     @State private var showDeleteConfirmaton: Bool = false
+    @State private var topBarHeight: CGFloat = 0.0
+    @State private var isPad = UIDevice.current.userInterfaceIdiom == .pad
     
     @State private var selectedEntries: [JournalEntry] = []
     @State private var isPreparingShare = false
@@ -58,12 +60,15 @@ struct SearchView: View {
         GeometryReader { proxy in
             let metrics = layoutMetrics(in: proxy.size)
             let isEditing = editMode?.wrappedValue.isEditing == true
+            let titleHorizontalPadding = TitlePadding.horizontal(proxy, isPad: isPad)
+            let titleTopPadding = TitlePadding.top(proxy, isPad: isPad)
             
             NavigationStack {
                 ZStack(alignment: .top) {
                     ScrollView(.vertical, showsIndicators: true) {
                         gridLayer(metrics: metrics)
                             .padding(gridPadding)
+                            .padding(.top, titleTopPadding)
                     }
                     
                     LinearGradient(
@@ -72,14 +77,39 @@ struct SearchView: View {
                         endPoint: .bottom
                     )
                     .blur(radius: 4)
-                    .frame(height: 44)
+                    .frame(height: topBarHeight)
                     .ignoresSafeArea()
                     
                     VariableBlurView(maxBlurRadius: 10)
-                        .frame(height: 44)
+                        .frame(height: topBarHeight)
                         .ignoresSafeArea()
+                    
+                    Text("Search")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.white)
+                        .padding(.leading, titleHorizontalPadding)
+                        .padding(.top, titleTopPadding)
+                        .animation(.snappy, value: titleHorizontalPadding)
+                        .animation(.snappy, value: titleTopPadding)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .ignoresSafeArea()
+                        .background(
+                            GeometryReader { geo in
+                                Color.clear
+                                    .onAppear {
+                                        withAnimation(.snappy) {
+                                            topBarHeight = geo.size.height
+                                        }
+                                    }
+                                    .onChange(of: geo.size.height) {
+                                        withAnimation(.snappy) {
+                                            topBarHeight = geo.size.height
+                                        }
+                                    }
+                            }
+                        )
                 }
-                .navigationTitle("Search")
                 .navigationBarTitleDisplayMode(.large)
                 .searchable(text: $searchText, prompt: "Search entries...")
                 .alert("Delete Entries?", isPresented: $showDeleteConfirmaton, actions: {
@@ -108,7 +138,6 @@ struct SearchView: View {
                         }
                     )
                 }
-                .toolbar(.visible, for: .navigationBar)
                 .toolbar(isEditing ? .visible : .hidden, for: .bottomBar)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
