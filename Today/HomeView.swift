@@ -69,7 +69,7 @@ struct HomeView: View {
                 let titleHorizontalPadding = TitlePadding.horizontal(proxy, isPad: isPad)
                 let titleTopPadding = TitlePadding.top(proxy, isPad: isPad)
                 
-                ZStack(alignment: .top) {
+                ZStack(alignment: .topLeading) {
                     ScrollViewReader { reader in
                         ScrollView(.vertical, showsIndicators: false) {
                             VStack(spacing: 24) {
@@ -176,7 +176,6 @@ struct HomeView: View {
                     .padding(.top, titleTopPadding)
                     .animation(.snappy, value: titleHorizontalPadding)
                     .animation(.snappy, value: titleTopPadding)
-                    .frame(maxWidth: .infinity, alignment: .leading)
                     .ignoresSafeArea()
                     .background(
                         GeometryReader { geo in
@@ -224,7 +223,6 @@ struct HomeView: View {
                 }
                 .toolbar {
                     ToolbarItemGroup(placement: .topBarTrailing) {
-                        
                         ControlGroup {
                             if isPreparingShare {
                                 Label("Exporting", systemImage: "progress.indicator")

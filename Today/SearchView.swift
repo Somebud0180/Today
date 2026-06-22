@@ -65,7 +65,7 @@ struct SearchView: View {
             let titleTopPadding = TitlePadding.top(proxy, isPad: isPad)
             
             NavigationStack {
-                ZStack(alignment: .top) {
+                ZStack(alignment: .topLeading) {
                     ScrollView(.vertical, showsIndicators: true) {
                         gridLayer(metrics: metrics)
                             .padding(gridPadding)
@@ -92,7 +92,6 @@ struct SearchView: View {
                         .padding(.top, titleTopPadding)
                         .animation(.snappy, value: titleHorizontalPadding)
                         .animation(.snappy, value: titleTopPadding)
-                        .frame(maxWidth: .infinity, alignment: .leading)
                         .ignoresSafeArea()
                         .background(
                             GeometryReader { geo in
