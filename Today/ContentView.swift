@@ -49,6 +49,20 @@ struct ContentView: View {
                 JogBookView()
                     .preferredColorScheme(preferredColorScheme.colorScheme)
             }
+            
+            if #available(iOS 27.0, *) {
+                Tab("Search", systemImage: "magnifyingglass", value: 3, role: .prominent) {
+                    SearchView()
+                        .preferredColorScheme(preferredColorScheme.colorScheme)
+                        .environmentObject(transcriptionManager)
+                }
+            } else {
+                Tab("Search", systemImage: "magnifyingglass", value: 3, role: .search) {
+                    SearchView()
+                        .preferredColorScheme(preferredColorScheme.colorScheme)
+                        .environmentObject(transcriptionManager)
+                }
+            }
         }
         .onAppear {
             showOnboarding = !hasCompletedOnboarding

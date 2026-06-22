@@ -8,7 +8,7 @@
 import SwiftUI
 import SwiftData
 
-private struct ViewLayoutMetrics {
+struct ViewLayoutMetrics {
     var availableWidth: CGFloat = 0
     var columns: [GridItem] = []
     var cardSize: CGSize = .zero
@@ -407,12 +407,6 @@ struct HomeView: View {
                 let rawFactor = CGFloat(baseStep) + (value.magnification - 1.0) * maxStep
                 let clampedFactor = clamp(rawFactor, lower: 0, upper: maxStep)
                 continuousZoomFactor = clampedFactor
-                
-                let lowerStep = clampStep(Int(floor(clampedFactor)))
-                let upperStep = clampStep(lowerStep + 1)
-                let progress = clampedFactor - CGFloat(lowerStep)
-                
-                let direction = value.magnification > 1 ? "In" : "Out"
             }
             .onEnded { _ in
                 let finalStep = clampStep(Int(round(continuousZoomFactor)))
