@@ -72,29 +72,29 @@ struct HomeView: View {
                 ZStack(alignment: .top) {
                     ScrollViewReader { reader in
                         ScrollView(.vertical, showsIndicators: false) {
-                            VStack(spacing: 0) {
+                            VStack(spacing: 24) {
                                 ZStack(alignment: .topLeading) {
                                     gridLayer(metrics: transition.currentMetrics)
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                                         .scaleEffect(transition.currentScale, anchor: .center)
                                         .opacity(transition.currentOpacity)
                                     
                                     if transition.nextStep != transition.currentStep {
                                         gridLayer(metrics: transition.nextMetrics)
+                                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                                             .scaleEffect(transition.nextScale, anchor: .center)
                                             .opacity(transition.nextOpacity)
                                     }
                                 }
                                 .padding(gridPadding)
-                                .frame(maxWidth: .infinity)
-                                .padding(.bottom, 24)
+                                .frame(maxWidth: .infinity, minHeight: proxy.size.height - blurHeight - 24, alignment: .top)
                                 
                                 welcomeScreen
                                     .containerRelativeFrame(.vertical)
                                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                    .ignoresSafeArea(.all, edges: .bottom)
                                     .id(welcomeScreenID)
                                     .scrollTransition(.animated, axis: .vertical) { content, phase in
-                                        content.opacity(phase.isIdentity ? 1 : 0.4)
+                                        content.opacity(phase.isIdentity ? 1 : 0)
                                     }
                             }
                         }
@@ -129,8 +129,8 @@ struct HomeView: View {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                                 if hasWelcomeScreen {
                                     dateOnScreen = nil
-                                } else if let latestVisibleEntry = journalDates.last {
-                                    dateOnScreen = latestVisibleEntry
+                                } else if let earliestVisibleEntry = journalDates.first {
+                                    dateOnScreen = earliestVisibleEntry
                                 } else {
                                     dateOnScreen = nil
                                 }
@@ -327,13 +327,13 @@ struct HomeView: View {
         } else if let dateOnScreen {
             return dateOnScreen.formatted(date: .long, time: .omitted)
         } else {
-            return Date().formatted(date: .long, time: .omitted)
+            return "\(journalEntries.count.formatted(.number)) Entries"
         }
     }
     
     @ViewBuilder
     private func gridLayer(metrics: ViewLayoutMetrics) -> some View {
-        LazyVGrid(columns: metrics.columns, alignment: .center, spacing: metrics.spacing) {
+        LazyVGrid(columns: metrics.columns, alignment: .leading, spacing: metrics.spacing) {
             ForEach(journalEntries) { journalEntry in
                 let isEditing = editMode?.wrappedValue.isEditing == true
                 let isSelected = selectedEntries.contains(journalEntry)
