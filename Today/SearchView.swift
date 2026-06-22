@@ -16,6 +16,7 @@ struct SearchView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \JournalEntry.date, order: .forward) private var journalEntries: [JournalEntry]
     
+    
     @Namespace private var namespace
     @State private var searchText: String = ""
     @State private var showDeleteConfirmaton: Bool = false
@@ -55,10 +56,10 @@ struct SearchView: View {
     
     var body: some View {
         GeometryReader { proxy in
+            let metrics = layoutMetrics(in: proxy.size)
+            let isEditing = editMode?.wrappedValue.isEditing == true
+            
             NavigationStack {
-                let metrics = layoutMetrics(in: proxy.size)
-                let isEditing = editMode?.wrappedValue.isEditing == true
-                
                 ZStack(alignment: .top) {
                     ScrollView(.vertical, showsIndicators: true) {
                         gridLayer(metrics: metrics)
@@ -79,7 +80,7 @@ struct SearchView: View {
                         .ignoresSafeArea()
                 }
                 .navigationTitle("Search")
-                .navigationBarTitleDisplayMode(.inline)
+                .navigationBarTitleDisplayMode(.large)
                 .searchable(text: $searchText, prompt: "Search entries...")
                 .alert("Delete Entries?", isPresented: $showDeleteConfirmaton, actions: {
                     Button("Cancel", role: .cancel) {}
@@ -107,9 +108,9 @@ struct SearchView: View {
                         }
                     )
                 }
+                .toolbar(.visible, for: .navigationBar)
+                .toolbar(isEditing ? .visible : .hidden, for: .bottomBar)
                 .toolbar {
-                    DefaultToolbarItem(kind: .search, placement: .keyboard)
-                    
                     ToolbarItem(placement: .topBarTrailing) {
                         if isPreparingShare {
                             Label("Exporting", systemImage: "progress.indicator")
@@ -165,8 +166,6 @@ struct SearchView: View {
                         }
                     }
                 }
-                .toolbar(isEditing ? .hidden : .visible, for: .tabBar)
-                .toolbar(isEditing ? .visible : .hidden, for: .bottomBar)
                 .background(
                     Image(selectedBackground)
                         .resizable()
