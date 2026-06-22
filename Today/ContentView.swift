@@ -31,6 +31,7 @@ struct ContentView: View {
     @State private var showOnboarding: Bool = false
     @State private var searchText: String = ""
     @State private var searchPresented: Bool = false
+    @State private var isPad = UIDevice.current.userInterfaceIdiom == .pad
     @State var tabSelection: Int = 0
     
     var body: some View {
@@ -54,7 +55,7 @@ struct ContentView: View {
             
             Tab(value: 3, role: .search) {
                 SearchView(searchText: $searchText, searchPresented: $searchPresented)
-                    .searchable(text: $searchText, isPresented: $searchPresented,prompt: "Search entries...")
+                    .searchable(text: $searchText, isPresented: $searchPresented, placement: isPad ? .navigationBarDrawer(displayMode: .always) : .automatic, prompt: "Search entries...")
                     .preferredColorScheme(preferredColorScheme.colorScheme)
                     .environmentObject(transcriptionManager)
             }
@@ -62,8 +63,14 @@ struct ContentView: View {
         .tabViewStyle(.tabBarOnly)
         .tabViewSearchActivation(.searchTabSelection)
         .searchPresentationToolbarBehavior(.avoidHidingContent)
+        .searchToolbarBehavior(.automatic)
         .onAppear {
             showOnboarding = !hasCompletedOnboarding
+        }
+        .onChange(of: tabSelection) {
+            if tabSelection == 3 {
+                searchPresented = true
+            }
         }
         .fullScreenCover(isPresented: $showOnboarding) {
             OnboardingView()

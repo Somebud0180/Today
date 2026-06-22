@@ -29,9 +29,9 @@ struct SearchView: View {
     @State private var sharedURLs: [URL] = []
     @State private var showShareSheet = false
     
-    private let gridColumns: Int = 3
-    private let gridSpacing: CGFloat = 16
+    private let minimumCardWidth: CGFloat = 120
     private let cardAspectRatio: CGFloat = 2 / 3
+    private let gridSpacing: CGFloat = 16
     private let gridPadding: CGFloat = 10
     
     var filteredEntries: [JournalEntry] {
@@ -287,11 +287,12 @@ struct SearchView: View {
     }
     
     private func calculateGridColumns(availableWidth: CGFloat) -> [GridItem] {
-        return Array(repeating: GridItem(.flexible(), spacing: gridSpacing), count: gridColumns)
+        let columnCount = max(3, Int((availableWidth + gridSpacing) / (minimumCardWidth + gridSpacing)))
+        return Array(repeating: GridItem(.flexible(), spacing: gridSpacing), count: columnCount)
     }
     
     private func calculateCardWidth(availableWidth: CGFloat, columns: [GridItem]) -> CGFloat {
-        let columnCount = CGFloat(3)
+        let columnCount = CGFloat(columns.count)
         let totalSpacingWidth = (columnCount - 1) * gridSpacing
         return (availableWidth - totalSpacingWidth) / columnCount
     }

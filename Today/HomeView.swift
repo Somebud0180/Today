@@ -56,8 +56,8 @@ struct HomeView: View {
     @State private var showShareSheet = false
     
     private let minimumCardWidth: [CGFloat] = [60, 80, 100, 120, 150]
-    private let gridSpacing: [CGFloat] = [4, 8, 12, 16, 20]
     private let cardAspectRatio: CGFloat = 2 / 3
+    private let gridSpacing: [CGFloat] = [4, 8, 12, 16, 20]
     private let gridPadding: CGFloat = 10
     private let welcomeScreenID = Date.distantFuture
     
