@@ -428,6 +428,38 @@ struct CreateView: View {
         }
     }
     
+    /// Returns a human-friendly media type string for accessibility.
+    private var accessibilityMediaType: String {
+        if recordedVideoURL != nil {
+            return "Video"
+        } else {
+            return "Audio"
+        }
+    }
+    
+    /// Title if present; otherwise a formatted date string.
+    private var accessibilityPrimaryText: String {
+        if !entryTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return entryTitle
+        } else {
+            return Date().formatted(date: .long, time: .omitted)
+        }
+    }
+    
+    /// Full label announced by VoiceOver, e.g. "Video, Family Picnic" or "Audio, June 23, 2026".
+    var accessibilityTitle: String {
+        "\(accessibilityMediaType) entry, \(accessibilityPrimaryText)"
+    }
+    
+    /// Secondary value for additional context. If a title exists, provide the date; otherwise empty.
+    var accessibilityValue: String {
+        if !entryTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return Date().formatted(date: .long, time: .omitted)
+        } else {
+            return ""
+        }
+    }
+    
     func previewCard(finalWidth: CGFloat, height: CGFloat, proxy: GeometryProxy, isLandscape: Bool) -> some View {
         ZStack {
             if let recordedVideoURL = recordedVideoURL,
@@ -481,6 +513,9 @@ struct CreateView: View {
         .offset(cardOffset)
         .shadow(color: .black.opacity(shadowOpacity), radius: 10, x: 0, y: shadowOffsetY)
         .onAppear(perform: showCardAnimation)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityTitle)
+        .accessibilityValue(accessibilityValue)
     }
     
     func saveFields(activeURL: URL, fileExtension: String, mediaType: MediaType, proxy: GeometryProxy) -> some View {
@@ -493,6 +528,7 @@ struct CreateView: View {
                 )
                 .focused($titleFieldFocused)
                 .font(.largeTitle)
+                .accessibilityLabel("Title")
                 
                 TextField(
                     "Add a note (optional)",
@@ -526,7 +562,7 @@ struct CreateView: View {
                     .padding(12)
             }
             .buttonStyle(.glassProminent)
-            .disabled(enableTranscription && (transcript == nil && transcriptSuccess))
+            .disabled(transcriptionInProgress)
             
             Button(action: {
                 transitionDirection = .backward
