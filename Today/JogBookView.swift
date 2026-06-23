@@ -11,10 +11,12 @@ import UIKit
 
 struct JogBookView: View {
     @AppStorage("selectedBackground") private var selectedBackground: String = DefaultSettings.selectedBackground
+    @EnvironmentObject var transcriptionManager: AudioTranscriptionManager
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @Query private var journalEntries: [JournalEntry]
     
+    @Namespace private var namespace
     @State var calendarGridColumn: [GridItem] = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
     @State var selectedMonthYear: Date = Calendar.current.dateComponents([.year, .month], from: Date()).date ?? Date()
     @State var selectedDay: Date? = nil
@@ -260,7 +262,15 @@ struct JogBookView: View {
         ScrollView(.horizontal) {
             HStack(spacing: 12) {
                 ForEach(entries) { entry in
-                    GridCardView(for: entry, size: isLandscape ? cardSizeCompact : cardSize)
+                    NavigationLink(destination: {
+                        JournalView(selectedEntry: entry)
+                            .toolbar(.hidden, for: .tabBar)
+                            .environmentObject(transcriptionManager)
+                            .navigationTransition(.zoom(sourceID: entry, in: namespace))
+                    }, label: {
+                        GridCardView(for: entry, size: isLandscape ? cardSizeCompact : cardSize)
+                            .matchedTransitionSource(id: entry, in: namespace)
+                    })
                 }
             }
         }
