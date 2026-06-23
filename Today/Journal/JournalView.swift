@@ -18,6 +18,7 @@ struct JournalView: View {
     
     let selectedEntry: JournalEntry
     @State private var isLandscape: Bool = false
+    @State private var isExpanded: Bool = false
     
     @State private var resolvedURL: URL? = nil
     @State private var isDownloading: Bool = false
@@ -43,15 +44,24 @@ struct JournalView: View {
                     .onTapGesture {
                         titleFieldFocused = false
                     }
-                        
+                    
                     playButton()
                     
-                    VStack {
-                        Spacer()
-                        NoteCardView(entry: selectedEntry, isLandscape: $isLandscape)
-                            .environmentObject(transcriptionManager)
+                    if isExpanded {
+                        Color.black
+                            .opacity(0.4)
+                            .ignoresSafeArea()
+                            .onTapGesture {
+                                withAnimation(.snappy) {
+                                    isExpanded = false
+                                }
+                            }
+                            .transition(.opacity)
                     }
-                    .ignoresSafeArea(.container)
+                    
+                    NoteCardView(entry: selectedEntry, isLandscape: $isLandscape, isExpanded: $isExpanded)
+                        .environmentObject(transcriptionManager)
+                        .ignoresSafeArea(.container, edges: [.leading, .bottom, .trailing])
                 } else if isDownloading {
                     VStack(spacing: 16) {
                         ProgressView()
@@ -80,6 +90,7 @@ struct JournalView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .toolbar(isExpanded ? .hidden : .visible, for: .navigationBar)
             .background {
                 GeometryReader { proxy in
                     Color.gray.opacity(0.8)

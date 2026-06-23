@@ -15,8 +15,8 @@ struct NoteCardView: View {
     
     var entry: JournalEntry
     @Binding var isLandscape: Bool
+    @Binding var isExpanded: Bool
     
-    @State private var isExpanded: Bool = false
     @State private var selectedTab: Int = 0
     @State private var transcriptionInProgress: Bool = false
     @State private var finishedTranscription: Bool = false
@@ -36,19 +36,6 @@ struct NoteCardView: View {
         }
         
         ZStack {
-            // Background overlay (only visible when expanded)
-            if isExpanded {
-                Color.black
-                    .opacity(0.4)
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        withAnimation(.snappy) {
-                            isExpanded = false
-                        }
-                    }
-                    .transition(.opacity)
-            }
-            
             // Collapsed state - bottom positioned card
             if !isExpanded {
                 VStack(spacing: 12) {
