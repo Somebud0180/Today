@@ -57,6 +57,7 @@ struct JournalView: View {
                                 }
                             }
                             .transition(.opacity)
+                            .accessibilityHint("Double-tap to dismiss modal")
                     }
                     
                     NoteCardView(entry: selectedEntry, isLandscape: $isLandscape, isExpanded: $isExpanded)

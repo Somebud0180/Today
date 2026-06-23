@@ -13,6 +13,8 @@ struct NoteCardView: View {
     @EnvironmentObject var transcriptionManager: AudioTranscriptionManager
     @Environment(\.modelContext) private var modelContext
     
+    @AppStorage("enableTranscription") private var enableTranscription: Bool = DefaultSettings.enableTranscription
+    
     var entry: JournalEntry
     @Binding var isLandscape: Bool
     @Binding var isExpanded: Bool
@@ -52,6 +54,9 @@ struct NoteCardView: View {
                     }
                     .tabViewStyle(.page)
                     .frame(maxHeight: 96)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityLabel("Pages")
+                    .accessibilityValue("\(selectedTab == 0 ? "Note" : "Transcript"), page \(selectedTab + 1) of 2")
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.top, 12)
@@ -83,6 +88,8 @@ struct NoteCardView: View {
                     }
                 }
                 .transition(.move(edge: .bottom))
+                .accessibilityLabel("\(selectedTab == 0 ? "Note" : "Transcription") modal")
+                .accessibilityHint("Double-tap to open")
             }
             
             // Expanded state - centered overlay card
@@ -92,10 +99,12 @@ struct NoteCardView: View {
                         RoundedRectangle(cornerRadius: 2.5)
                             .fill(Color.gray.opacity(0.5))
                             .frame(width: 40, height: 5)
+                            .accessibilityHidden(true)
                         
                         Text(cardTitle)
                             .font(.headline)
                             .foregroundStyle(.white)
+                            .accessibilityAddTraits(.isHeader)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.top, 12)
@@ -115,6 +124,9 @@ struct NoteCardView: View {
                             isEditing = false
                         }
                     }
+                    .accessibilityElement(children: .contain)
+                    .accessibilityLabel("Expanded Pages")
+                    .accessibilityValue("\(selectedTab == 0 ? "Note" : "Transcript"), page \(selectedTab + 1) of 2")
                 }
                 .frame(maxWidth: .infinity, maxHeight: 500)
                 .background {
@@ -126,6 +138,17 @@ struct NoteCardView: View {
                 .padding(.horizontal, isLandscape ? 72 : 0)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 .offset(y: expandedDragOffset)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .accessibilityElement(children: .contain)
+                .accessibilityAddTraits(.isModal)
+                .accessibilityLabel("Expanded entry view")
+                .accessibilityValue("\(selectedTab == 0 ? "Note" : "Transcript") page, \(selectedTab + 1) of 2")
+                .accessibilityAction(.escape) {
+                    withAnimation(.snappy) {
+                        isExpanded = false
+                        isEditing = false
+                    }
+                }
                 .gesture(
                     DragGesture()
                         .updating($expandedDragOffset) { value, state, _ in
@@ -141,10 +164,17 @@ struct NoteCardView: View {
                             }
                         }
                 )
-                .onTapGesture {
-                    isEditing = true
+                .onChange(of: transcriptionInProgress) {
+                    if transcriptionInProgress {
+                        UIAccessibility.post(notification: .announcement, argument: "Transcribing entry")
+                    } else {
+                        if finishedTranscription && entry.transcript.isEmpty {
+                            UIAccessibility.post(notification: .announcement, argument: "Entry failed to transcribe")
+                        } else {
+                            UIAccessibility.post(notification: .announcement, argument: "Entry transcribed")
+                        }
+                    }
                 }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
     }
@@ -195,7 +225,7 @@ struct NoteCardView: View {
             if entry.transcript.isEmpty {
                 Spacer()
                 
-                Group {
+                VStack {
                     Image(systemName: "waveform.slash")
                         .resizable()
                         .frame(maxWidth: 72, maxHeight: 72)
@@ -205,14 +235,28 @@ struct NoteCardView: View {
                 }
                 .foregroundStyle(.secondary)
                 .padding()
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("No transcript")
                 
-                Button("Transcribe Entry", action: {
-                    Task {
-                        await transcribeEntry()
-                    }
-                })
-                .buttonStyle(.glass)
-                .disabled(transcriptionInProgress || finishedTranscription)
+                if enableTranscription {
+                    Button("Transcribe Entry", action: {
+                        Task {
+                            await transcribeEntry()
+                        }
+                    })
+                    .buttonStyle(.glass)
+                    .disabled(transcriptionInProgress || finishedTranscription)
+                } else {
+                    Text("Transcription is disabled. Enable transcription in settings to transcribe this entry")
+                        .foregroundStyle(.secondary)
+                        .font(.footnote)
+                        .padding(.vertical, 4)
+                        .padding(.horizontal, 6)
+                        .glassEffect(
+                            .regular,
+                            in: Capsule()
+                        )
+                }
                 
                 if finishedTranscription {
                     Text("The entry couldn't be transcribed. It may not be recognizable by the app.")
