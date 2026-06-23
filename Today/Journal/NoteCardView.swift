@@ -239,7 +239,7 @@ struct NoteCardView: View {
                 .accessibilityLabel("No transcript")
                 
                 if enableTranscription {
-                    Button("Transcribe Entry", action: {
+                    Button(transcriptionInProgress ? "Transcribing Entry..." : "Transcribe Entry", action: {
                         Task {
                             await transcribeEntry()
                         }
