@@ -1,7 +1,7 @@
 {
   "images" : [
     {
-      "filename" : "BackgroundL.png",
+      "filename" : "Riverside 2.png",
       "idiom" : "universal"
     },
     {
@@ -11,7 +11,7 @@
           "value" : "dark"
         }
       ],
-      "filename" : "BackgroundD.png",
+      "filename" : "Riverside.png",
       "idiom" : "universal"
     }
   ],
