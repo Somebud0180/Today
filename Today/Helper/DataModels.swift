@@ -196,7 +196,11 @@ class JournalEntry: Identifiable {
     func exportMediaURLForSharing() async -> URL? {
         switch mediaType {
         case .audio:
-            return mediaURL
+            if let url = try? await exportAudioCopy() {
+                return url
+            } else {
+                return mediaURL
+            }
         case .video:
             // Try to embed the note as video metadata and return the new file's URL
             if let url = try? await exportVideoWithCaption(note: note) {
@@ -204,6 +208,26 @@ class JournalEntry: Identifiable {
             } else {
                 return mediaURL
             }
+        }
+    }
+    
+    /// Exports a copy of the audio to a custom-named file in the temporary directory.
+    func exportAudioCopy() async throws -> URL? {
+        guard mediaType == .audio, let originalURL = mediaURL else { return nil }
+        
+        let originalExt = originalURL.pathExtension
+        let tempDir = FileManager.default.temporaryDirectory
+        let outputURL = tempDir.appendingPathComponent("\(self.title.isEmpty ? self.date.formatted(date: .long, time: .omitted) : self.title).\(originalExt)")
+        
+        // Remove any existing file at destination
+        try? FileManager.default.removeItem(at: outputURL)
+        
+        do {
+            try FileManager.default.copyItem(at: originalURL, to: outputURL)
+            return outputURL
+        } catch {
+            print("Failed to copy audio: \(error)")
+            return nil
         }
     }
     
@@ -215,7 +239,7 @@ class JournalEntry: Identifiable {
         
         // Prepare temp output URL
         let tempDir = FileManager.default.temporaryDirectory
-        let outputURL = tempDir.appendingPathComponent("exported_\(uuid.uuidString).mov")
+        let outputURL = tempDir.appendingPathComponent("\(self.title.isEmpty ? self.date.formatted(date: .long, time: .omitted) : self.title).mov")
         // Remove any existing file
         try? FileManager.default.removeItem(at: outputURL)
         exportSession.outputURL = outputURL
