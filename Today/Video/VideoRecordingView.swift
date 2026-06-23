@@ -52,13 +52,17 @@ struct VideoRecordingView: View {
                     
                     ZStack(alignment: .top) {
                         if manager.isRecording {
-                            Text(formatDuration(manager.recordingDuration))
+                            Text(TimeFormatter.formatDuration(manager.recordingDuration))
+                                .foregroundStyle(.white)
                                 .font(.title3)
                                 .padding(4)
                                 .glassEffect(
                                     .regular.tint(.red),
                                     in: RoundedRectangle(cornerRadius: 4)
                                 )
+                                .accessibilityLabel("Elapsed recording time")
+                                .accessibilityValue(TimeFormatter.accessibleTimeFormat(manager.recordingDuration))
+                                .accessibilityAddTraits(.updatesFrequently)
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -336,19 +340,6 @@ struct VideoRecordingView: View {
         .buttonStyle(.plain)
         .disabled(manager.isRecording)
         .opacity(manager.isRecording ? 0.5 : 1.0)
-    }
-    
-    func formatDuration(_ seconds: TimeInterval) -> String {
-        let total = Int(seconds)
-        let hours = total / 3600
-        let minutes = (total % 3600) / 60
-        let secs = total % 60
-        
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, secs)
-        } else {
-            return String(format: "%02d:%02d", minutes, secs)
-        }
     }
     
     private func toggleRecording() {

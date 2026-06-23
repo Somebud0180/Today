@@ -141,7 +141,7 @@ struct AudioRecordingView: View {
     
     func stopwatchView() -> some View {
         VStack(spacing: 16) {
-            Text(formatTime(elapsedTime))
+            Text(TimeFormatter.formatDuration(elapsedTime))
                 .font(.system(size: 48, weight: .bold, design: .monospaced))
                 .foregroundStyle(.primary)
         }
@@ -149,7 +149,7 @@ struct AudioRecordingView: View {
         .padding(.vertical, 24)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Elapsed recording time")
-        .accessibilityValue(accessibleTimeFormat(elapsedTime))
+        .accessibilityValue(TimeFormatter.accessibleTimeFormat(elapsedTime))
         .accessibilityAddTraits(.updatesFrequently)
     }
     
@@ -269,18 +269,6 @@ struct AudioRecordingView: View {
                 .buttonStyle(.glass)
             }
         }
-    }
-    
-    private func formatTime(_ seconds: TimeInterval) -> String {
-        let minutes = Int(seconds) / 60
-        let secs = Int(seconds) % 60
-        return String(format: "%02d:%02d", minutes, secs)
-    }
-    
-    private func accessibleTimeFormat(_ seconds: TimeInterval) -> String {
-        let minutes = Int(seconds) / 60
-        let secs = Int(seconds) % 60
-        return "\(minutes) minute\(minutes == 1 ? "" : "s") and \(secs) second\(secs == 1 ? "" : "s")"
     }
     
     private func toggleRecording() {
