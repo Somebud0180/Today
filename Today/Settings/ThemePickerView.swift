@@ -44,7 +44,8 @@ struct ThemePickerView: View {
     }
     
     func backgroundCard(_ assetName: String) -> some View {
-        let glassColor = (assetName == selectedBackground) ? Color.accentColor : Color.gray
+        let isSelected = assetName == selectedBackground
+        let glassColor = isSelected ? Color.accentColor : Color.gray
         
         return Image(assetName)
             .resizable()
@@ -63,6 +64,9 @@ struct ThemePickerView: View {
                     }
                 }
             }
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint("Double-tap to set as background")
+            .accessibilityValue(isSelected ? "Active" : "")
     }
 }
 
