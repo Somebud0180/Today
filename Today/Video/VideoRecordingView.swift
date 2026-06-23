@@ -316,6 +316,9 @@ struct VideoRecordingView: View {
         .buttonStyle(.plain)
         .frame(width: 72, height: 72)
         .sensoryFeedback(manager.isRecording ? .start : .stop, trigger: manager.isRecording)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(manager.isRecording ? "Stop recording video" : "Record video")
     }
     
     private var flipButton: some View {
