@@ -242,6 +242,7 @@ extension VideoRecorderManager {
     }
     
     func setCenterStage(_ isOn: Bool) {
+        guard AVCaptureDevice.centerStageControlMode == .app else { return }
         sessionQueue.async {
             AVCaptureDevice.isCenterStageEnabled = isOn
         }
