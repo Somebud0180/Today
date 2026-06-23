@@ -99,14 +99,37 @@ extension GridCardView {
     }
     
     /// Full label announced by VoiceOver, e.g. "Video, Family Picnic" or "Audio, June 23, 2026".
-    fileprivate var accessibilityTitle: String {
-        "\(accessibilityMediaType), \(accessibilityPrimaryText)"
+    var accessibilityTitle: String {
+        "\(accessibilityMediaType) entry, \(accessibilityPrimaryText)"
     }
     
     /// Secondary value for additional context. If a title exists, provide the date; otherwise empty.
-    fileprivate var accessibilityValue: String {
+    var accessibilityValue: String {
         if !journalEntry.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return journalEntry.date.formatted(date: .long, time: .omitted)
+        } else {
+            return ""
+        }
+    }
+    
+    static func accessibilityTitle(for entry: JournalEntry) -> String {
+        let mediaType: String
+        switch entry.mediaType {
+        case .video: mediaType = "Video"
+        case .audio: mediaType = "Audio"
+        }
+        let primary: String
+        if !entry.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            primary = entry.title
+        } else {
+            primary = entry.date.formatted(date: .long, time: .omitted)
+        }
+        return "\(mediaType) entry, \(primary)"
+    }
+
+    static func accessibilityValue(for entry: JournalEntry) -> String {
+        if !entry.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return entry.date.formatted(date: .long, time: .omitted)
         } else {
             return ""
         }

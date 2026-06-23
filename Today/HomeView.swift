@@ -190,6 +190,18 @@ struct HomeView: View {
                         }
                     )
                 }
+                .onChange(of: dateOnScreen) { _, newValue in
+                    if let newValue {
+                        UIAccessibility.post(notification: .announcement, argument: newValue.formatted(date: .long, time: .omitted))
+                    }
+                }
+                .onChange(of: isPreparingShare) { _, isPreparing in
+                    if isPreparing {
+                        UIAccessibility.post(notification: .announcement, argument: "Exporting entry")
+                    } else {
+                        UIAccessibility.post(notification: .announcement, argument: "Export finished")
+                    }
+                }
                 .toolbar {
                     ToolbarItem(placement: .principal) {
                         VStack(alignment: .leading) {
@@ -293,9 +305,15 @@ struct HomeView: View {
             VStack {
                 if journalEntries.isEmpty {
                     Text("You don't have any entries yet")
+                        .accessibilityLabel("You don't have any entries yet")
                 } else {
-                    Image(systemName: "chevron.compact.down")
-                    Text("Swipe down to access your entries")
+                    // Combine the icon and text for VO
+                    HStack(spacing: 8) {
+                        Image(systemName: "chevron.compact.down")
+                        Text("Swipe down to access your entries")
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Swipe down to access your entries")
                 }
             }
             .foregroundStyle(.secondary)
@@ -351,43 +369,29 @@ struct HomeView: View {
                 }
                 .buttonStyle(.plain)
                 .id(journalEntry.date)
+                .opacity(isEditing && !isSelected ? 0.8 : 1)
+                .accessibilityHidden(isEditing)
                 .allowsHitTesting(!isEditing)
-                .opacity(isEditing && !isSelected ? 0.7 : 1.0)
-                .contextMenu {
-                    Button {
-                        Task { await prepareEntryForSharing(journalEntry) }
-                    } label: {
-                        Label("Export Entry", systemImage: "square.and.arrow.up")
-                    }
-                    
-                    Button(role: .destructive) {
-                        modelContext.delete(journalEntry)
-                    } label: {
-                        Label("Delete Entry", systemImage: "trash")
-                    }
-                }
-                .background(
+                .overlay(
                     Group {
                         if isEditing {
                             Color.clear
                                 .contentShape(RoundedRectangle(cornerRadius: 16))
                                 .onTapGesture {
                                     withAnimation(.snappy) {
-                                        if isSelected {
-                                            selectedEntries = selectedEntries.filter { $0 != journalEntry }
-                                        } else {
-                                            selectedEntries.append(journalEntry)
-                                        }
+                                        toggleSelection(journalEntry, isSelected: isSelected)
                                     }
                                 }
-                        }
-                    }
-                )
-                .overlay(
-                    Group {
-                        if isEditing && isSelected {
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(Color.accentColor, lineWidth: 2)
+                                .accessibilityElement()
+                                .accessibilityLabel(GridCardView.accessibilityTitle(for: journalEntry))
+                                .accessibilityValue(isSelected ? "Selected" : "Not selected")
+                                .accessibilityHint("Double-tap to select")
+                                .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+                                .accessibilityAction {
+                                    withAnimation(.snappy) {
+                                        toggleSelection(journalEntry, isSelected: isSelected)
+                                    }
+                                }
                         }
                     }
                 )
@@ -495,6 +499,14 @@ struct HomeView: View {
     
     private func clamp(_ value: CGFloat, lower: CGFloat, upper: CGFloat) -> CGFloat {
         max(lower, min(upper, value))
+    }
+    
+    private func toggleSelection(_ entry: JournalEntry, isSelected: Bool) {
+        if isSelected {
+            selectedEntries = selectedEntries.filter { $0 != entry }
+        } else {
+            selectedEntries.append(entry)
+        }
     }
     
     private func prepareEntryForSharing(_ entry: JournalEntry) async {
