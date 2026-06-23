@@ -163,6 +163,7 @@ struct JogBookView: View {
                 
                 ForEach(0..<daysInCurrentMonth, id: \.self) { index in
                     let indexDate = Calendar.current.date(byAdding: .day, value: index, to: Calendar.current.date(from: startOfselectedMonthYear)!)!
+                    let hasEntry = hasJournalEntry(for: indexDate)
                     
                     Button(action: {
                         withAnimation(.snappy) {
@@ -170,10 +171,10 @@ struct JogBookView: View {
                         }
                     }, label: {
                         RoundedRectangle(cornerRadius: 8)
-                            .foregroundStyle(hasJournalEntry(for: indexDate) ? Color.accentColor : Color.secondary)
+                            .foregroundStyle(hasEntry ? Color.accentColor : Color.secondary)
                             .aspectRatio(1, contentMode: .fit)
                             .glassEffect(
-                                .regular.interactive().tint(hasJournalEntry(for: indexDate) ? Color.accentColor.opacity(0.5) : Color.secondary.opacity(0.5)),
+                                .regular.interactive().tint(hasEntry ? Color.accentColor.opacity(0.5) : Color.secondary.opacity(0.5)),
                                 in: RoundedRectangle(cornerRadius: 8)
                             )
                     })
@@ -185,6 +186,9 @@ struct JogBookView: View {
                             .fill(Color.clear)
                             .stroke(selectedDay != nil && Calendar.current.isDate(indexDate, inSameDayAs: selectedDay!) ? Color.primary : Color.clear, lineWidth: 3)
                     }
+                    .accessibilityLabel(indexDate.formatted(.dateTime.month(.wide).day().year()))
+                    .accessibilityValue(hasEntry ? "Entry logged" : "No entry logged")
+                    .accessibilityAddTraits(selectedDay == indexDate ? .isSelected : [])
                 }
             }
         }
