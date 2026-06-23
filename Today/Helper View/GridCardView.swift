@@ -72,5 +72,43 @@ struct GridCardView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .frame(width: size.width, height: size.height)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityTitle)
+        .accessibilityValue(accessibilityValue)
+        .accessibilityHint("Opens the journal entry")
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
+extension GridCardView {
+    /// Returns a human-friendly media type string for accessibility.
+    private var accessibilityMediaType: String {
+        switch journalEntry.mediaType {
+        case .video: return "Video"
+        case .audio: return "Audio"
+        }
+    }
+    
+    /// Title if present; otherwise a formatted date string.
+    private var accessibilityPrimaryText: String {
+        if !journalEntry.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return journalEntry.title
+        } else {
+            return journalEntry.date.formatted(date: .long, time: .omitted)
+        }
+    }
+    
+    /// Full label announced by VoiceOver, e.g. "Video, Family Picnic" or "Audio, June 23, 2026".
+    fileprivate var accessibilityTitle: String {
+        "\(accessibilityMediaType), \(accessibilityPrimaryText)"
+    }
+    
+    /// Secondary value for additional context. If a title exists, provide the date; otherwise empty.
+    fileprivate var accessibilityValue: String {
+        if !journalEntry.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return journalEntry.date.formatted(date: .long, time: .omitted)
+        } else {
+            return ""
+        }
     }
 }

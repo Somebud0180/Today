@@ -65,9 +65,7 @@ struct HomeView: View {
         GeometryReader { proxy in
             NavigationStack {
                 let transition = zoomTransition(in: proxy.size)
-                let blurHeight = topBarHeight
-                let titleHorizontalPadding = TitlePadding.horizontal(proxy, isPad: isPad)
-                let titleTopPadding = TitlePadding.top(proxy, isPad: isPad)
+                let blurHeight = topBarHeight + TitlePadding.top(proxy, isPad: isPad)
                 
                 ZStack(alignment: .topLeading) {
                     ScrollViewReader { reader in
@@ -100,6 +98,7 @@ struct HomeView: View {
                         }
                         .scrollTargetBehavior(.welcomeBoundary)
                         .scrollPosition($scrollPosition)
+                        .scrollEdgeEffectStyle(.soft, for: .top)
                         .onAppear {
                             DispatchQueue.main.async {
                                 withAnimation(.snappy) {
@@ -154,44 +153,14 @@ struct HomeView: View {
                         startPoint: .top,
                         endPoint: .bottom
                     )
-                        .blur(radius: 4)
-                        .frame(height: blurHeight)
-                        .ignoresSafeArea()
-                    
-                    
-                    VariableBlurView(maxBlurRadius: 10)
-                        .frame(height: blurHeight)
-                        .ignoresSafeArea()
-                    
-                    VStack(alignment: .leading) {
-                        Text("Today")
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
-                        Text(titleSubtext)
-                            .font(.headline)
-                            .fontWeight(.semibold)
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.leading, titleHorizontalPadding)
-                    .padding(.top, titleTopPadding)
-                    .animation(.snappy, value: titleHorizontalPadding)
-                    .animation(.snappy, value: titleTopPadding)
+                    .blur(radius: 4)
+                    .frame(height: blurHeight + 8)
+                    .offset(y: -8)
                     .ignoresSafeArea()
-                    .background(
-                        GeometryReader { geo in
-                            Color.clear
-                                .onAppear {
-                                    withAnimation(.snappy) {
-                                        topBarHeight = geo.size.height
-                                    }
-                                }
-                                .onChange(of: geo.size.height) {
-                                    withAnimation(.snappy) {
-                                        topBarHeight = geo.size.height
-                                    }
-                                }
-                        }
-                    )
+                    
+                    VariableBlurView(maxBlurRadius: 4)
+                        .frame(height: blurHeight)
+                        .ignoresSafeArea()
                 }
                 .simultaneousGesture(zoomGesture)
                 .navigationBarTitleDisplayMode(.inline)
@@ -222,6 +191,34 @@ struct HomeView: View {
                     )
                 }
                 .toolbar {
+                    ToolbarItem(placement: .principal) {
+                        VStack(alignment: .leading) {
+                            Text("Today")
+                                .font(.largeTitle)
+                                .fontWeight(.bold)
+                            Text(titleSubtext)
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                        }
+                        .foregroundStyle(.white)
+                        .accessibilityAddTraits(.isHeader)
+                        .background(
+                            GeometryReader { geo in
+                                Color.clear
+                                    .onAppear {
+                                        withAnimation(.snappy) {
+                                            topBarHeight = geo.size.height
+                                        }
+                                    }
+                                    .onChange(of: geo.size.height) {
+                                        withAnimation(.snappy) {
+                                            topBarHeight = geo.size.height
+                                        }
+                                    }
+                            }
+                        )
+                    }
+                    
                     ToolbarItemGroup(placement: .topBarTrailing) {
                         ControlGroup {
                             if isPreparingShare {
@@ -259,6 +256,7 @@ struct HomeView: View {
                                     Label("Done", systemImage: "checkmark")
                                         .labelStyle(.iconOnly)
                                 })
+                                .buttonBorderShape(.capsule)
                             } else {
                                 Button(action: {
                                     withAnimation(.snappy) { editMode?.wrappedValue = .active }
@@ -266,6 +264,7 @@ struct HomeView: View {
                                     Label("Select", systemImage: "checkmark.circle")
                                         .labelStyle(.titleOnly)
                                 })
+                                .buttonBorderShape(.capsule)
                             }
                         }
                         
@@ -283,6 +282,7 @@ struct HomeView: View {
                         .scaledToFill()
                         .ignoresSafeArea(.all)
                         .animation(.easeInOut(duration: 0.5), value: colorScheme)
+                        .accessibilityHidden(true)
                 )
             }
         }
@@ -303,16 +303,20 @@ struct HomeView: View {
             
             Spacer()
             
-            Text("Good day")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-                .foregroundStyle(.white)
-                .shadow(radius: 4)
-            
-            Text("How are you feeling today?")
-                .font(.title2)
-                .foregroundStyle(.white)
-                .shadow(radius: 4)
+            Group {
+                Text("Good day")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.white)
+                    .shadow(radius: 4)
+                
+                Text("How are you feeling today?")
+                    .font(.title2)
+                    .foregroundStyle(.white)
+                    .shadow(radius: 4)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Good day. How are you feeling today?")
             
             Spacer()
         }
