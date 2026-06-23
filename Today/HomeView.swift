@@ -8,15 +8,6 @@
 import SwiftUI
 import SwiftData
 
-struct ViewLayoutMetrics {
-    var availableWidth: CGFloat = 0
-    var columns: [GridItem] = []
-    var cardSize: CGSize = .zero
-    var spacing: CGFloat = 0
-    var titleTopPadding: CGFloat = 0
-    var titleHorizontalPadding: CGFloat = 0
-}
-
 private struct ZoomTransitionState {
     var currentStep: Int
     var nextStep: Int
@@ -353,51 +344,19 @@ struct HomeView: View {
     
     @ViewBuilder
     private func gridLayer(metrics: ViewLayoutMetrics) -> some View {
-        LazyVGrid(columns: metrics.columns, alignment: .leading, spacing: metrics.spacing) {
-            ForEach(journalEntries) { journalEntry in
-                let isEditing = editMode?.wrappedValue.isEditing == true
-                let isSelected = selectedEntries.contains(journalEntry)
-                
-                NavigationLink {
-                    JournalView(selectedEntry: journalEntry)
-                        .toolbar(.hidden, for: .tabBar)
-                        .environmentObject(transcriptionManager)
-                        .navigationTransition(.zoom(sourceID: journalEntry, in: namespace))
-                } label: {
-                    GridCardView(for: journalEntry, size: metrics.cardSize)
-                        .matchedTransitionSource(id: journalEntry, in: namespace)
-                }
-                .buttonStyle(.plain)
-                .id(journalEntry.date)
-                .opacity(isEditing && !isSelected ? 0.8 : 1)
-                .accessibilityHidden(isEditing)
-                .allowsHitTesting(!isEditing)
-                .overlay(
-                    Group {
-                        if isEditing {
-                            Color.clear
-                                .contentShape(RoundedRectangle(cornerRadius: 16))
-                                .onTapGesture {
-                                    withAnimation(.snappy) {
-                                        toggleSelection(journalEntry, isSelected: isSelected)
-                                    }
-                                }
-                                .accessibilityElement()
-                                .accessibilityLabel(GridCardView.accessibilityTitle(for: journalEntry))
-                                .accessibilityValue(isSelected ? "Selected" : "Not selected")
-                                .accessibilityHint("Double-tap to select")
-                                .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
-                                .accessibilityAction {
-                                    withAnimation(.snappy) {
-                                        toggleSelection(journalEntry, isSelected: isSelected)
-                                    }
-                                }
-                        }
-                    }
-                )
-            }
-        }
-        .scrollTargetLayout()
+        JournalGridView(
+            entries: journalEntries,
+            metrics: metrics,
+            isEditing: editMode?.wrappedValue.isEditing == true,
+            selectedEntries: $selectedEntries,
+            destination: { journalEntry in
+                JournalView(selectedEntry: journalEntry)
+                    .toolbar(.hidden, for: .tabBar)
+                    .environmentObject(transcriptionManager)
+                    .navigationTransition(.zoom(sourceID: journalEntry, in: namespace))
+            },
+            namespace: namespace
+        )
     }
     
     // MARK: - Zoom Transition

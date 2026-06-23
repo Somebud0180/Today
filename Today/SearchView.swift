@@ -60,14 +60,25 @@ struct SearchView: View {
     var body: some View {
         GeometryReader { proxy in
             let metrics = layoutMetrics(in: proxy.size)
+            let blurHeight = topBarHeight + TitlePadding.top(proxy, isPad: isPad)
             let isEditing = editMode?.wrappedValue.isEditing == true
-            let titleHorizontalPadding = TitlePadding.horizontal(proxy, isPad: isPad)
-            let titleTopPadding = TitlePadding.top(proxy, isPad: isPad)
             
             NavigationStack {
                 ZStack(alignment: .topLeading) {
                     ScrollView(.vertical, showsIndicators: true) {
-                        gridLayer(metrics: metrics)
+                        JournalGridView(
+                            entries: filteredEntries,
+                            metrics: metrics,
+                            isEditing: isEditing,
+                            selectedEntries: $selectedEntries,
+                            destination: { journalEntry in
+                                JournalView(selectedEntry: journalEntry)
+                                    .toolbar(.hidden, for: .tabBar)
+                                    .environmentObject(transcriptionManager)
+                                    .navigationTransition(.zoom(sourceID: journalEntry, in: namespace))
+                            },
+                            namespace: namespace
+                        )
                             .padding(gridPadding)
                     }
                     
@@ -77,37 +88,13 @@ struct SearchView: View {
                         endPoint: .bottom
                     )
                     .blur(radius: 4)
-                    .frame(height: topBarHeight)
+                    .frame(height: blurHeight + 8)
+                    .offset(y: -8)
                     .ignoresSafeArea()
                     
-                    VariableBlurView(maxBlurRadius: 10)
-                        .frame(height: topBarHeight)
+                    VariableBlurView(maxBlurRadius: 4)
+                        .frame(height: blurHeight)
                         .ignoresSafeArea()
-                    
-                    Text("Search")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.white)
-                        .padding(.leading, titleHorizontalPadding)
-                        .padding(.top, titleTopPadding)
-                        .animation(.snappy, value: titleHorizontalPadding)
-                        .animation(.snappy, value: titleTopPadding)
-                        .ignoresSafeArea()
-                        .background(
-                            GeometryReader { geo in
-                                Color.clear
-                                    .onAppear {
-                                        withAnimation(.snappy) {
-                                            topBarHeight = geo.size.height
-                                        }
-                                    }
-                                    .onChange(of: geo.size.height) {
-                                        withAnimation(.snappy) {
-                                            topBarHeight = geo.size.height
-                                        }
-                                    }
-                            }
-                        )
                 }
                 .navigationBarTitleDisplayMode(.inline)
                 .alert("Delete Entries?", isPresented: $showDeleteConfirmaton, actions: {
@@ -136,9 +123,39 @@ struct SearchView: View {
                         }
                     )
                 }
+                .onChange(of: isPreparingShare) { _, isPreparing in
+                    if isPreparing {
+                        UIAccessibility.post(notification: .announcement, argument: "Exporting entry")
+                    } else {
+                        UIAccessibility.post(notification: .announcement, argument: "Export finished")
+                    }
+                }
                 .toolbar(isEditing ? .hidden : .visible, for: .tabBar)
                 .toolbar(isEditing ? .visible : .hidden, for: .bottomBar)
                 .toolbar {
+                    ToolbarItem(placement: .principal) {
+                        Text("Search")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.white)
+                            .accessibilityAddTraits(.isHeader)
+                            .background(
+                                GeometryReader { geo in
+                                    Color.clear
+                                        .onAppear {
+                                            withAnimation(.snappy) {
+                                                topBarHeight = geo.size.height
+                                            }
+                                        }
+                                        .onChange(of: geo.size.height) {
+                                            withAnimation(.snappy) {
+                                                topBarHeight = geo.size.height
+                                            }
+                                        }
+                                }
+                            )
+                    }
+                    
                     ToolbarItemGroup(placement: .topBarTrailing) {
                         if isPreparingShare {
                             Label("Exporting", systemImage: "progress.indicator")
@@ -204,68 +221,6 @@ struct SearchView: View {
                         .ignoresSafeArea(.all)
                         .animation(.easeInOut(duration: 0.5), value: colorScheme)
                         .accessibilityHidden(true)
-                )
-            }
-        }
-    }
-    
-    @ViewBuilder
-    private func gridLayer(metrics: ViewLayoutMetrics) -> some View {
-        LazyVGrid(columns: metrics.columns, alignment: .center, spacing: metrics.spacing) {
-            ForEach(filteredEntries) { journalEntry in
-                let isEditing = editMode?.wrappedValue.isEditing == true
-                let isSelected = selectedEntries.contains(journalEntry)
-                
-                NavigationLink {
-                    JournalView(selectedEntry: journalEntry)
-                        .toolbar(.hidden, for: .tabBar)
-                        .environmentObject(transcriptionManager)
-                        .navigationTransition(.zoom(sourceID: journalEntry, in: namespace))
-                } label: {
-                    GridCardView(for: journalEntry, size: metrics.cardSize)
-                        .matchedTransitionSource(id: journalEntry, in: namespace)
-                }
-                .buttonStyle(.plain)
-                .id(journalEntry.date)
-                .allowsHitTesting(!isEditing)
-                .opacity(isEditing && !isSelected ? 0.7 : 1.0)
-                .contextMenu {
-                    Button {
-                        Task { await prepareEntryForSharing(journalEntry) }
-                    } label: {
-                        Label("Export Entry", systemImage: "square.and.arrow.up")
-                    }
-                    
-                    Button(role: .destructive) {
-                        modelContext.delete(journalEntry)
-                    } label: {
-                        Label("Delete Entry", systemImage: "trash")
-                    }
-                }
-                .background(
-                    Group {
-                        if isEditing {
-                            Color.clear
-                                .contentShape(RoundedRectangle(cornerRadius: 16))
-                                .onTapGesture {
-                                    withAnimation(.snappy) {
-                                        if isSelected {
-                                            selectedEntries = selectedEntries.filter { $0 != journalEntry }
-                                        } else {
-                                            selectedEntries.append(journalEntry)
-                                        }
-                                    }
-                                }
-                        }
-                    }
-                )
-                .overlay(
-                    Group {
-                        if isEditing && isSelected {
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(Color.accentColor, lineWidth: 2)
-                        }
-                    }
                 )
             }
         }
