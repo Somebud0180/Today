@@ -23,6 +23,7 @@ struct SearchView: View {
     @State private var showDeleteConfirmaton: Bool = false
     @State private var topBarHeight: CGFloat = 0.0
     @State private var isPad = UIDevice.current.userInterfaceIdiom == .pad
+    @State private var hideTabBar: Bool = false
     
     @State private var selectedEntries: [JournalEntry] = []
     @State private var isPreparingShare = false
@@ -73,9 +74,15 @@ struct SearchView: View {
                             selectedEntries: $selectedEntries,
                             destination: { journalEntry in
                                 JournalView(selectedEntry: journalEntry)
-                                    .toolbar(.hidden, for: .tabBar)
                                     .environmentObject(transcriptionManager)
                                     .navigationTransition(.zoom(sourceID: journalEntry, in: namespace))
+                                    .onAppear {
+                                        searchPresented = false
+                                        hideTabBar = true
+                                    }
+                                    .onDisappear {
+                                        hideTabBar = false
+                                    }
                             },
                             namespace: namespace
                         )
@@ -130,7 +137,7 @@ struct SearchView: View {
                         UIAccessibility.post(notification: .announcement, argument: "Export finished")
                     }
                 }
-                .toolbar(isEditing ? .hidden : .visible, for: .tabBar)
+                .toolbar(isEditing || hideTabBar ? .hidden : .visible, for: .tabBar)
                 .toolbar(isEditing ? .visible : .hidden, for: .bottomBar)
                 .toolbar {
                     ToolbarItem(placement: .principal) {
