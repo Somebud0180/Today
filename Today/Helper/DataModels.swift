@@ -142,7 +142,10 @@ class JournalEntry: Identifiable {
 
         return Image(uiImage: ui)
     }
+}
 
+// MARK: - Audio Decode
+extension JournalEntry {
     /// Decodes power metrics data for this entry (legacy audio-only)
     func decodedPowerFrames() -> [CodableRecordedPowerFrame]? {
         guard let data = powerMetricsData else { return nil }
@@ -153,7 +156,7 @@ class JournalEntry: Identifiable {
             return nil
         }
     }
-
+    
     /// Decodes waveform data for this entry (audio-only)
     func decodedWaveform() -> CodableAudioWaveform? {
         guard let data = waveformData else { return nil }
@@ -174,7 +177,10 @@ class JournalEntry: Identifiable {
             return nil
         }
     }
+}
 
+// MARK: - Thumbnails
+extension JournalEntry {
     /// Returns a short centered snippet of the audio waveform for grid thumbnails.
     func audioWaveformThumbnailLevels(maxBars: Int = 24) -> [CGFloat]? {
         guard mediaType == .audio,
@@ -183,15 +189,60 @@ class JournalEntry: Identifiable {
               !waveform.samplesLinear.isEmpty else {
             return nil
         }
-
+        
         let samples = waveform.samplesLinear
         let snippetCount = min(maxBars, samples.count)
         let startIndex = max(0, (samples.count - snippetCount) / 2)
         let endIndex = startIndex + snippetCount
-
+        
         return samples[startIndex..<endIndex].map { CGFloat($0) }
     }
     
+    static func audioWaveformThumbnailLevels(_ linearSamples: [Float], maxBars: Int = 24) -> [CGFloat]? {
+        guard maxBars > 0, !linearSamples.isEmpty else {
+            return nil
+        }
+        
+        let snippetCount = min(maxBars, linearSamples.count)
+        let startIndex = max(0, (linearSamples.count - snippetCount) / 2)
+        let endIndex = startIndex + snippetCount
+        
+        return linearSamples[startIndex..<endIndex].map { CGFloat($0) }
+    }
+    
+    static func generateThumbnailData(from videoURL: URL) -> Data? {
+        final class ThumbnailDataBox: @unchecked Sendable { var data: Data? }
+        
+        let asset = AVURLAsset(url: videoURL)
+        let imageGenerator = AVAssetImageGenerator(asset: asset)
+        imageGenerator.appliesPreferredTrackTransform = true
+        imageGenerator.maximumSize = CGSize(width: 600, height: 400)
+        
+        let time = CMTimeMakeWithSeconds(1, preferredTimescale: 600)
+        let box = ThumbnailDataBox()
+        let semaphore = DispatchSemaphore(value: 0)
+        
+        imageGenerator.generateCGImageAsynchronously(for: time) { cgImage, _, error in
+            defer { semaphore.signal() }
+            
+            if let error {
+                print("Thumbnail generation error: \(error)")
+                return
+            }
+            
+            guard let cgImage else { return }
+            
+            let thumbnail = UIImage(cgImage: cgImage)
+            box.data = thumbnail.jpegData(compressionQuality: 0.85)
+        }
+        
+        semaphore.wait()
+        return box.data
+    }
+}
+
+// MARK: - Quick Export
+extension JournalEntry {
     /// Returns a URL suitable for sharing this entry's media (with note embedded as video metadata for videos)
     func exportMediaURLForSharing() async -> URL? {
         switch mediaType {
@@ -262,47 +313,4 @@ class JournalEntry: Identifiable {
             return nil
         }
     }
-    
-    static func audioWaveformThumbnailLevels(_ linearSamples: [Float], maxBars: Int = 24) -> [CGFloat]? {
-        guard maxBars > 0, !linearSamples.isEmpty else {
-            return nil
-        }
-        
-        let snippetCount = min(maxBars, linearSamples.count)
-        let startIndex = max(0, (linearSamples.count - snippetCount) / 2)
-        let endIndex = startIndex + snippetCount
-        
-        return linearSamples[startIndex..<endIndex].map { CGFloat($0) }
-    }
-    
-    static func generateThumbnailData(from videoURL: URL) -> Data? {
-        final class ThumbnailDataBox: @unchecked Sendable { var data: Data? }
-
-        let asset = AVURLAsset(url: videoURL)
-        let imageGenerator = AVAssetImageGenerator(asset: asset)
-        imageGenerator.appliesPreferredTrackTransform = true
-        imageGenerator.maximumSize = CGSize(width: 600, height: 400)
-
-        let time = CMTimeMakeWithSeconds(1, preferredTimescale: 600)
-        let box = ThumbnailDataBox()
-        let semaphore = DispatchSemaphore(value: 0)
-
-        imageGenerator.generateCGImageAsynchronously(for: time) { cgImage, _, error in
-            defer { semaphore.signal() }
-
-            if let error {
-                print("Thumbnail generation error: \(error)")
-                return
-            }
-
-            guard let cgImage else { return }
-
-            let thumbnail = UIImage(cgImage: cgImage)
-            box.data = thumbnail.jpegData(compressionQuality: 0.85)
-        }
-
-        semaphore.wait()
-        return box.data
-    }
 }
-
