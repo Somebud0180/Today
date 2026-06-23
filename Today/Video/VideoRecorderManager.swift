@@ -182,10 +182,6 @@ extension VideoRecorderManager {
             guard let self else { return }
             guard self.movieOutput.isRecording else { return }
             self.movieOutput.stopRecording()
-            
-            DispatchQueue.main.async {
-                self.showConfirmation = true
-            }
         }
     }
 
@@ -749,6 +745,7 @@ extension VideoRecorderManager: AVCaptureFileOutputRecordingDelegate {
             if nsError.code == 19914 || nsError.code == -19431 || error.localizedDescription.lowercased().contains("recording stopped") {
                 DispatchQueue.main.async {
                     self.lastRecordingURL = outputFileURL
+                    self.showConfirmation = true
                 }
                 return
             }
@@ -758,6 +755,7 @@ extension VideoRecorderManager: AVCaptureFileOutputRecordingDelegate {
         
         DispatchQueue.main.async {
             self.lastRecordingURL = outputFileURL
+            self.showConfirmation = true
         }
     }
 }
