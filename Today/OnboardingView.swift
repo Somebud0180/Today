@@ -80,13 +80,17 @@ struct OnboardingView: View {
                     
                     switch currentStep {
                     case 0:
-                        Text("Welcome to")
-                            .font(.title)
-                            .fontWeight(.medium)
-                        
-                        Text("Today")
-                            .font(.largeTitle)
-                            .fontWeight(.heavy)
+                        VStack {
+                            Text("Welcome to")
+                                .font(.title)
+                                .fontWeight(.medium)
+                            
+                            Text("Today")
+                                .font(.largeTitle)
+                                .fontWeight(.heavy)
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("Welcome to Today")
                         
                         Spacer()
                         
@@ -117,6 +121,7 @@ struct OnboardingView: View {
                                     animateGlyph.toggle()
                                 }
                             }
+                            .accessibilityHidden(true)
                         
                         
                         Spacer()
@@ -178,6 +183,8 @@ struct OnboardingView: View {
                                                 .regular.interactive().tint(isActive ? Color.accentColor.opacity(0.5) : Color.secondary.opacity(0.5)),
                                                 in: RoundedRectangle(cornerRadius: 6)
                                             )
+                                            .accessibilityLabel("Day \(block + 1)")
+                                            .accessibilityValue(isActive ? "Entry logged" : "No entry logged")
                                     }
                                 }
                                 .aspectRatio(4/3, contentMode: .fit)
@@ -239,6 +246,8 @@ struct OnboardingView: View {
                         }
                         .frame(maxWidth: .infinity, maxHeight: 72)
                         .padding(.horizontal, 16)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("Today. It's time for your daily journal, spend some time in the app.")
                         
                         Spacer()
                         
@@ -324,6 +333,9 @@ struct OnboardingView: View {
                             currentStep = page - 1
                         }
                         .animation(.easeIn, value: isActive)
+                        .accessibilityLabel("Page \(page)")
+                        .accessibilityValue(isActive ? "Active" : "Inactive")
+                        .accessibilityHint("Double-tap to go to this page")
                 }
             }
         }
