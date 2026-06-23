@@ -37,6 +37,9 @@ struct ThemePickerView: View {
                     LazyVGrid(columns: gridColumns, spacing: 8) {
                         backgroundCard("Waving Hills")
                         backgroundCard("Atmosphere")
+                        backgroundCard("Viola")
+                        backgroundCard("Sunset")
+                        backgroundCard("Skywards")
                     }
                 }
             }
