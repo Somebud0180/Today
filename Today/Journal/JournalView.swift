@@ -90,6 +90,7 @@ struct JournalView: View {
                                 .blur(radius: 24)
                                 .ignoresSafeArea(.all)
                                 .animation(.easeInOut(duration: 0.5), value: colorScheme)
+                                .accessibilityHidden(true)
                         )
                         .ignoresSafeArea()
                         .onAppear { isLandscape = proxy.size.width > proxy.size.height }

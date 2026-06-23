@@ -297,6 +297,7 @@ struct OnboardingView: View {
                     .scaledToFill()
                     .ignoresSafeArea(.all)
                     .animation(.easeInOut(duration: 0.5), value: colorScheme)
+                    .accessibilityHidden(true)
             )
             .onAppear {
                 Task {
