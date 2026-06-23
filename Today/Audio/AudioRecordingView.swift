@@ -147,6 +147,10 @@ struct AudioRecordingView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 24)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Elapsed recording time")
+        .accessibilityValue(accessibleTimeFormat(elapsedTime))
+        .accessibilityAddTraits(.updatesFrequently)
     }
     
     func waveformView() -> some View {
@@ -163,6 +167,7 @@ struct AudioRecordingView: View {
         .animation(.easeInOut, value: isRecording || isPlaying)
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 24)
+        .accessibilityHidden(true)
     }
     
     func buttonView() -> some View {
@@ -181,6 +186,9 @@ struct AudioRecordingView: View {
                 .buttonStyle(.glassProminent)
                 .disabled(isRecording)
                 .opacity(isRecording ? 0.5 : 1.0)
+                .accessibilityLabel("Microphone input")
+                .accessibilityValue(manager.activeMicrophoneName)
+                .accessibilityHint("Double tap to choose a different microphone")
                 
                 Button(action: toggleRecording) {
                     Text(isRecording ? "Stop Recording" : "Start Recording")
@@ -267,6 +275,12 @@ struct AudioRecordingView: View {
         let minutes = Int(seconds) / 60
         let secs = Int(seconds) % 60
         return String(format: "%02d:%02d", minutes, secs)
+    }
+    
+    private func accessibleTimeFormat(_ seconds: TimeInterval) -> String {
+        let minutes = Int(seconds) / 60
+        let secs = Int(seconds) % 60
+        return "\(minutes) minute\(minutes == 1 ? "" : "s") and \(secs) second\(secs == 1 ? "" : "s")"
     }
     
     private func toggleRecording() {
