@@ -94,17 +94,13 @@ struct JournalView: View {
             .toolbar(isExpanded ? .hidden : .visible, for: .navigationBar)
             .background {
                 GeometryReader { proxy in
-                    Color.gray.opacity(0.6)
-                        .background(
-                            Image(selectedBackground)
-                                .resizable()
-                                .scaledToFill()
-                                .blur(radius: 24)
-                                .ignoresSafeArea(.all)
-                                .animation(.easeInOut(duration: 0.5), value: colorScheme)
-                                .accessibilityHidden(true)
-                        )
-                        .ignoresSafeArea(.all)
+                    Image(selectedBackground)
+                        .resizable()
+                        .scaledToFill()
+                        .blur(radius: 24)
+                        .accessibilityHidden(true)
+                        .overlay(Color.gray.opacity(0.6))
+                        .animation(.easeInOut(duration: 0.5), value: colorScheme)
                         .onAppear { isLandscape = proxy.size.width > proxy.size.height }
                         .onChange(of: proxy.size) { isLandscape = proxy.size.width > proxy.size.height }
                 }

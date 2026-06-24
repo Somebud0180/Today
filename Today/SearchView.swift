@@ -210,15 +210,9 @@ struct SearchView: View {
                             .resizable()
                             .scaledToFill()
                             .blur(radius: backgroundBlur, opaque: true)
-                        
-                            .animation(.smooth(duration: 0.4), value: backgroundBlur)
-                            .ignoresSafeArea(.all)
-                            .clipped()
-                            .animation(
-                                .easeInOut(duration: 0.5),
-                                value: colorScheme
-                            )
                             .accessibilityHidden(true)
+                            .animation(.smooth(duration: 0.4), value: backgroundBlur)
+                            .animation(.easeInOut(duration: 0.5), value: colorScheme)
                     }
                         .ignoresSafeArea(.all)
                 )

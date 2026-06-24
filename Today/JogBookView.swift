@@ -98,14 +98,9 @@ struct JogBookView: View {
                         .resizable()
                         .scaledToFill()
                         .blur(radius: backgroundBlur, opaque: true)
-                        
-                        .animation(.smooth(duration: 0.4), value: backgroundBlur)
-                        .ignoresSafeArea(.all)
-                        .clipped()
-                        .animation(.easeInOut(duration: 0.5), value: colorScheme)
                         .accessibilityHidden(true)
-                        .onAppear { isLandscape = proxy.size.width > proxy.size.height }
-                        .onChange(of: proxy.size) { isLandscape = proxy.size.width > proxy.size.height }
+                        .animation(.smooth(duration: 0.4), value: backgroundBlur)
+                        .animation(.easeInOut(duration: 0.5), value: colorScheme)
                 }
                 .ignoresSafeArea(.all)
             }

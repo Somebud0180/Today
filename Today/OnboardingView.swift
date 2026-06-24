@@ -305,13 +305,8 @@ struct OnboardingView: View {
                     Image(selectedBackground)
                         .resizable()
                         .scaledToFill()
-                        .ignoresSafeArea(.all)
-                        .clipped()
-                        .animation(
-                            .easeInOut(duration: 0.5),
-                            value: colorScheme
-                        )
                         .accessibilityHidden(true)
+                        .animation(.easeInOut(duration: 0.5), value: colorScheme)
                 }
                     .ignoresSafeArea(.all)
             )
