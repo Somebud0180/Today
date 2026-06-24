@@ -30,6 +30,14 @@ struct JournalView: View {
     @FocusState private var titleFieldFocused: Bool
     
     var body: some View {
+        var backgroundOverlay: Color {
+            if colorScheme == .light {
+                Color.gray.opacity(0.5)
+            } else {
+                Color.black.opacity(0.5)
+            }
+        }
+        
         NavigationStack {
             ZStack {
                 if resolvedURL != nil {
@@ -99,7 +107,7 @@ struct JournalView: View {
                         .scaledToFill()
                         .blur(radius: 24)
                         .accessibilityHidden(true)
-                        .overlay(Color.gray.opacity(0.6))
+                        .overlay(backgroundOverlay)
                         .animation(.easeInOut(duration: 0.5), value: colorScheme)
                         .onAppear { isLandscape = proxy.size.width > proxy.size.height }
                         .onChange(of: proxy.size) { isLandscape = proxy.size.width > proxy.size.height }
