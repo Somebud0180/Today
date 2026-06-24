@@ -287,7 +287,9 @@ struct HomeView: View {
                         Image(selectedBackground)
                             .resizable()
                             .scaledToFill()
-                            .blur(radius: backgroundBlur)
+                            .blur(radius: backgroundBlur, opaque: true)
+                            
+                        .animation(.smooth(duration: 0.4), value: backgroundBlur)
                             .ignoresSafeArea(.all)
                             .clipped()
                             .animation(

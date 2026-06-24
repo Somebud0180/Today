@@ -86,32 +86,30 @@ struct CreateView: View {
     
     var body: some View {
         NavigationStack {
-            ZStack {
+            GeometryReader { proxy in
+                let isLandscape = proxy.size.width > proxy.size.height
+                
                 if !(activePage == .save) {
                     switch activePage {
                     case .menu:
-                        GeometryReader { proxy in
-                            let isLandscape = proxy.size.width > proxy.size.height
+                        VStack {
+                            Text("What are we feeling today?")
+                                .font(.largeTitle)
+                                .fontWeight(.bold)
+                                .fontDesign(.rounded)
                             
-                            VStack {
-                                Text("What are we feeling today?")
-                                    .font(.largeTitle)
-                                    .fontWeight(.bold)
-                                    .fontDesign(.rounded)
+                            if isLandscape {
+                                journalingSuggestionsButton
                                 
-                                if isLandscape {
-                                    journalingSuggestionsButton
-                                    
-                                    HStackLayout (spacing: 24) {
-                                        createButtons
-                                    }
-                                } else {
-                                    VStackLayout(spacing: 24) {
+                                HStackLayout (spacing: 24) {
+                                    createButtons
+                                }
+                            } else {
+                                VStackLayout(spacing: 24) {
 #if canImport(JournalingSuggestions)
-                                        journalingSuggestionsButton
+                                    journalingSuggestionsButton
 #endif
-                                        createButtons
-                                    }
+                                    createButtons
                                 }
                             }
                         }
@@ -152,9 +150,7 @@ struct CreateView: View {
                         EmptyView()
                     }
                 } else {
-                    GeometryReader { proxy in
-                        let isLandscape = proxy.size.width > proxy.size.height
-                        
+                    Group {
                         if isLandscape {
                             let width = min(proxy.size.width / 2, 220)
                             let height = min(width * (3 / 2), proxy.size.height - 44)
@@ -245,7 +241,8 @@ struct CreateView: View {
                     Image(selectedBackground)
                         .resizable()
                         .scaledToFill()
-                        .blur(radius: backgroundBlur)
+                        .blur(radius: backgroundBlur, opaque: true)
+                        .animation(.smooth(duration: 0.4), value: backgroundBlur)
                         .ignoresSafeArea(.all)
                         .clipped()
                         .animation(

@@ -70,13 +70,9 @@ struct ContentView: View {
         }
         .onChange(of: tabSelection) {
             if tabSelection == 1 {
-                withAnimation(.easeInOut(duration: 1.0)) {
-                    backgroundBlur = 24
-                }
+                backgroundBlur = 24
             } else {
-                withAnimation() {
-                    backgroundBlur = 0
-                }
+                backgroundBlur = 0
             }
             
             if tabSelection == 3 {
