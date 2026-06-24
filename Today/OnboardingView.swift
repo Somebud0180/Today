@@ -36,23 +36,23 @@ struct OnboardingView: View {
                 
                 VStack {
                     HStack {
-                            Button(action: {
-                                currentStep = max(0, currentStep - 1)
-                            }, label: {
-                                Label("Back", systemImage: "chevron.backward")
-                                    .font(.title)
-                                    .labelStyle(.iconOnly)
-                                    .padding(8)
-                                    .frame(minWidth: 44, minHeight: 44)
-                                    .glassEffect(
-                                        .regular,
-                                        in: Circle()
-                                    )
-                            })
-                            .buttonStyle(.plain)
-                            .contentShape(Circle())
-                            .opacity(currentStep > 0 ? 1 : 0)
-                            .disabled(currentStep > 0 ? false : true)
+                        Button(action: {
+                            currentStep = max(0, currentStep - 1)
+                        }, label: {
+                            Label("Back", systemImage: "chevron.backward")
+                                .font(.title)
+                                .labelStyle(.iconOnly)
+                                .padding(8)
+                                .frame(minWidth: 44, minHeight: 44)
+                                .glassEffect(
+                                    .regular,
+                                    in: Circle()
+                                )
+                        })
+                        .buttonStyle(.plain)
+                        .contentShape(Circle())
+                        .opacity(currentStep > 0 ? 1 : 0)
+                        .disabled(currentStep > 0 ? false : true)
                         
                         Spacer()
                         
@@ -197,7 +197,7 @@ struct OnboardingView: View {
                                     .regular,
                                     in: RoundedRectangle(cornerRadius: 16)
                                 )
-                                
+                            
                         )
                         .aspectRatio(0.95, contentMode: .fit)
                         .padding(.horizontal, 32)

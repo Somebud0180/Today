@@ -228,7 +228,6 @@ struct CreateView: View {
                         }
                     }
                     .ignoresSafeArea(.keyboard)
-                    .transition(pageTransition)
                     .onAppear {
                         if transcribeOnSave {
                             performTranscription()

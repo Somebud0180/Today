@@ -87,7 +87,7 @@ struct SearchView: View {
                             },
                             namespace: namespace
                         )
-                            .padding(gridPadding)
+                        .padding(gridPadding)
                     }
                     
                     LinearGradient(
@@ -210,8 +210,8 @@ struct SearchView: View {
                             .resizable()
                             .scaledToFill()
                             .blur(radius: backgroundBlur, opaque: true)
-                            
-                        .animation(.smooth(duration: 0.4), value: backgroundBlur)
+                        
+                            .animation(.smooth(duration: 0.4), value: backgroundBlur)
                             .ignoresSafeArea(.all)
                             .clipped()
                             .animation(

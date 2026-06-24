@@ -32,6 +32,7 @@ struct ContentView: View {
     @State private var searchText: String = ""
     @State private var searchPresented: Bool = false
     @State private var backgroundBlur: CGFloat = 0.0
+    @State private var hasOpenedCreate: Bool = false
     @State private var isPad: Bool = UIDevice.current.userInterfaceIdiom == .pad
     @State var tabSelection: Int = 0
     
@@ -70,7 +71,14 @@ struct ContentView: View {
         }
         .onChange(of: tabSelection) {
             if tabSelection == 1 {
-                backgroundBlur = 24
+                if !hasOpenedCreate {
+                    hasOpenedCreate = true
+                    withAnimation(.default.delay(0.1)) {
+                        backgroundBlur = 24
+                    }
+                } else {
+                    backgroundBlur = 24
+                }
             } else {
                 backgroundBlur = 0
             }
