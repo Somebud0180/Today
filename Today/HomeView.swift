@@ -28,6 +28,8 @@ struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \JournalEntry.date, order: .forward) private var journalEntries: [JournalEntry]
     
+    @Binding var backgroundBlur: CGFloat
+    
     @Namespace private var namespace
     @GestureState private var magnifyBy = 1.0
     @State private var gridZoomStep: Int = 4
@@ -36,7 +38,7 @@ struct HomeView: View {
     @State private var scrollPosition: ScrollPosition = .init(idType: Date.self)
     @State private var isFollowingBottom = true
     @State private var didPerformInitialScroll = false
-    @State private var isPad = UIDevice.current.userInterfaceIdiom == .pad
+    @State private var isPad: Bool = UIDevice.current.userInterfaceIdiom == .pad
     @State private var topBarHeight: CGFloat = 0.0
     @State private var showDeleteConfirmaton: Bool = false
     @State private var dateOnScreen: Date?
@@ -285,6 +287,7 @@ struct HomeView: View {
                         Image(selectedBackground)
                             .resizable()
                             .scaledToFill()
+                            .blur(radius: backgroundBlur)
                             .ignoresSafeArea(.all)
                             .clipped()
                             .animation(
@@ -540,6 +543,6 @@ extension ScrollTargetBehavior where Self == WelcomeBoundaryBehavior {
 }
 
 #Preview {
-    HomeView()
+    HomeView(backgroundBlur: .constant(0))
         .modelContainer(for: JournalEntry.self)
 }

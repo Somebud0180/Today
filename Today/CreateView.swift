@@ -28,16 +28,13 @@ struct CreateView: View {
     
     @EnvironmentObject var transcriptionManager: AudioTranscriptionManager
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
     @Binding var tabSelection: Int
+    @Binding var backgroundBlur: CGFloat
     
     @AppStorage("enableTranscription") private var enableTranscription: Bool = DefaultSettings.enableTranscription
     @AppStorage("transcribeOnSave") private var transcribeOnSave: Bool = DefaultSettings.transcribeOnSave
-    
-    @State private var animateGradient: Bool = false
-    @State private var gradientColors: [Color] = [
-        Color.purple.opacity(0.5),
-        Color.blue.opacity(0.5)
-    ]
+    @AppStorage("selectedBackground") private var selectedBackground: String = DefaultSettings.selectedBackground
     
     @State private var screenHasRecording: Bool = false
     @State private var childShouldReset: Bool = false
@@ -90,29 +87,6 @@ struct CreateView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient(
-                    colors: gradientColors,
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .blur(radius: 12)
-                .hueRotation(.degrees(animateGradient ? 45 : -45))
-                .ignoresSafeArea()
-                .onTapGesture {
-                    // Dismiss keyboard when tapping outside
-                    titleFieldFocused = false
-                    noteFieldFocused = false
-                }
-                .task {
-                    // From https://www.codespeedy.com/gradient-animation-in-swiftui/
-                    withAnimation(
-                        .easeInOut(duration: 3)
-                        .repeatForever())
-                    {
-                        animateGradient.toggle()
-                    }
-                }
-                
                 if !(activePage == .save) {
                     switch activePage {
                     case .menu:
@@ -198,7 +172,7 @@ struct CreateView: View {
                                         let fileExtension = activeURL.pathExtension.isEmpty
                                         ? (mediaType == .video ? "mov" : "m4a")
                                         : activeURL.pathExtension
-
+                                        
                                         transcriptionProgress
                                         
                                         saveFields(activeURL: activeURL, fileExtension: fileExtension, mediaType: mediaType, proxy: proxy)
@@ -266,6 +240,22 @@ struct CreateView: View {
                     }
                 }
             }
+            .background(
+                GeometryReader { proxy in
+                    Image(selectedBackground)
+                        .resizable()
+                        .scaledToFill()
+                        .blur(radius: backgroundBlur)
+                        .ignoresSafeArea(.all)
+                        .clipped()
+                        .animation(
+                            .easeInOut(duration: 0.5),
+                            value: colorScheme
+                        )
+                        .accessibilityHidden(true)
+                }
+                    .ignoresSafeArea(.all)
+            )
         }
     }
     
@@ -770,5 +760,5 @@ struct CenterAlign: LabelStyle {
 
 #Preview {
     @Previewable @State var tabSelection: Int = 1
-    CreateView(tabSelection: $tabSelection)
+    CreateView(tabSelection: $tabSelection, backgroundBlur: .constant(24))
 }

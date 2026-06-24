@@ -18,11 +18,12 @@ struct SearchView: View {
     
     @Binding var searchText: String
     @Binding var searchPresented: Bool
+    @Binding var backgroundBlur: CGFloat
     
     @Namespace private var namespace
     @State private var showDeleteConfirmaton: Bool = false
     @State private var topBarHeight: CGFloat = 0.0
-    @State private var isPad = UIDevice.current.userInterfaceIdiom == .pad
+    @State private var isPad: Bool = UIDevice.current.userInterfaceIdiom == .pad
     @State private var hideTabBar: Bool = false
     
     @State private var selectedEntries: [JournalEntry] = []
@@ -208,6 +209,7 @@ struct SearchView: View {
                         Image(selectedBackground)
                             .resizable()
                             .scaledToFill()
+                            .blur(radius: backgroundBlur)
                             .ignoresSafeArea(.all)
                             .clipped()
                             .animation(
@@ -306,6 +308,6 @@ struct SearchView: View {
 
 #Preview {
     @Previewable @State var searchPresented: Bool = false
-    SearchView(searchText: .constant(""), searchPresented: $searchPresented)
+    SearchView(searchText: .constant(""), searchPresented: $searchPresented, backgroundBlur: .constant(0))
         .modelContainer(for: JournalEntry.self)
 }

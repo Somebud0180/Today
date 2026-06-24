@@ -31,30 +31,31 @@ struct ContentView: View {
     @State private var showOnboarding: Bool = false
     @State private var searchText: String = ""
     @State private var searchPresented: Bool = false
-    @State private var isPad = UIDevice.current.userInterfaceIdiom == .pad
+    @State private var backgroundBlur: CGFloat = 0.0
+    @State private var isPad: Bool = UIDevice.current.userInterfaceIdiom == .pad
     @State var tabSelection: Int = 0
     
     var body: some View {
         TabView(selection: $tabSelection) {
-            Tab("Home", systemImage: "note", value: 0) {
-                HomeView()
+            Tab("Home", systemImage: "house.fill", value: 0) {
+                HomeView(backgroundBlur: $backgroundBlur)
                     .preferredColorScheme(preferredColorScheme.colorScheme)
                     .environmentObject(transcriptionManager)
             }
             
             Tab("Create Entry", systemImage: "note.text.badge.plus", value: 1) {
-                CreateView(tabSelection: $tabSelection)
+                CreateView(tabSelection: $tabSelection, backgroundBlur: $backgroundBlur)
                     .preferredColorScheme(preferredColorScheme.colorScheme)
                     .environmentObject(transcriptionManager)
             }
             
             Tab("Jog Book", systemImage: "ellipsis.calendar", value: 2) {
-                JogBookView()
+                JogBookView(backgroundBlur: $backgroundBlur)
                     .preferredColorScheme(preferredColorScheme.colorScheme)
             }
             
             Tab(value: 3, role: .search) {
-                SearchView(searchText: $searchText, searchPresented: $searchPresented)
+                SearchView(searchText: $searchText, searchPresented: $searchPresented, backgroundBlur: $backgroundBlur)
                     .searchable(text: $searchText, isPresented: $searchPresented, placement: isPad ? .navigationBarDrawer(displayMode: .always) : .automatic, prompt: "Search entries...")
                     .preferredColorScheme(preferredColorScheme.colorScheme)
                     .environmentObject(transcriptionManager)
@@ -68,6 +69,16 @@ struct ContentView: View {
             showOnboarding = !hasCompletedOnboarding
         }
         .onChange(of: tabSelection) {
+            if tabSelection == 1 {
+                withAnimation(.easeInOut(duration: 1.0)) {
+                    backgroundBlur = 24
+                }
+            } else {
+                withAnimation() {
+                    backgroundBlur = 0
+                }
+            }
+            
             if tabSelection == 3 {
                 searchPresented = true
             }

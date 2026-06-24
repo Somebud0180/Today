@@ -16,6 +16,8 @@ struct JogBookView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var journalEntries: [JournalEntry]
     
+    @Binding var backgroundBlur: CGFloat
+    
     @Namespace private var namespace
     @State var calendarGridColumn: [GridItem] = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
     @State var selectedMonthYear: Date = Calendar.current.dateComponents([.year, .month], from: Date()).date ?? Date()
@@ -95,6 +97,7 @@ struct JogBookView: View {
                     Image(selectedBackground)
                         .resizable()
                         .scaledToFill()
+                        .blur(radius: backgroundBlur)
                         .ignoresSafeArea(.all)
                         .clipped()
                         .animation(.easeInOut(duration: 0.5), value: colorScheme)
@@ -301,6 +304,6 @@ struct TrailingIcon: LabelStyle {
 }
 
 #Preview {
-    ContentView(tabSelection: 2)
+    JogBookView(backgroundBlur: .constant(0))
         .modelContainer(for: JournalEntry.self)
 }
