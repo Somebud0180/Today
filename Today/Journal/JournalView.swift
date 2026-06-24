@@ -94,7 +94,7 @@ struct JournalView: View {
             .toolbar(isExpanded ? .hidden : .visible, for: .navigationBar)
             .background {
                 GeometryReader { proxy in
-                    Color.gray.opacity(0.8)
+                    Color.gray.opacity(0.6)
                         .background(
                             Image(selectedBackground)
                                 .resizable()
@@ -104,11 +104,11 @@ struct JournalView: View {
                                 .animation(.easeInOut(duration: 0.5), value: colorScheme)
                                 .accessibilityHidden(true)
                         )
-                        .ignoresSafeArea()
+                        .ignoresSafeArea(.all)
                         .onAppear { isLandscape = proxy.size.width > proxy.size.height }
                         .onChange(of: proxy.size) { isLandscape = proxy.size.width > proxy.size.height }
                 }
-                .ignoresSafeArea(.keyboard)
+                .ignoresSafeArea(.all)
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {

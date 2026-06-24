@@ -96,11 +96,13 @@ struct JogBookView: View {
                         .resizable()
                         .scaledToFill()
                         .ignoresSafeArea(.all)
+                        .clipped()
                         .animation(.easeInOut(duration: 0.5), value: colorScheme)
                         .accessibilityHidden(true)
                         .onAppear { isLandscape = proxy.size.width > proxy.size.height }
                         .onChange(of: proxy.size) { isLandscape = proxy.size.width > proxy.size.height }
                 }
+                .ignoresSafeArea(.all)
             }
         }
     }

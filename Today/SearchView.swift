@@ -204,12 +204,19 @@ struct SearchView: View {
                 }
                 .toolbarRole(.editor) // Forces left aligned principal item https://iifx.dev/en/articles/457777731/bypassing-the-liquid-glass-left-aligned-toolbar-text-in-swiftui-ios-26
                 .background(
-                    Image(selectedBackground)
-                        .resizable()
-                        .scaledToFill()
+                    GeometryReader { proxy in
+                        Image(selectedBackground)
+                            .resizable()
+                            .scaledToFill()
+                            .ignoresSafeArea(.all)
+                            .clipped()
+                            .animation(
+                                .easeInOut(duration: 0.5),
+                                value: colorScheme
+                            )
+                            .accessibilityHidden(true)
+                    }
                         .ignoresSafeArea(.all)
-                        .animation(.easeInOut(duration: 0.5), value: colorScheme)
-                        .accessibilityHidden(true)
                 )
             }
         }

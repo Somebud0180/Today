@@ -301,12 +301,19 @@ struct OnboardingView: View {
                 Text("Are you sure you want to skip the introduction? You can always return here via the settings.")
             }
             .background(
-                Image(selectedBackground)
-                    .resizable()
-                    .scaledToFill()
+                GeometryReader { proxy in
+                    Image(selectedBackground)
+                        .resizable()
+                        .scaledToFill()
+                        .ignoresSafeArea(.all)
+                        .clipped()
+                        .animation(
+                            .easeInOut(duration: 0.5),
+                            value: colorScheme
+                        )
+                        .accessibilityHidden(true)
+                }
                     .ignoresSafeArea(.all)
-                    .animation(.easeInOut(duration: 0.5), value: colorScheme)
-                    .accessibilityHidden(true)
             )
             .onAppear {
                 Task {
