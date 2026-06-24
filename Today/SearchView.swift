@@ -141,26 +141,7 @@ struct SearchView: View {
                 .toolbar(isEditing ? .visible : .hidden, for: .bottomBar)
                 .toolbar {
                     ToolbarItem(placement: .principal) {
-                        Text("Search")
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.white)
-                            .accessibilityAddTraits(.isHeader)
-                            .background(
-                                GeometryReader { geo in
-                                    Color.clear
-                                        .onAppear {
-                                            withAnimation(.snappy) {
-                                                topBarHeight = geo.size.height
-                                            }
-                                        }
-                                        .onChange(of: geo.size.height) {
-                                            withAnimation(.snappy) {
-                                                topBarHeight = geo.size.height
-                                            }
-                                        }
-                                }
-                            )
+                        titleText
                     }
                     
                     ToolbarItemGroup(placement: .topBarTrailing) {
@@ -221,6 +202,7 @@ struct SearchView: View {
                         }
                     }
                 }
+                .toolbarRole(.editor) // Forces left aligned principal item https://iifx.dev/en/articles/457777731/bypassing-the-liquid-glass-left-aligned-toolbar-text-in-swiftui-ios-26
                 .background(
                     Image(selectedBackground)
                         .resizable()
@@ -231,6 +213,30 @@ struct SearchView: View {
                 )
             }
         }
+    }
+    
+    // MARK: - Views
+    var titleText: some View {
+        Text("Search")
+            .font(.largeTitle)
+            .fontWeight(.bold)
+            .foregroundStyle(.white)
+            .accessibilityAddTraits(.isHeader)
+            .background(
+                GeometryReader { geo in
+                    Color.clear
+                        .onAppear {
+                            withAnimation(.snappy) {
+                                topBarHeight = geo.size.height
+                            }
+                        }
+                        .onChange(of: geo.size.height) {
+                            withAnimation(.snappy) {
+                                topBarHeight = geo.size.height
+                            }
+                        }
+                }
+            )
     }
     
     // MARK: - Layout Calculations
