@@ -24,10 +24,16 @@
       ],
       "lighting" : "individual",
       "name" : "Group",
+      "opacity-specializations" : [
+        {
+          "appearance" : "tinted",
+          "value" : 1
+        }
+      ],
       "refractivity" : {
         "depth" : 0.25,
         "enabled" : true,
-        "strength" : 0
+        "strength" : 0.5
       },
       "shadow" : {
         "kind" : "layer-color",
@@ -84,7 +90,7 @@
       "refractivity" : {
         "depth" : 0,
         "enabled" : true,
-        "strength" : 0.5
+        "strength" : -0.5
       },
       "shadow" : {
         "kind" : "layer-color",
