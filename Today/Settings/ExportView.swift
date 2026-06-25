@@ -61,16 +61,9 @@ struct ExportView: View {
             Form {
                 Section {
                     VStack(alignment: .leading) {
-                        Image(systemName: "square.and.arrow.up.on.square.fill")
+                        Image("ExportIcon")
                             .resizable()
                             .scaledToFit()
-                            .frame(width: 44, height: 44)
-                            .offset(x: -2)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.blue.opacity(0.2))
-                                    .frame(width: 64, height: 64)
-                            )
                             .frame(width: 64, height: 64)
                         
                         Text("Export")
