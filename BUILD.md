@@ -9,7 +9,7 @@ The app is made for iOS and iPadOS (With limited support for Mac and Apple Visio
 
 ## Setup
 
-1. Clone the repository with `gh repo clone Somebud0180/Today` or download it as a ZIP under the code button above.
+1. Clone the repository with `gh repo clone Somebud0180/Today` or download it as a ZIP under the code button in the repo page.
 2. Open `Today.xcodeproj` in Xcode.
 3. (Optional) Configure the signing team under **Today > Targets: Today > Signing & Capabilities**.
 
