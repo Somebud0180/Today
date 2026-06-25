@@ -80,7 +80,9 @@ struct ContentView: View {
                     backgroundBlur = 24
                 }
             } else {
-                backgroundBlur = 0
+                if backgroundBlur != 0 {
+                    backgroundBlur = 0
+                }
             }
             
             if tabSelection == 3 {
