@@ -101,6 +101,7 @@
 				AA7EA8112FDECEA900F1CCEA /* TodayUITests.xctest */,
 			);
 			sourceTree = "<group>";
+			usesTabs = 0;
 		};
 /* End PBXGroup section */
 

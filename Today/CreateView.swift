@@ -99,7 +99,9 @@ struct CreateView: View {
                                 .fontDesign(.rounded)
                             
                             if isLandscape {
+#if canImport(JournalingSuggestions)
                                 journalingSuggestionsButton
+#endif
                                 
                                 HStackLayout (spacing: 24) {
                                     createButtons
