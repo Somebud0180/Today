@@ -174,14 +174,13 @@ struct CreateView: View {
                                         transcriptionProgress
                                         
                                         saveFields(activeURL: activeURL, fileExtension: fileExtension, mediaType: mediaType, proxy: proxy)
-                                            .padding(24)
                                             .transition(.opacity)
                                     }
                                 }
                             }
                         } else {
                             let width = min(proxy.size.width / 2, 220)
-                            let height = min(width * (3 / 2), proxy.size.height - bottomSectionHeight - keyboardHeight)
+                            let height = min(width * (3 / 2), proxy.size.height - bottomSectionHeight)
                             let finalWidth = min(width, height * (2 / 3))
                             
                             ZStack {
@@ -215,9 +214,6 @@ struct CreateView: View {
                                             .padding(24)
                                             .padding(.bottom, saveBottomPadding)
                                             .transition(.opacity)
-                                            .onAppear {
-                                                saveBottomInset = proxy.safeAreaInsets.bottom
-                                            }
                                     }
                                 }
                             }
@@ -231,12 +227,20 @@ struct CreateView: View {
                     }
                     .ignoresSafeArea(.keyboard)
                     .onAppear {
+                        saveBottomInset = proxy.safeAreaInsets.bottom
                         if transcribeOnSave {
                             performTranscription()
                         }
                     }
+                    .onChange(of: proxy.safeAreaInsets.bottom) {
+                        saveBottomInset = proxy.safeAreaInsets.bottom
+                    }
+                    .onChange(of: proxy.size) {
+                        recalculateSaveBottomPadding()
+                    }
                 }
             }
+            .ignoresSafeArea(.keyboard)
             .background(
                 GeometryReader { proxy in
                     Image(selectedBackground)
@@ -246,6 +250,7 @@ struct CreateView: View {
                         .accessibilityHidden(true)
                         .animation(.smooth(duration: 0.4), value: backgroundBlur)
                         .animation(.easeInOut(duration: 0.5), value: colorScheme)
+                        .onTapGesture(perform: hideKeyboard)
                 }
                     .ignoresSafeArea(.all)
             )
@@ -499,6 +504,7 @@ struct CreateView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityTitle)
         .accessibilityValue(accessibilityValue)
+        .safeAreaPadding(.top, proxy.safeAreaInsets.top)
     }
     
     func saveFields(activeURL: URL, fileExtension: String, mediaType: MediaType, proxy: GeometryProxy) -> some View {
@@ -513,14 +519,23 @@ struct CreateView: View {
                 .font(.largeTitle)
                 .accessibilityLabel("Title")
                 
+                Divider()
+                
                 TextField(
                     "Add a note (optional)",
                     text: $entryNote
                 )
                 .focused($noteFieldFocused)
             }
-            
-            Divider()
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .glassEffect(
+                        .regular.interactive().tint(colorScheme == .light ? .white.opacity(0.75) : .black.opacity(0.75)),
+                        in:
+                            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    )
+                )
             
             Button(action: {
                 tempEntry = JournalEntry(
@@ -534,6 +549,7 @@ struct CreateView: View {
                 )
                 
                 withAnimation(.snappy) {
+                    hideKeyboard()
                     isSaving = true
                 }
                 
@@ -548,6 +564,7 @@ struct CreateView: View {
             .disabled(transcriptionInProgress)
             
             Button(action: {
+                hideKeyboard()
                 transitionDirection = .backward
                 withAnimation(.snappy) {
                     if recordedAudioURL != nil {
@@ -577,9 +594,14 @@ struct CreateView: View {
         if isSaving {
             return proxy.size.height / 2
         } else if isKeyboardVisible {
-            return proxy.size.height / 2 - keyboardHeight + saveBottomInset
+            return proxy.size.height / 2 - bottomSectionHeight
         }
         return proxy.size.height / 2 - bottomSectionHeight / 2
+    }
+    
+    func hideKeyboard() {
+        titleFieldFocused = false
+        noteFieldFocused = false
     }
     
     func handleKeyboardWillShow(_ notification: Notification) {
