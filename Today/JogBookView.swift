@@ -273,6 +273,7 @@ struct JogBookView: View {
                         GridCardView(for: entry, size: isLandscape ? cardSizeCompact : cardSize)
                             .matchedTransitionSource(id: entry, in: namespace)
                     })
+                    .buttonStyle(.plain)
                 }
             }
         }
