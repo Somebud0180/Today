@@ -30,5 +30,6 @@ Powered by SwiftUI and SwiftData. Each part of the app made for your device. Wit
 -------
 [^1]: Transcription must be enabled in the app's settings. Each entry must be transcribed to be searchable.
 
-Made with Swift and SwiftUI.
-<br>Made with [Hack Club](https://hackclub.com/)
+Find the build documentation in [BUILD.md](BUILD.md)
+<br>**Made with Swift and SwiftUI.**
+<br>**Made with** [**Hack Club**](https://hackclub.com/)
