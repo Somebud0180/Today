@@ -19,10 +19,11 @@ struct JogBookView: View {
     @Binding var backgroundBlur: CGFloat
     
     @Namespace private var namespace
-    @State var calendarGridColumn: [GridItem] = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
-    @State var selectedMonthYear: Date = Calendar.current.dateComponents([.year, .month], from: Date()).date ?? Date()
-    @State var selectedDay: Date? = nil
-    @State var isLandscape: Bool = false
+    @State private var calendarGridColumn: [GridItem] = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
+    @State private var selectedMonthYear: Date = Calendar.current.dateComponents([.year, .month], from: Date()).date ?? Date()
+    @State private var selectedDay: Date? = nil
+    @State private var isLandscape: Bool = false
+    @State private var shareHelper: ShareHelper = ShareHelper()
     
     let cardSize: CGSize = CGSize(width: 120, height: 200)
     let cardSizeCompact: CGSize = CGSize(width: 96, height: 160)
@@ -92,6 +93,35 @@ struct JogBookView: View {
                 .padding(.top, isLandscape ? 16 : nil)
             }
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $shareHelper.showShareSheet) {
+                ShareSheet(
+                    items: shareHelper.sharedURLs,
+                    completion: { activityType, completed, _, error in
+                        if completed {
+                            debugPrint("Share succeeded! Activity: \(activityType?.rawValue ?? "Unknown")")
+                        } else if let error = error {
+                            debugPrint("Share failed: \(error.localizedDescription)")
+                        }
+                    }
+                )
+            }
+            .onChange(of: shareHelper.isPreparingShare) {
+                if shareHelper.isPreparingShare {
+                    UIAccessibility.post(notification: .announcement, argument: "Exporting entry")
+                } else {
+                    UIAccessibility.post(notification: .announcement, argument: "Export finished")
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    if shareHelper.isPreparingShare {
+                        Label("Exporting", systemImage: "progress.indicator")
+                            .labelStyle(.iconOnly)
+                            .symbolEffect(.variableColor.iterative.nonReversing, options: .repeat(.continuous))
+                            .padding(.vertical)
+                    }
+                }
+            }
             .background {
                 GeometryReader { proxy in
                     Image(selectedBackground)
@@ -135,28 +165,6 @@ struct JogBookView: View {
         }
         .font(.title)
         .fontWeight(.bold)
-    }
-    
-    private func monthButton(forPrevious: Bool) -> some View {
-        var month: Date {
-            if forPrevious {
-                return Calendar.current.date(byAdding: .month, value: -1, to: selectedMonthYear) ?? Date()
-            } else {
-                return Calendar.current.date(byAdding: .month, value: 1, to: selectedMonthYear) ?? Date()
-            }
-        }
-        
-        return Button(action: {
-            withAnimation(.snappy) {
-                selectedMonthYear = month
-                selectedDay = nil
-            }
-        }, label: {
-            Label(month.formatted(.dateTime.month(.wide)), systemImage: forPrevious ? "chevron.left" : "chevron.right")
-                .font(.title3)
-                .padding(.horizontal, 8)
-        })
-        .buttonStyle(.glass)
     }
     
     private var jogGrid: some View {
@@ -259,6 +267,28 @@ struct JogBookView: View {
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, maxHeight: 200, alignment: .center)
     }
+    
+    private func monthButton(forPrevious: Bool) -> some View {
+        var month: Date {
+            if forPrevious {
+                return Calendar.current.date(byAdding: .month, value: -1, to: selectedMonthYear) ?? Date()
+            } else {
+                return Calendar.current.date(byAdding: .month, value: 1, to: selectedMonthYear) ?? Date()
+            }
+        }
+        
+        return Button(action: {
+            withAnimation(.snappy) {
+                selectedMonthYear = month
+                selectedDay = nil
+            }
+        }, label: {
+            Label(month.formatted(.dateTime.month(.wide)), systemImage: forPrevious ? "chevron.left" : "chevron.right")
+                .font(.title3)
+                .padding(.horizontal, 8)
+        })
+        .buttonStyle(.glass)
+    }
         
     private func entryCarousel(for entries: [JournalEntry]) -> some View {
         ScrollView(.horizontal) {
@@ -274,6 +304,19 @@ struct JogBookView: View {
                             .matchedTransitionSource(id: entry, in: namespace)
                     })
                     .buttonStyle(.plain)
+                    .contextMenu {
+                        Button {
+                            Task { await shareHelper.prepareEntryForSharing(entry) }
+                        } label: {
+                            Label("Export Entry", systemImage: "square.and.arrow.up")
+                        }
+                        
+                        Button(role: .destructive) {
+                            modelContext.delete(entry)
+                        } label: {
+                            Label("Delete Entry", systemImage: "trash")
+                        }
+                    }
                 }
             }
         }
