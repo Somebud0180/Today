@@ -241,6 +241,12 @@ struct CreateView: View {
                 }
             }
             .ignoresSafeArea(.keyboard)
+            .sensoryFeedback(.success, trigger: transcriptSuccess) { oldValue,newValue in
+                return newValue == true && transcript != nil
+            }
+            .sensoryFeedback(.error, trigger: transcriptSuccess) { oldValue,newValue in
+                return newValue == false && transcript == nil
+            }
             .background(
                 GeometryReader { proxy in
                     Image(selectedBackground)
