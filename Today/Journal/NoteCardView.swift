@@ -177,6 +177,12 @@ struct NoteCardView: View {
                 }
             }
         }
+        .sensoryFeedback(.success, trigger: finishedTranscription) { oldValue,newValue in
+            return newValue == true && !entry.transcript.isEmpty
+        }
+        .sensoryFeedback(.error, trigger: finishedTranscription) { oldValue,newValue in
+            return newValue == false && entry.transcript.isEmpty
+        }
     }
     
     var NotePreviewView: some View {

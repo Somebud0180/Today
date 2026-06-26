@@ -241,6 +241,17 @@ struct CreateView: View {
                 }
             }
             .ignoresSafeArea(.keyboard)
+            .onChange(of: transcriptionInProgress) {
+                if transcriptionInProgress {
+                    UIAccessibility.post(notification: .announcement, argument: "Transcribing entry")
+                } else {
+                    if transcriptSuccess && transcript == nil {
+                        UIAccessibility.post(notification: .announcement, argument: "Entry failed to transcribe")
+                    } else {
+                        UIAccessibility.post(notification: .announcement, argument: "Entry transcribed")
+                    }
+                }
+            }
             .sensoryFeedback(.success, trigger: transcriptSuccess) { oldValue,newValue in
                 return newValue == true && transcript != nil
             }
