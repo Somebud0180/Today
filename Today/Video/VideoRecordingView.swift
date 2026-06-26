@@ -177,6 +177,14 @@ struct VideoRecordingView: View {
                 }
             }
         }
+        .sensoryFeedback(trigger: manager.isRecording) { oldValue, newValue in
+            if !oldValue && newValue {
+                return .start
+            } else if oldValue && !newValue {
+                return .stop
+            }
+            return nil
+        }
         .onDisappear {
             manager.stopRecording()
             manager.stopSession()
@@ -319,7 +327,6 @@ struct VideoRecordingView: View {
         }
         .buttonStyle(.plain)
         .frame(width: 72, height: 72)
-        .sensoryFeedback(manager.isRecording ? .start : .stop, trigger: manager.isRecording)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel(manager.isRecording ? "Stop recording video" : "Record video")

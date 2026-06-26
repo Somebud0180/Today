@@ -122,6 +122,14 @@ struct AudioRecordingView: View {
                 }
             }
         }
+        .sensoryFeedback(trigger: isRecording) { oldValue, newValue in
+            if !oldValue && newValue {
+                return .start
+            } else if oldValue && !newValue {
+                return .stop
+            }
+            return nil
+        }
         .onDisappear {
             stopRecording()
             manager.pausePlayingRecording()
@@ -198,7 +206,6 @@ struct AudioRecordingView: View {
                 }
                 .buttonStyle(.glassProminent)
                 .tint(.red)
-                .sensoryFeedback(isRecording ? .start : .stop, trigger: isRecording)
                 
                 // Back button
                 Button(action: {
