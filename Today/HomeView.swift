@@ -44,9 +44,7 @@ struct HomeView: View {
     @State private var dateOnScreen: Date?
     
     @State private var selectedEntries: [JournalEntry] = []
-    @State private var isPreparingShare = false
-    @State private var sharedURLs: [URL] = []
-    @State private var showShareSheet = false
+    @State private var shareHelper: ShareHelper = ShareHelper()
     
     private let minimumCardWidth: [CGFloat] = [60, 80, 100, 120, 150]
     private let cardAspectRatio: CGFloat = 2 / 3
@@ -171,9 +169,9 @@ struct HomeView: View {
                         }
                     }
                 })
-                .sheet(isPresented: $showShareSheet) {
+                .sheet(isPresented: $shareHelper.showShareSheet) {
                     ShareSheet(
-                        items: sharedURLs,
+                        items: shareHelper.sharedURLs,
                         completion: { activityType, completed, _, error in
                             if completed {
                                 debugPrint("Share succeeded! Activity: \(activityType?.rawValue ?? "Unknown")")
@@ -188,8 +186,8 @@ struct HomeView: View {
                         UIAccessibility.post(notification: .announcement, argument: newValue.formatted(date: .long, time: .omitted))
                     }
                 }
-                .onChange(of: isPreparingShare) { _, isPreparing in
-                    if isPreparing {
+                .onChange(of: shareHelper.isPreparingShare) {
+                    if shareHelper.isPreparingShare {
                         UIAccessibility.post(notification: .announcement, argument: "Exporting entry")
                     } else {
                         UIAccessibility.post(notification: .announcement, argument: "Export finished")
@@ -226,7 +224,7 @@ struct HomeView: View {
                     
                     ToolbarItemGroup(placement: .topBarTrailing) {
                         ControlGroup {
-                            if isPreparingShare {
+                            if shareHelper.isPreparingShare {
                                 Label("Exporting", systemImage: "progress.indicator")
                                     .labelStyle(.iconOnly)
                                     .symbolEffect(.variableColor.iterative.nonReversing, options: .repeat(.continuous))
@@ -236,12 +234,12 @@ struct HomeView: View {
                             if editMode?.wrappedValue.isEditing == true {
                                 Group {
                                     Button(action: {
-                                        Task { await prepareEntriesForSharing(selectedEntries) }
+                                        Task { await shareHelper.prepareEntriesForSharing(selectedEntries) }
                                     }, label: {
                                         Label("Export Selected Entries", systemImage: "square.and.arrow.up")
                                             .labelStyle(.iconOnly)
                                     })
-                                    .disabled(isPreparingShare)
+                                    .disabled(shareHelper.isPreparingShare)
                                     
                                     Button(action: {
                                         showDeleteConfirmaton = true
@@ -340,7 +338,7 @@ struct HomeView: View {
     }
     
     var titleSubtext: String {
-        if isPreparingShare {
+        if shareHelper.isPreparingShare {
             return "Exporting entry..."
         } else if let dateOnScreen {
             return dateOnScreen.formatted(date: .long, time: .omitted)
@@ -352,17 +350,20 @@ struct HomeView: View {
     @ViewBuilder
     private func gridLayer(metrics: ViewLayoutMetrics) -> some View {
         JournalGridView(
+            selectedEntries: $selectedEntries,
             entries: journalEntries,
             metrics: metrics,
             isEditing: editMode?.wrappedValue.isEditing == true,
-            selectedEntries: $selectedEntries,
+            namespace: namespace,
             destination: { journalEntry in
                 JournalView(selectedEntry: journalEntry)
                     .toolbar(.hidden, for: .tabBar)
                     .environmentObject(transcriptionManager)
                     .navigationTransition(.zoom(sourceID: journalEntry, in: namespace))
             },
-            namespace: namespace
+            onShare: { entry in
+                Task { await shareHelper.prepareEntryForSharing(entry) }
+            }
         )
     }
     
@@ -472,37 +473,6 @@ struct HomeView: View {
             selectedEntries = selectedEntries.filter { $0 != entry }
         } else {
             selectedEntries.append(entry)
-        }
-    }
-    
-    private func prepareEntryForSharing(_ entry: JournalEntry) async {
-        await prepareEntriesForSharing([entry])
-    }
-    
-    private func prepareEntriesForSharing(_ selectedEntries: [JournalEntry]) async {
-        await MainActor.run {
-            withAnimation(.snappy) {
-                isPreparingShare = true
-            }
-        }
-        
-        var urls: [URL] = []
-        for entry in selectedEntries {
-            if let url = await entry.exportMediaURLForSharing() {
-                urls.append(url)
-            }
-        }
-        
-        await MainActor.run {
-            self.sharedURLs = urls
-            
-            withAnimation(.snappy) {
-                self.isPreparingShare = false
-            }
-            
-            if !urls.isEmpty {
-                showShareSheet = true
-            }
         }
     }
 }

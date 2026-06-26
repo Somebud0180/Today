@@ -6,14 +6,18 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct JournalGridView<Destination: View>: View {
+    @Environment(\.modelContext) private var modelContext
+    
+    @Binding var selectedEntries: [JournalEntry]
     let entries: [JournalEntry]
     let metrics: ViewLayoutMetrics
     let isEditing: Bool
-    @Binding var selectedEntries: [JournalEntry]
-    let destination: (JournalEntry) -> Destination
     let namespace: Namespace.ID
+    let destination: (JournalEntry) -> Destination
+    var onShare: ((JournalEntry) -> Void)? = nil
     
     var body: some View {
         LazyVGrid(columns: metrics.columns, alignment: .leading, spacing: metrics.spacing) {
@@ -29,6 +33,21 @@ struct JournalGridView<Destination: View>: View {
                 .opacity(isEditing && !isSelected ? 0.8 : 1)
                 .accessibilityHidden(isEditing)
                 .allowsHitTesting(!isEditing)
+                .contextMenu {
+                    if let onShare {
+                        Button {
+                            onShare(entry)
+                        } label: {
+                            Label("Export Entry", systemImage: "square.and.arrow.up")
+                        }
+                    }
+                    
+                    Button(role: .destructive) {
+                        modelContext.delete(entry)
+                    } label: {
+                        Label("Delete Entry", systemImage: "trash")
+                    }
+                }
                 .overlay {
                     if isEditing {
                         Color.clear

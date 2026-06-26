@@ -27,9 +27,7 @@ struct SearchView: View {
     @State private var hideTabBar: Bool = false
     
     @State private var selectedEntries: [JournalEntry] = []
-    @State private var isPreparingShare = false
-    @State private var sharedURLs: [URL] = []
-    @State private var showShareSheet = false
+    @State private var shareHelper: ShareHelper = ShareHelper()
     
     private let minimumCardWidth: CGFloat = 120
     private let cardAspectRatio: CGFloat = 2 / 3
@@ -69,23 +67,20 @@ struct SearchView: View {
                 ZStack(alignment: .topLeading) {
                     ScrollView(.vertical, showsIndicators: true) {
                         JournalGridView(
-                            entries: filteredEntries,
+                            selectedEntries: $selectedEntries,
+                            entries: journalEntries,
                             metrics: metrics,
                             isEditing: isEditing,
-                            selectedEntries: $selectedEntries,
+                            namespace: namespace,
                             destination: { journalEntry in
                                 JournalView(selectedEntry: journalEntry)
+                                    .toolbar(.hidden, for: .tabBar)
                                     .environmentObject(transcriptionManager)
                                     .navigationTransition(.zoom(sourceID: journalEntry, in: namespace))
-                                    .onAppear {
-                                        searchPresented = false
-                                        hideTabBar = true
-                                    }
-                                    .onDisappear {
-                                        hideTabBar = false
-                                    }
                             },
-                            namespace: namespace
+                            onShare: { entry in
+                                Task { await shareHelper.prepareEntryForSharing(entry) }
+                            }
                         )
                         .padding(gridPadding)
                     }
@@ -119,9 +114,9 @@ struct SearchView: View {
                         }
                     }
                 })
-                .sheet(isPresented: $showShareSheet) {
+                .sheet(isPresented: $shareHelper.showShareSheet) {
                     ShareSheet(
-                        items: sharedURLs,
+                        items: shareHelper.sharedURLs,
                         completion: { activityType, completed, _, error in
                             if completed {
                                 debugPrint("Share succeeded! Activity: \(activityType?.rawValue ?? "Unknown")")
@@ -131,8 +126,8 @@ struct SearchView: View {
                         }
                     )
                 }
-                .onChange(of: isPreparingShare) { _, isPreparing in
-                    if isPreparing {
+                .onChange(of: shareHelper.isPreparingShare) {
+                    if shareHelper.isPreparingShare {
                         UIAccessibility.post(notification: .announcement, argument: "Exporting entry")
                     } else {
                         UIAccessibility.post(notification: .announcement, argument: "Export finished")
@@ -146,7 +141,7 @@ struct SearchView: View {
                     }
                     
                     ToolbarItemGroup(placement: .topBarTrailing) {
-                        if isPreparingShare {
+                        if shareHelper.isPreparingShare {
                             Label("Exporting", systemImage: "progress.indicator")
                                 .labelStyle(.iconOnly)
                                 .symbolEffect(.variableColor.iterative.nonReversing, options: .repeat(.continuous))
@@ -179,12 +174,12 @@ struct SearchView: View {
                     if isEditing {
                         ToolbarItemGroup(placement: .bottomBar) {
                             Button(action: {
-                                Task { await prepareEntriesForSharing(selectedEntries) }
+                                Task { await shareHelper.prepareEntriesForSharing(selectedEntries) }
                             }, label: {
                                 Label("Export Selected Entries", systemImage: "square.and.arrow.up")
                                     .labelStyle(.iconOnly)
                             })
-                            .disabled(isPreparingShare)
+                            .disabled(shareHelper.isPreparingShare)
                             .disabled(selectedEntries.isEmpty)
                             
                             Spacer()
@@ -268,37 +263,6 @@ struct SearchView: View {
         let columnCount = CGFloat(columns.count)
         let totalSpacingWidth = (columnCount - 1) * gridSpacing
         return (availableWidth - totalSpacingWidth) / columnCount
-    }
-    
-    private func prepareEntryForSharing(_ entry: JournalEntry) async {
-        await prepareEntriesForSharing([entry])
-    }
-    
-    private func prepareEntriesForSharing(_ selectedEntries: [JournalEntry]) async {
-        await MainActor.run {
-            withAnimation(.snappy) {
-                isPreparingShare = true
-            }
-        }
-        
-        var urls: [URL] = []
-        for entry in selectedEntries {
-            if let url = await entry.exportMediaURLForSharing() {
-                urls.append(url)
-            }
-        }
-        
-        await MainActor.run {
-            self.sharedURLs = urls
-            
-            withAnimation(.snappy) {
-                self.isPreparingShare = false
-            }
-            
-            if !urls.isEmpty {
-                showShareSheet = true
-            }
-        }
     }
 }
 
