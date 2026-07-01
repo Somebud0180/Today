@@ -47,6 +47,14 @@ struct JournalGridView<Destination: View>: View {
                     } label: {
                         Label("Delete Entry", systemImage: "trash")
                     }
+                    
+#if DEBUG
+                    Button {
+                        
+                    } label: {
+                        Label("\(entry.mediaURL?.fileSizeString ?? "File size unavailable")", systemImage: "info.circle")
+                    }
+#endif
                 }
                 .overlay {
                     if isEditing {
