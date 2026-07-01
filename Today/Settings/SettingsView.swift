@@ -12,6 +12,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var transcriptionManager: AudioTranscriptionManager
     
+    @AppStorage("asrModelsURL") private var asrModelsURL: URL?
     @AppStorage("preferredColorScheme") private var preferredColorScheme: PreferredColorScheme = DefaultSettings.preferredColorTheme
     @AppStorage("autoPlayOnOpen") private var autoPlayOnOpen: Bool = DefaultSettings.autoPlayOnOpen
     @AppStorage("remindMeToJournal") private var remindMeToJournal: Bool = DefaultSettings.remindMeToJournal
@@ -21,6 +22,8 @@ struct SettingsView: View {
     
     @State var authorizationStatus: UNAuthorizationStatus = .notDetermined
     @State var showOnboarding: Bool = false
+    @State var showDeleteModelConfirmation: Bool = false
+    @State private var modelSizeString: String = ""
     
     var body: some View {
         NavigationStack {
@@ -109,6 +112,20 @@ struct SettingsView: View {
                             EmptyView()
                         }
                     }
+                    
+                    if let asrModelsURL, transcriptionManager.isModelDownloaded() {
+                        Button(action: {
+                            showDeleteModelConfirmation = true
+                        }, label: {
+                            HStack {
+                                Text("Model Downloaded: \(modelSizeString)")
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                Text("Delete")
+                                    .foregroundStyle(.red)
+                            }
+                        })
+                    }
                 }
                 
                 Section(header: Text("Export")) {
@@ -124,8 +141,26 @@ struct SettingsView: View {
             .onAppear {
                 Task {
                     authorizationStatus = await NotificationsManager.notificatonPermissionStatus()
+                    refreshModelSize()
                 }
             }
+            .onChange(of: transcriptionManager.modelLoadState) {
+                    refreshModelSize()
+            }
+            .onChange(of: enableTranscription) {
+                refreshModelSize()
+            }
+            .alert("Delete Transcription Model?", isPresented: $showDeleteModelConfirmation, actions: {
+                Button(role: .destructive, action: {
+                    Task {
+                        await transcriptionManager.deleteModel()
+                    }
+                })
+                
+                Button(role: .cancel, action: {})
+            }, message: {
+                Text("This will disable transcription and delete the model from your device. You will need to download the model again to use transcription.")
+            })
             .fullScreenCover(isPresented: $showOnboarding) {
                 OnboardingView()
             }
@@ -154,6 +189,19 @@ struct SettingsView: View {
                         await UIApplication.shared.open(url)
                     }
                 }
+            }
+        }
+    }
+    
+    private func refreshModelSize() {
+        guard let asrModelsURL, transcriptionManager.isModelDownloaded() else {
+            modelSizeString = ""
+            return
+        }
+        Task {
+            let size = await asrModelsURL.directorySizeStringAsync()
+            await MainActor.run {
+                self.modelSizeString = size
             }
         }
     }

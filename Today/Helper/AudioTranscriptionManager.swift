@@ -51,6 +51,7 @@ extension ModelLoadState: CustomStringConvertible {
 
 @MainActor
 final class AudioTranscriptionManager: ObservableObject {
+    @AppStorage("asrModelsURL") private var asrModelsURL: URL?
     @AppStorage("enableTranscription") private var enableTranscription: Bool = DefaultSettings.enableTranscription
     @Published private(set) var modelLoadState: ModelLoadState = .idle
     
@@ -108,6 +109,7 @@ final class AudioTranscriptionManager: ObservableObject {
             do {
                 self.modelLoadState = .downloading
                 let modelsURL = try await AsrModels.download(version: .v3)
+                self.asrModelsURL = modelsURL
                 
                 try Task.checkCancellation()
                 guard self.enableTranscription else { throw CancellationError() }
@@ -184,6 +186,40 @@ final class AudioTranscriptionManager: ObservableObject {
             transcriptionModels = nil
             await asrManager.cleanup()
             modelLoadState = .idle
+        }
+    }
+}
+
+extension AudioTranscriptionManager {
+    func isModelDownloaded() -> Bool {
+        guard let url = asrModelsURL else { return false }
+        return AsrModels.modelsExist(at: url)
+    }
+    
+    func deleteModel() async {
+        guard let url = asrModelsURL else { return }
+        
+        await cancelLoadingIfNeeded()
+        
+        await MainActor.run {
+            self.modelLoadState = .unloading
+        }
+        
+        transcriptionModels = nil
+        await asrManager.cleanup()
+        
+        self.enableTranscription = false
+        
+        do {
+            try FileManager.default.removeItem(at: url)
+            
+            await MainActor.run {
+                self.modelLoadState = .idle
+            }
+        } catch {
+            await MainActor.run {
+                self.modelLoadState = .failed(error)
+            }
         }
     }
 }
