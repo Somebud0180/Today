@@ -113,7 +113,7 @@ struct SettingsView: View {
                         }
                     }
                     
-                    if let asrModelsURL, transcriptionManager.isModelDownloaded() {
+                    if transcriptionManager.isModelDownloaded() {
                         Button(action: {
                             showDeleteModelConfirmation = true
                         }, label: {
