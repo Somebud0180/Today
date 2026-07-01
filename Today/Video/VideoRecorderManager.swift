@@ -432,7 +432,7 @@ extension VideoRecorderManager {
 extension VideoRecorderManager {
     private func configureSession() {
         session.beginConfiguration()
-        session.sessionPreset = .high
+        session.sessionPreset = .medium
         defer { session.commitConfiguration() }
         
         if let videoDeviceInput {
