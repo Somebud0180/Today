@@ -212,6 +212,7 @@ extension AudioTranscriptionManager {
         
         do {
             try FileManager.default.removeItem(at: url)
+            try clearAppCachesDirectory()
             
             await MainActor.run {
                 self.modelLoadState = .idle
@@ -222,6 +223,24 @@ extension AudioTranscriptionManager {
             }
         }
     }
+    
+    func clearAppCachesDirectory() throws {
+        let fileManager = FileManager.default
+        
+        guard let cachesURL = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+            return
+        }
+        
+        let contents = try fileManager.contentsOfDirectory(at: cachesURL, includingPropertiesForKeys: nil, options: [])
+        for url in contents {
+            do {
+                try fileManager.removeItem(at: url)
+            } catch {
+                throw error
+            }
+        }
+    }
+
 }
 
 extension AudioTranscriptionManager {
