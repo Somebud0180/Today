@@ -572,7 +572,7 @@ extension AudioRecorderManager {
     
     private func makeRecordingURL() -> URL {
         let directory = FileManager.default.temporaryDirectory
-        let url = directory.appendingPathComponent("temp-audio.m4a")
+        let url = directory.appending(path: "temp-audio.m4a", directoryHint: .notDirectory)
         
         if FileManager.default.fileExists(atPath: url.path) {
             do {

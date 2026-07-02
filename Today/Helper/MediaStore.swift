@@ -17,7 +17,7 @@ struct MediaStore {
         let fm = FileManager.default
         
         if let ubiquity = fm.url(forUbiquityContainerIdentifier: icloudContainerID) {
-            let dir = ubiquity.appendingPathComponent(mediaFolderName, isDirectory: true)
+            let dir = ubiquity.appending(path: mediaFolderName, directoryHint: .isDirectory)
             do {
                 try fm.createDirectory(at: dir, withIntermediateDirectories: true)
                 return dir
@@ -31,7 +31,7 @@ struct MediaStore {
         // Fallback: Application Support/<bundle-id>/Media
         if let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
             let bundleID = Bundle.main.bundleIdentifier ?? "Today"
-            let dir = appSupport.appendingPathComponent(bundleID, isDirectory: true).appendingPathComponent(mediaFolderName, isDirectory: true)
+            let dir = appSupport.appending(path: bundleID, directoryHint: .isDirectory).appending(path: mediaFolderName, directoryHint: .isDirectory)
             do {
                 try fm.createDirectory(at: dir, withIntermediateDirectories: true)
                 return dir
@@ -49,8 +49,8 @@ struct MediaStore {
     static func saveMedia(data: Data, fileExtension: String, entryID: UUID) -> URL? {
         guard let dir = mediaDirectory() else { return nil }
         
-        let filename = "\(entryID.uuidString).\(fileExtension)"
-        let url = dir.appendingPathComponent(filename)
+        let fileName = "\(entryID.uuidString).\(fileExtension)"
+        let url = dir.appending(path: fileName, directoryHint: .notDirectory)
         
         // Coordinate the write operation to alert the system's iCloud daemon
         let coordinator = NSFileCoordinator()
@@ -78,8 +78,8 @@ struct MediaStore {
     static func saveThumbnail(data: Data, entryID: UUID) -> URL? {
         guard let dir = mediaDirectory() else { return nil }
 
-        let filename = "\(entryID.uuidString)\(thumbnailSuffix)"
-        let url = dir.appendingPathComponent(filename)
+        let fileName = "\(entryID.uuidString)\(thumbnailSuffix)"
+        let url = dir.appending(path: fileName, directoryHint: .notDirectory)
 
         // Coordinate the write operation to alert the system's iCloud daemon
         let coordinator = NSFileCoordinator()
@@ -115,7 +115,7 @@ struct MediaStore {
     /// Delete thumbnail for a given entry id (if present)
     static func deleteThumbnail(entryID: UUID) {
         guard let dir = mediaDirectory() else { return }
-        let url = dir.appendingPathComponent("\(entryID.uuidString)\(thumbnailSuffix)")
+        let url = dir.appending(path: "\(entryID.uuidString)\(thumbnailSuffix)", directoryHint: .notDirectory)
         if FileManager.default.fileExists(atPath: url.path) {
             do {
                 try FileManager.default.removeItem(at: url)
@@ -127,9 +127,9 @@ struct MediaStore {
 
     /// Resolve a stored media filename to an absolute file URL in the current media directory.
     /// Filenames are kept stable; paths are resolved dynamically so stored values remain valid across container moves.
-    static func urlForMediaFilename(_ filename: String) -> URL? {
-        guard !filename.isEmpty, let dir = mediaDirectory() else { return nil }
-        return dir.appendingPathComponent(filename)
+    static func urlForMediaFilename(_ fileName: String) -> URL? {
+        guard !fileName.isEmpty, let dir = mediaDirectory() else { return nil }
+        return dir.appending(path: fileName, directoryHint: .notDirectory)
     }
 
     /// Delete a media file by its stored filename.
@@ -152,7 +152,7 @@ struct MediaStore {
         if !fm.fileExists(atPath: url.path) {
             // Check if a hidden placeholder file exists (.filename.icloud)
             let directory = url.deletingLastPathComponent()
-            let placeholderURL = directory.appendingPathComponent(".\(url.lastPathComponent).icloud")
+            let placeholderURL = directory.appending(path: ".\(url.lastPathComponent).icloud", directoryHint: .notDirectory)
             
             if fm.fileExists(atPath: placeholderURL.path) {
                 do {

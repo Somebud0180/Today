@@ -111,7 +111,7 @@ struct AudioRecordingView: View {
             if let recordedURL = recordedURL, recordedWaveform != nil, localRecordedURL == nil {
                 let fileName = recordedURL.lastPathComponent
                 let liveDirectory = FileManager.default.temporaryDirectory
-                let liveRestoredURL = liveDirectory.appendingPathComponent(fileName)
+                let liveRestoredURL = liveDirectory.appending(path: fileName, directoryHint: .notDirectory)
                 
                 if FileManager.default.fileExists(atPath: liveRestoredURL.path) {
                     self.localRecordedURL = liveRestoredURL

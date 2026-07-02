@@ -268,7 +268,7 @@ extension JournalEntry {
         
         let originalExt = originalURL.pathExtension
         let tempDir = FileManager.default.temporaryDirectory
-        let outputURL = tempDir.appendingPathComponent("\(self.title.isEmpty ? self.date.formatted(date: .long, time: .omitted) : self.title).\(originalExt)")
+        let outputURL = tempDir.appending(path: "\(self.title.isEmpty ? self.date.formatted(date: .long, time: .omitted) : self.title).\(originalExt)", directoryHint: .notDirectory)
         
         // Remove any existing file at destination
         try? FileManager.default.removeItem(at: outputURL)
@@ -290,7 +290,7 @@ extension JournalEntry {
         
         // Prepare temp output URL
         let tempDir = FileManager.default.temporaryDirectory
-        let outputURL = tempDir.appendingPathComponent("\(self.title.isEmpty ? self.date.formatted(date: .long, time: .omitted) : self.title).mov")
+        let outputURL = tempDir.appending(path: "\(self.title.isEmpty ? self.date.formatted(date: .long, time: .omitted) : self.title).mov", directoryHint: .notDirectory)
         // Remove any existing file
         try? FileManager.default.removeItem(at: outputURL)
         exportSession.outputURL = outputURL

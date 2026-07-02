@@ -682,7 +682,7 @@ extension VideoRecorderManager {
 
     private func makeRecordingURL() -> URL {
         let directory = FileManager.default.temporaryDirectory
-        let url = directory.appendingPathComponent("temp-video.mov")
+        let url = directory.appending(path: "temp-video.mov", directoryHint: .notDirectory)
         
         if FileManager.default.fileExists(atPath: url.path) {
             do {

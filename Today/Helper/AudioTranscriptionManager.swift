@@ -273,7 +273,6 @@ extension AudioTranscriptionManager {
             return await e5URL.directoryTotalSizeAsync()
         }()
         
-        print("Model: \(await modelBytes), Cache: \(await cacheBytes)")
         let (m, c) = await (modelBytes, cacheBytes)
         return m &+ c
     }
@@ -311,7 +310,7 @@ extension AudioTranscriptionManager {
         
         do {
             let fileName = UUID().uuidString + ".m4a"
-            let audioURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+            let audioURL = FileManager.default.temporaryDirectory.appending(path: fileName, directoryHint: .notDirectory)
             
             try await extractAudio(from: videoURL, to: audioURL)
             

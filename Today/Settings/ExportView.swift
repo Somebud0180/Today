@@ -245,7 +245,7 @@ struct ExportView: View {
         
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
-        let exportRoot = URL.documentsDirectory.appendingPathComponent("Today-Export_\(df.string(from: now))", isDirectory: true)
+        let exportRoot = URL.documentsDirectory.appending(path: "Today-Export_\(df.string(from: now))", directoryHint: .isDirectory)
         
         do { try FileManager.default.createDirectory(at: exportRoot, withIntermediateDirectories: true) }
         catch { print("Export: failed to create root folder: \(error)"); return }
@@ -257,8 +257,8 @@ struct ExportView: View {
             if organizationIndex == 1 {
                 // Group media and notes
                 // Root -> Media -> [Day/Month/Year] -> Files
-                let mediaGroupFolder = exportRoot.appendingPathComponent("Media").appendingPathComponent(group)
-                let notesGroupFolder = exportRoot.appendingPathComponent("Notes").appendingPathComponent(group)
+                let mediaGroupFolder = exportRoot.appending(path: "Media", directoryHint: .isDirectory).appending(path: group, directoryHint: .isDirectory)
+                let notesGroupFolder = exportRoot.appending(path: "Notes", directoryHint: .isDirectory).appending(path: group, directoryHint: .isDirectory)
                 
                 do {
                     if includedIndex != 0 { try FileManager.default.createDirectory(at: notesGroupFolder, withIntermediateDirectories: true) }
@@ -272,24 +272,24 @@ struct ExportView: View {
                     if includedIndex != 1, let srcURL = entry.mediaURL {
                         _ = await ensureLocalDownload(at: srcURL)
                         let ext = srcURL.pathExtension.isEmpty ? (entry.mediaType == .audio ? "m4a" : "mov") : srcURL.pathExtension
-                        var destURL = mediaGroupFolder.appendingPathComponent("\(baseName).\(ext)")
+                        var destURL = mediaGroupFolder.appending(path: "\(baseName).\(ext)", directoryHint: .notDirectory)
                         var attempt = 2
                         while FileManager.default.fileExists(atPath: destURL.path) {
-                            destURL = mediaGroupFolder.appendingPathComponent("\(baseName) (\(attempt)).\(ext)")
+                            destURL = mediaGroupFolder.appending(path: "\(baseName) (\(attempt)).\(ext)", directoryHint: .notDirectory)
                             attempt += 1
                         }
                         do { try FileManager.default.copyItem(at: srcURL, to: destURL) } catch { print("Export copy media error: \(error)") }
                     }
                     
                     if includedIndex != 0 {
-                        let noteURL = notesGroupFolder.appendingPathComponent("\(baseName).txt")
+                        let noteURL = notesGroupFolder.appending(path: "\(baseName).txt", directoryHint: .notDirectory)
                         do { try entry.note.data(using: .utf8)?.write(to: noteURL) } catch { print("Export write note error: \(error)") }
                     }
                 }
             } else {
                 // Group by date
                 // Root -> [Day/Month/Year] -> Files (Media and notes side-by-side)
-                let groupFolder = exportRoot.appendingPathComponent(group)
+                let groupFolder = exportRoot.appending(path: group, directoryHint: .isDirectory)
                 do { try FileManager.default.createDirectory(at: groupFolder, withIntermediateDirectories: true) }
                 catch { print("Export: failed to create flat group folder: \(error)"); continue }
                 
@@ -300,17 +300,17 @@ struct ExportView: View {
                     if includedIndex != 1, let srcURL = entry.mediaURL {
                         _ = await ensureLocalDownload(at: srcURL)
                         let ext = srcURL.pathExtension.isEmpty ? (entry.mediaType == .audio ? "m4a" : "mov") : srcURL.pathExtension
-                        var destURL = groupFolder.appendingPathComponent("\(baseName).\(ext)")
+                        var destURL = groupFolder.appending(path: "\(baseName).\(ext)", directoryHint: .notDirectory)
                         var attempt = 2
                         while FileManager.default.fileExists(atPath: destURL.path) {
-                            destURL = groupFolder.appendingPathComponent("\(baseName) (\(attempt)).\(ext)")
+                            destURL = groupFolder.appending(path: "\(baseName) (\(attempt)).\(ext)", directoryHint: .notDirectory)
                             attempt += 1
                         }
                         do { try FileManager.default.copyItem(at: srcURL, to: destURL) } catch { print("Export copy media error: \(error)") }
                     }
                     
                     if includedIndex != 0 {
-                        let noteURL = groupFolder.appendingPathComponent("\(baseName).txt")
+                        let noteURL = groupFolder.appending(path: "\(baseName).txt", directoryHint: .notDirectory)
                         do { try entry.note.data(using: .utf8)?.write(to: noteURL) } catch { print("Export write note error: \(error)") }
                     }
                 }
