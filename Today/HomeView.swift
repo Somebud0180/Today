@@ -80,7 +80,6 @@ struct HomeView: View {
                                         }
                                     }
                                     .padding(gridPadding)
-                                    // You can still use the outer proxy for the minHeight logic here if you want it to stretch under the blurs
                                     .frame(maxWidth: .infinity, minHeight: proxy.size.height - blurHeight - 24, alignment: .top)
                                 }
                                 .defaultScrollAnchor(.bottom)
@@ -130,14 +129,13 @@ struct HomeView: View {
                                     }
                                 }
                             }
-                            // 2. USE INNER PROXY FOR THE FRAME
-                            .frame(height: innerProxy.size.height)
+                            .frame(width: innerProxy.size.width, height: innerProxy.size.height)
                             
                             welcomeScreen
-                            // 3. USE INNER PROXY FOR THE FRAME
-                                .frame(height: innerProxy.size.height)
+                                .frame(width: innerProxy.size.width, height: innerProxy.size.height)
+                                .contentShape(Rectangle())
                         }
-                        // 4. USE INNER PROXY FOR THE EXACT OFFSET
+                        .frame(width: innerProxy.size.width)
                         .offset(y: (isInWelcomeScreen ? -innerProxy.size.height : 0) + manualDragOffset)
                         .simultaneousGesture(
                             DragGesture()
@@ -337,7 +335,6 @@ struct HomeView: View {
                     Text("You don't have any entries yet")
                         .accessibilityLabel("You don't have any entries yet")
                 } else {
-                    // Combine the icon and text for VO
                     HStack(spacing: 8) {
                         Image(systemName: "chevron.compact.down")
                         Text("Swipe down to access your entries")
