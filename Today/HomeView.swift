@@ -91,6 +91,7 @@ struct HomeView: View {
                         .scrollPosition($scrollPosition)
                         .scrollEdgeEffectStyle(.soft, for: .top)
                         .onAppear {
+                            guard !didPerformInitialScroll else { return }
                             DispatchQueue.main.async {
                                 withAnimation(.snappy) {
                                     scrollPosition.scrollTo(id: welcomeScreenID, anchor: .bottom)
