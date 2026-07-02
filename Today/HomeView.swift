@@ -44,6 +44,7 @@ struct HomeView: View {
     @State private var showDeleteConfirmaton: Bool = false
     @State private var dateOnScreen: Date?
     @State private var lastOpenedEntryDate: Date?
+    @State private var manualDragOffset: CGFloat = 0
     
     @State private var selectedEntries: [JournalEntry] = []
     @State private var shareHelper: ShareHelper = ShareHelper()
@@ -61,95 +62,113 @@ struct HomeView: View {
                 let blurHeight = topBarHeight + TitlePadding.top(proxy, isPad: isPad)
                 
                 ZStack(alignment: .topLeading) {
-                    ScrollViewReader { reader in
-                        ScrollView(.vertical, showsIndicators: false) {
-                            VStack(spacing: 24) {
-                                ZStack(alignment: .topLeading) {
-                                    gridLayer(metrics: transition.currentMetrics)
-                                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                                        .scaleEffect(transition.currentScale, anchor: .center)
-                                        .opacity(transition.currentOpacity)
-                                    
-                                    if transition.nextStep != transition.currentStep {
-                                        gridLayer(metrics: transition.nextMetrics)
+                    GeometryReader { innerProxy in
+                        VStack(spacing: 0) {
+                            ScrollViewReader { reader in
+                                ScrollView(.vertical, showsIndicators: false) {
+                                    ZStack(alignment: .topLeading) {
+                                        gridLayer(metrics: transition.currentMetrics)
                                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                                            .scaleEffect(transition.nextScale, anchor: .center)
-                                            .opacity(transition.nextOpacity)
+                                            .scaleEffect(transition.currentScale, anchor: .center)
+                                            .opacity(transition.currentOpacity)
+                                        
+                                        if transition.nextStep != transition.currentStep {
+                                            gridLayer(metrics: transition.nextMetrics)
+                                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                                                .scaleEffect(transition.nextScale, anchor: .center)
+                                                .opacity(transition.nextOpacity)
+                                        }
+                                    }
+                                    .padding(gridPadding)
+                                    // You can still use the outer proxy for the minHeight logic here if you want it to stretch under the blurs
+                                    .frame(maxWidth: .infinity, minHeight: proxy.size.height - blurHeight - 24, alignment: .top)
+                                }
+                                .defaultScrollAnchor(.bottom)
+                                .scrollPosition($scrollPosition)
+                                .scrollEdgeEffectStyle(.soft, for: .top)
+                                .onAppear {
+                                    if !didPerformInitialScroll {
+                                        didPerformInitialScroll = true
+                                        isInWelcomeScreen = true
+                                        
+                                        DispatchQueue.main.async {
+                                            if let lastOpenedEntryDate {
+                                                scrollPosition.scrollTo(id: lastOpenedEntryDate, anchor: .bottom)
+                                            }
+                                        }
                                     }
                                 }
-                                .padding(gridPadding)
-                                .frame(maxWidth: .infinity, minHeight: proxy.size.height - blurHeight - 24, alignment: .top)
-                                
-                                welcomeScreen
-                                    .containerRelativeFrame(.vertical)
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                    .id(welcomeScreenID)
-                                    .scrollTransition(.animated, axis: .vertical) { content, phase in
-                                        content.opacity(phase.isIdentity ? 1 : 0)
-                                    }
-                            }
-                        }
-                        .scrollTargetBehavior(.welcomeBoundary)
-                        .scrollPosition($scrollPosition)
-                        .scrollEdgeEffectStyle(.soft, for: .top)
-                        .onAppear {
-                            if !didPerformInitialScroll {
-                                didPerformInitialScroll = true
-                                DispatchQueue.main.async {
-                                    withAnimation(.snappy) {
-                                        scrollPosition.scrollTo(id: welcomeScreenID, anchor: .bottom)
+                                .onChange(of: journalEntries.last?.date) { _, newDate in
+                                    guard let newDate else { return }
+                                    if isFollowingBottom {
+                                        withAnimation(.easeOut) {
+                                            scrollPosition.scrollTo(id: newDate)
+                                        }
                                     }
                                 }
-                            } else if let lastOpenedEntryDate {
-                                DispatchQueue.main.async {
-                                    withAnimation(.snappy) {
-                                        scrollPosition.scrollTo(id: lastOpenedEntryDate, anchor: .bottom)
+                                .onScrollTargetVisibilityChange(idType: Date.self, threshold: 0.2) { visibleIDs in
+                                    if let lastDate = journalEntries.last?.date {
+                                        isFollowingBottom = visibleIDs.contains(lastDate)
+                                    } else {
+                                        isFollowingBottom = true
+                                    }
+                                    
+                                    let journalDates = visibleIDs.sorted()
+                                    
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                        if !isInWelcomeScreen {
+                                            dateOnScreen = journalDates.first
+                                        }
+                                    }
+                                }
+                                .onChange(of: proxy.size) {
+                                    guard dateOnScreen != nil else { return }
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        withAnimation(.snappy) {
+                                            scrollPosition.scrollTo(id: dateOnScreen, anchor: .bottom)
+                                        }
                                     }
                                 }
                             }
-                        }
-                        .onChange(of: journalEntries.last?.date) { _, newDate in
-                            guard let newDate else { return }
-                            if isFollowingBottom {
-                                withAnimation(.easeOut) {
-                                    scrollPosition.scrollTo(id: newDate)
-                                }
-                            }
-                        }
-                        .onScrollTargetVisibilityChange(idType: Date.self, threshold: 0.2) { visibleIDs in
-                            if let lastDate = journalEntries.last?.date {
-                                isFollowingBottom = visibleIDs.contains(lastDate)
-                            } else {
-                                isFollowingBottom = true
-                            }
+                            // 2. USE INNER PROXY FOR THE FRAME
+                            .frame(height: innerProxy.size.height)
                             
-                            let hasWelcomeScreen = visibleIDs.contains(welcomeScreenID)
-                            let journalDates = visibleIDs.filter { $0 != welcomeScreenID }.sorted()
-                            
-                            
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                if hasWelcomeScreen {
-                                    isInWelcomeScreen = true
-                                    dateOnScreen = nil
-                                } else if let earliestVisibleEntry = journalDates.first {
-                                    dateOnScreen = earliestVisibleEntry
-                                } else {
-                                    dateOnScreen = nil
-                                }
-                            }
+                            welcomeScreen
+                            // 3. USE INNER PROXY FOR THE FRAME
+                                .frame(height: innerProxy.size.height)
                         }
-                        .onChange(of: proxy.size) {
-                            guard dateOnScreen != nil || isInWelcomeScreen else { return }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                withAnimation(.snappy) {
-                                    if dateOnScreen == nil && isInWelcomeScreen {
-                                        scrollPosition.scrollTo(id: welcomeScreenID, anchor: .bottom)
-                                    } else if dateOnScreen != nil {
-                                        scrollPosition.scrollTo(id: dateOnScreen, anchor: .bottom)
+                        // 4. USE INNER PROXY FOR THE EXACT OFFSET
+                        .offset(y: (isInWelcomeScreen ? -innerProxy.size.height : 0) + manualDragOffset)
+                        .simultaneousGesture(
+                            DragGesture()
+                                .onChanged { value in
+                                    if isInWelcomeScreen {
+                                        if value.translation.height > 0 {
+                                            manualDragOffset = value.translation.height
+                                        }
+                                    } else {
+                                        if isFollowingBottom, value.translation.height < 0 {
+                                            manualDragOffset = value.translation.height
+                                        }
                                     }
                                 }
-                            }
-                        }
+                                .onEnded { value in
+                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                        if isInWelcomeScreen {
+                                            if value.translation.height > 100 || value.velocity.height > 300 {
+                                                isInWelcomeScreen = false
+                                                dateOnScreen = nil
+                                            }
+                                        } else {
+                                            if isFollowingBottom && (value.translation.height < -100 || value.velocity.height < -300) {
+                                                isInWelcomeScreen = true
+                                                dateOnScreen = nil
+                                            }
+                                        }
+                                        manualDragOffset = 0
+                                    }
+                                }
+                        )
                     }
                     
                     LinearGradient(
@@ -494,37 +513,6 @@ struct HomeView: View {
             selectedEntries.append(entry)
         }
     }
-}
-
-struct WelcomeBoundaryBehavior: ScrollTargetBehavior {
-    func updateTarget(_ target: inout ScrollTarget, context: TargetContext) {
-        guard context.contentSize.height > context.containerSize.height else { return }
-        
-        let maxOffset = context.contentSize.height - context.containerSize.height
-        let welcomeHeight = context.containerSize.height
-        let gridBottomOffset = maxOffset - welcomeHeight
-        
-        if target.rect.minY >= gridBottomOffset - 150 {
-            
-            let velocity = context.velocity.dy
-            
-            if velocity > 0.2 {
-                target.rect.origin.y = maxOffset
-            } else if velocity < -0.2 {
-                target.rect.origin.y = gridBottomOffset
-            } else {
-                if target.rect.minY > gridBottomOffset + (welcomeHeight * 0.15) {
-                    target.rect.origin.y = maxOffset
-                } else {
-                    target.rect.origin.y = gridBottomOffset
-                }
-            }
-        }
-    }
-}
-
-extension ScrollTargetBehavior where Self == WelcomeBoundaryBehavior {
-    static var welcomeBoundary: WelcomeBoundaryBehavior { .init() }
 }
 
 #Preview {
