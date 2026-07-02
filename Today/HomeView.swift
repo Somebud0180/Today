@@ -144,7 +144,7 @@ struct HomeView: View {
                                 withAnimation(.snappy) {
                                     if dateOnScreen == nil && isInWelcomeScreen {
                                         scrollPosition.scrollTo(id: welcomeScreenID, anchor: .bottom)
-                                    } else {
+                                    } else if dateOnScreen != nil {
                                         scrollPosition.scrollTo(id: dateOnScreen, anchor: .bottom)
                                     }
                                 }
