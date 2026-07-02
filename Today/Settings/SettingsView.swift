@@ -194,12 +194,12 @@ struct SettingsView: View {
     }
     
     private func refreshModelSize() {
-        guard let asrModelsURL, transcriptionManager.isModelDownloaded() else {
+        guard transcriptionManager.isModelDownloaded() else {
             modelSizeString = ""
             return
         }
         Task {
-            let size = await asrModelsURL.directorySizeStringAsync()
+            let size = await transcriptionManager.totalModelAndCacheSizeStringAsync()
             await MainActor.run {
                 self.modelSizeString = size
             }

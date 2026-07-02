@@ -190,6 +190,7 @@ final class AudioTranscriptionManager: ObservableObject {
     }
 }
 
+// MARK: - Delete Functions
 extension AudioTranscriptionManager {
     func isModelDownloaded() -> Bool {
         guard let url = asrModelsURL else { return false }
@@ -240,9 +241,50 @@ extension AudioTranscriptionManager {
             }
         }
     }
-
 }
 
+// MARK: - Model & Cache Size
+extension AudioTranscriptionManager {
+    private func appCachesDirectory() -> URL? {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+    }
+    
+    private func appCachesBundleSubdirectory() -> URL? {
+        guard
+            let caches = appCachesDirectory(),
+            let bundleID = Bundle.main.bundleIdentifier
+        else { return nil }
+        print("Bundle ID: \(bundleID)")
+        return caches.appending(path: bundleID, directoryHint: .isDirectory)
+    }
+    
+    private func e5BundleCacheURL() -> URL? {
+        appCachesBundleSubdirectory()?.appending(path: "com.apple.e5rt.e5bundlecache", directoryHint: .isDirectory)
+    }
+    
+    func totalModelAndCacheSizeAsync() async -> UInt64 {
+        async let modelBytes: UInt64 = {
+            guard let modelURL = await asrModelsURL, FileManager.default.fileExists(atPath: modelURL.path) else { return 0 }
+            return await modelURL.directoryTotalSizeAsync()
+        }()
+        
+        async let cacheBytes: UInt64 = {
+            guard let e5URL = await e5BundleCacheURL(), FileManager.default.fileExists(atPath: e5URL.path) else { return 0 }
+            return await e5URL.directoryTotalSizeAsync()
+        }()
+        
+        print("Model: \(await modelBytes), Cache: \(await cacheBytes)")
+        let (m, c) = await (modelBytes, cacheBytes)
+        return m &+ c
+    }
+    
+    func totalModelAndCacheSizeStringAsync() async -> String {
+        let total = await totalModelAndCacheSizeAsync()
+        return ByteCountFormatter.string(fromByteCount: Int64(total), countStyle: .file)
+    }
+}
+
+// MARK: - Transcribe Functions
 extension AudioTranscriptionManager {
     func transcribeAudio(_ audioURL: URL) async -> (ASRResult?, Bool) {
         guard enableTranscription else {
@@ -304,3 +346,4 @@ extension AudioTranscriptionManager {
         try await exportSession.export(to: outputURL, as: .m4a)
     }
 }
+
