@@ -36,12 +36,14 @@ struct HomeView: View {
     @State private var gestureStartZoomStep: Int? = nil
     @State private var continuousZoomFactor: CGFloat = 4.0
     @State private var scrollPosition: ScrollPosition = .init(idType: Date.self)
-    @State private var isFollowingBottom = true
+    @State private var isFollowingBottom: Bool = true
+    @State private var isInWelcomeScreen: Bool = false
     @State private var didPerformInitialScroll = false
     @State private var isPad: Bool = UIDevice.current.userInterfaceIdiom == .pad
     @State private var topBarHeight: CGFloat = 0.0
     @State private var showDeleteConfirmaton: Bool = false
     @State private var dateOnScreen: Date?
+    @State private var lastOpenedEntryDate: Date?
     
     @State private var selectedEntries: [JournalEntry] = []
     @State private var shareHelper: ShareHelper = ShareHelper()
@@ -91,10 +93,18 @@ struct HomeView: View {
                         .scrollPosition($scrollPosition)
                         .scrollEdgeEffectStyle(.soft, for: .top)
                         .onAppear {
-                            guard !didPerformInitialScroll else { return }
-                            DispatchQueue.main.async {
-                                withAnimation(.snappy) {
-                                    scrollPosition.scrollTo(id: welcomeScreenID, anchor: .bottom)
+                            if !didPerformInitialScroll {
+                                didPerformInitialScroll = true
+                                DispatchQueue.main.async {
+                                    withAnimation(.snappy) {
+                                        scrollPosition.scrollTo(id: welcomeScreenID, anchor: .bottom)
+                                    }
+                                }
+                            } else if let lastOpenedEntryDate {
+                                DispatchQueue.main.async {
+                                    withAnimation(.snappy) {
+                                        scrollPosition.scrollTo(id: lastOpenedEntryDate, anchor: .bottom)
+                                    }
                                 }
                             }
                         }
@@ -119,6 +129,7 @@ struct HomeView: View {
                             
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                                 if hasWelcomeScreen {
+                                    isInWelcomeScreen = true
                                     dateOnScreen = nil
                                 } else if let earliestVisibleEntry = journalDates.first {
                                     dateOnScreen = earliestVisibleEntry
@@ -128,12 +139,13 @@ struct HomeView: View {
                             }
                         }
                         .onChange(of: proxy.size) {
+                            guard dateOnScreen != nil || isInWelcomeScreen else { return }
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                                 withAnimation(.snappy) {
-                                    if dateOnScreen == nil {
+                                    if dateOnScreen == nil && isInWelcomeScreen {
                                         scrollPosition.scrollTo(id: welcomeScreenID, anchor: .bottom)
-                                    } else if let currentDate = dateOnScreen {
-                                        scrollPosition.scrollTo(id: currentDate, anchor: .bottom)
+                                    } else {
+                                        scrollPosition.scrollTo(id: dateOnScreen, anchor: .bottom)
                                     }
                                 }
                             }
@@ -361,6 +373,10 @@ struct HomeView: View {
                     .toolbar(.hidden, for: .tabBar)
                     .environmentObject(transcriptionManager)
                     .navigationTransition(.zoom(sourceID: journalEntry, in: namespace))
+                    .onAppear {
+                        lastOpenedEntryDate = journalEntry.date
+                        isFollowingBottom = false
+                    }
             },
             onShare: { entry in
                 Task { await shareHelper.prepareEntryForSharing(entry) }
