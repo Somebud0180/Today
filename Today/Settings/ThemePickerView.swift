@@ -10,7 +10,7 @@ import SwiftUI
 struct ThemePickerView: View {
     @AppStorage("preferredColorScheme") private var preferredColorScheme: PreferredColorScheme = DefaultSettings.preferredColorTheme
     @AppStorage("selectedBackground") private var selectedBackground: String = DefaultSettings.selectedBackground
-    @State var gridColumns: [GridItem] = [GridItem(.adaptive(minimum: 240, maximum: 360), spacing: 8)]
+    @State private var gridColumns: [GridItem] = [GridItem(.adaptive(minimum: 120, maximum: 360), spacing: 8)]
     
     var body: some View {
         NavigationStack {
