@@ -30,7 +30,7 @@ struct JournalGridView<Destination: View>: View {
                 }
                 .buttonStyle(.plain)
                 .id(entry.date)
-                .opacity(isEditing && !isSelected ? 0.8 : 1)
+                .opacity(isEditing && !isSelected ? 0.75 : 1)
                 .accessibilityHidden(isEditing)
                 .allowsHitTesting(!isEditing)
                 .contextMenu {
@@ -58,7 +58,8 @@ struct JournalGridView<Destination: View>: View {
                 }
                 .overlay {
                     if isEditing {
-                        Color.clear
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(lineWidth: isSelected ? 2 : 0)
                             .contentShape(RoundedRectangle(cornerRadius: 16))
                             .onTapGesture {
                                 if isSelected {
@@ -81,6 +82,7 @@ struct JournalGridView<Destination: View>: View {
                             }
                     }
                 }
+                .animation(.snappy, value: isSelected)
             }
         }
         .scrollTargetLayout()
