@@ -306,6 +306,8 @@ struct OnboardingView: View {
                         .resizable()
                         .scaledToFill()
                         .accessibilityHidden(true)
+                        .frame(width: proxy.size.width, height: proxy.size.height, alignment: .center)
+                        .clipped()
                         .animation(.easeInOut(duration: 0.5), value: colorScheme)
                 }
                     .ignoresSafeArea(.all)

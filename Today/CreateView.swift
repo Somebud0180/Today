@@ -263,6 +263,8 @@ struct CreateView: View {
                     Image(selectedBackground)
                         .resizable()
                         .scaledToFill()
+                        .frame(width: proxy.size.width, height: proxy.size.height, alignment: .center)
+                        .clipped()
                         .blur(radius: backgroundBlur, opaque: true)
                         .accessibilityHidden(true)
                         .animation(.smooth(duration: 0.4), value: backgroundBlur)

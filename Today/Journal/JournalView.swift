@@ -105,6 +105,8 @@ struct JournalView: View {
                     Image(selectedBackground)
                         .resizable()
                         .scaledToFill()
+                        .frame(width: proxy.size.width, height: proxy.size.height, alignment: .center)
+                        .clipped()
                         .blur(radius: 24)
                         .accessibilityHidden(true)
                         .overlay(backgroundOverlay)
