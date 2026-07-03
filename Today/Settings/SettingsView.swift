@@ -7,23 +7,33 @@
 
 import SwiftUI
 import UserNotifications
+import Speech
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var transcriptionManager: AudioTranscriptionManager
     
-    @AppStorage("asrModelsURL") private var asrModelsURL: URL?
     @AppStorage("preferredColorScheme") private var preferredColorScheme: PreferredColorScheme = DefaultSettings.preferredColorTheme
     @AppStorage("autoPlayOnOpen") private var autoPlayOnOpen: Bool = DefaultSettings.autoPlayOnOpen
     @AppStorage("remindMeToJournal") private var remindMeToJournal: Bool = DefaultSettings.remindMeToJournal
     @AppStorage("reminderTime") private var reminderTime: Date = DefaultSettings.reminderTime
     @AppStorage("enableTranscription") private var enableTranscription: Bool = DefaultSettings.enableTranscription
     @AppStorage("transcribeOnSave") private var transcribeOnSave: Bool = DefaultSettings.transcribeOnSave
+    @AppStorage("transcriptionLocale") private var transcriptionLocale: String = DefaultSettings.transcriptionLocale
     
     @State var authorizationStatus: UNAuthorizationStatus = .notDetermined
     @State var showOnboarding: Bool = false
     @State var showDeleteModelConfirmation: Bool = false
     @State private var modelSizeString: String = ""
+    
+    // Dynamically fetch and sort supported locales
+    var supportedLocales: [Locale] {
+        let locales = SFSpeechRecognizer.supportedLocales()
+        return locales.sorted {
+            ($0.localizedString(forIdentifier: $0.identifier) ?? $0.identifier) <
+                ($1.localizedString(forIdentifier: $1.identifier) ?? $1.identifier)
+        }
+    }
     
     var body: some View {
         NavigationStack {
@@ -87,6 +97,15 @@ struct SettingsView: View {
                 Section(header: Text("Audio Transcription"), footer: Text("All features run on-device. Your entries stay safe and never leave your device.")) {
                     Toggle("Enable audio transcription", isOn: $enableTranscription)
                     
+                    Picker("Language", selection: $transcriptionLocale) {
+                        ForEach(supportedLocales, id: \.identifier) { locale in
+                            Text(formatLocaleName(locale))
+                                .tag(locale.identifier)
+                        }
+                    }
+                    .pickerStyle(.navigationLink)
+                    .disabled(!enableTranscription)
+                    
                     Toggle(isOn: $transcribeOnSave) {
                         VStack(alignment: .leading) {
                             Text("Transcribe entry on save")
@@ -95,7 +114,7 @@ struct SettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                        .disabled(!enableTranscription)
+                    .disabled(!enableTranscription)
                 }
                 
                 Section(header: Text("Export")) {
@@ -117,6 +136,16 @@ struct SettingsView: View {
                 OnboardingView()
             }
         }
+    }
+    
+    private func formatLocaleName(_ locale: Locale) -> String {
+        if locale.identifier == "hi-IN-translit" {
+            return "Hindi (Transliteration)"
+        }
+        
+        let rawName = locale.localizedString(forIdentifier: locale.identifier) ?? locale.identifier
+        
+        return rawName.localizedCapitalized
     }
     
     private var notificationsButton: some View {
@@ -144,8 +173,4 @@ struct SettingsView: View {
             }
         }
     }
-}
-
-#Preview {
-    SettingsView()
 }

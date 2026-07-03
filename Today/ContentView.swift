@@ -15,6 +15,7 @@ struct DefaultSettings {
     static let remindMeToJournal: Bool = true
     static let reminderTime: Date = Calendar.current.date(bySettingHour: 20, minute: 0, second: 0, of: Date()) ?? Date()
     static let enableTranscription: Bool = false
+    static let transcriptionLocale: String = "en-US"
     static let transcribeOnSave: Bool = false
     static let hasCompletedOnboarding: Bool = false
 }

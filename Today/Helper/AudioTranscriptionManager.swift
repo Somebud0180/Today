@@ -14,7 +14,7 @@ import Combine
 @MainActor
 final class AudioTranscriptionManager: ObservableObject {
     @AppStorage("enableTranscription") private var enableTranscription: Bool = DefaultSettings.enableTranscription
-    
+    @AppStorage("transcriptionLocale") private var transcriptionLocale: String = DefaultSettings.transcriptionLocale
     @Published private(set) var isProcessing: Bool = false
     private var cancellables = Set<AnyCancellable>()
     
@@ -61,10 +61,15 @@ extension AudioTranscriptionManager {
         do {
             let audioFile = try AVAudioFile(forReading: audioURL)
             
-            let locale = Locale.current
+            let rawLocale = Locale(identifier: transcriptionLocale)
+            guard let locale = await SpeechTranscriber.supportedLocale(equivalentTo: rawLocale) else {
+                print("Transcription failed: Selected locale is not supported or allocated by the system.")
+                return (nil, false)
+            }
+            
             let transcriber = SpeechTranscriber(locale: locale, preset: .transcription)
             
-            let analyzer = try await SpeechAnalyzer(
+            _ = try await SpeechAnalyzer(
                 inputAudioFile: audioFile,
                 modules: [transcriber],
                 options: nil,
@@ -75,12 +80,13 @@ extension AudioTranscriptionManager {
             
             var finalTranscript = ""
             for try await result in transcriber.results {
-                // The exact property for the text depends on the Result structure,
-                // typically you would append the resolved text from the phrases.
-                // Assuming `result.text` or similar holds the string payload:
-                // finalTranscript += result.text + " "
+                if result.isFinal {
+                    let chunk = String(result.text.characters)
+                    finalTranscript += chunk + " "
+                }
             }
             
+            print("Final Transcript: \(finalTranscript)")
             return (finalTranscript.trimmingCharacters(in: .whitespacesAndNewlines), true)
             
         } catch {
