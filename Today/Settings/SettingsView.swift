@@ -146,7 +146,7 @@ struct SettingsView: View {
             .alert("Transcription Error", isPresented: $showTranscriptionError) {
                 Button("OK") { transcriptionManager.clearError() }
             } message: {
-                Text(transcriptionManager.error ?? "An error has occured with audio transcription")
+                Text(transcriptionManager.error ?? "An error has occurred with audio transcription")
             }
             .fullScreenCover(isPresented: $showOnboarding) {
                 OnboardingView()
