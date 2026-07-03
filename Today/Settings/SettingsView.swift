@@ -22,8 +22,6 @@ struct SettingsView: View {
     
     @State private var authorizationStatus: UNAuthorizationStatus = .notDetermined
     @State private var showOnboarding: Bool = false
-    @State private var showDeleteModelConfirmation: Bool = false
-    @State private var modelSizeString: String = ""
     @State private var showTranscriptionError: Bool = false
     
     var body: some View {
