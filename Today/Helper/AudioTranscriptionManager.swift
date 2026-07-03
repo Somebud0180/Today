@@ -16,36 +16,56 @@ final class AudioTranscriptionManager: ObservableObject {
     @AppStorage("enableTranscription") private var enableTranscription: Bool = DefaultSettings.enableTranscription
     @AppStorage("transcriptionLocale") private var transcriptionLocale: String = DefaultSettings.transcriptionLocale
     @Published private(set) var isProcessing: Bool = false
-    private var cancellables = Set<AnyCancellable>()
+    @Published private(set) var isReady: Bool = false
+    @Published private(set) var error: String?
+    
+    private var transcriber: SpeechTranscriber?
     
     init() {
-        enableTranscriptionPublisher()
-            .removeDuplicates()
-            .debounce(for: .seconds(1), scheduler: RunLoop.main)
-            .sink { [weak self] isEnabled in
-                if !isEnabled {
-                    try? self?.clearAppCachesDirectory()
-                }
-            }
-            .store(in: &cancellables)
+        initializeTranscriber()
     }
     
-    private func enableTranscriptionPublisher() -> AnyPublisher<Bool, Never> {
-        Just(enableTranscription)
-            .append(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
-                .map { [weak self] _ in self?.enableTranscription ?? false }
-            )
-            .eraseToAnyPublisher()
-    }
-    
-    func clearAppCachesDirectory() throws {
-        let fileManager = FileManager.default
-        guard let cachesURL = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first else { return }
-        
-        let contents = try fileManager.contentsOfDirectory(at: cachesURL, includingPropertiesForKeys: nil, options: [])
-        for url in contents {
-            try fileManager.removeItem(at: url)
+    /// Prepares the transcriber and resolves local language support
+    func initializeTranscriber() {
+        guard SpeechTranscriber.isAvailable else {
+            self.error = "Speech transcription is not supported on this device hardware."
+            return
         }
+        
+        let rawLocale = Locale(identifier: transcriptionLocale)
+        
+        Task {
+            guard let verifiedLocale = await SpeechTranscriber.supportedLocale(equivalentTo: rawLocale) else {
+                self.error = "The selected locale is not supported by the transcriber."
+                return
+            }
+            
+            _ = try? await AssetInventory.reserve(locale: verifiedLocale)
+            self.transcriber = SpeechTranscriber(locale: verifiedLocale, preset: .transcription)
+            self.isReady = true
+        }
+    }
+    
+    func downloadAsset() async {
+        guard let transcriber = transcriber else {
+            self.error = "Transcriber not initialized."
+            return
+        }
+        
+        isProcessing = true
+        defer { isProcessing = false }
+        
+        do {
+            if let installationRequest = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+                try await installationRequest.downloadAndInstall()
+            }
+        } catch {
+            self.error = "Failed to download asset: \(error.localizedDescription)"
+        }
+    }
+    
+    func clearError() {
+        error = nil
     }
 }
 
@@ -53,21 +73,13 @@ final class AudioTranscriptionManager: ObservableObject {
 extension AudioTranscriptionManager {
     /// Transcribes an audio file using Apple's native SpeechAnalyzer
     func transcribeAudio(_ audioURL: URL) async -> (String?, Bool) {
-        guard enableTranscription else { return (nil, false) }
+        guard enableTranscription, let transcriber = transcriber, isReady else { return (nil, false) }
         
         isProcessing = true
         defer { isProcessing = false }
         
         do {
             let audioFile = try AVAudioFile(forReading: audioURL)
-            
-            let rawLocale = Locale(identifier: transcriptionLocale)
-            guard let locale = await SpeechTranscriber.supportedLocale(equivalentTo: rawLocale) else {
-                print("Transcription failed: Selected locale is not supported or allocated by the system.")
-                return (nil, false)
-            }
-            
-            let transcriber = SpeechTranscriber(locale: locale, preset: .transcription)
             
             _ = try await SpeechAnalyzer(
                 inputAudioFile: audioFile,
@@ -86,7 +98,6 @@ extension AudioTranscriptionManager {
                 }
             }
             
-            print("Final Transcript: \(finalTranscript)")
             return (finalTranscript.trimmingCharacters(in: .whitespacesAndNewlines), true)
             
         } catch {
@@ -110,7 +121,7 @@ extension AudioTranscriptionManager {
             
             return result
         } catch {
-            print("Video extraction/transcription failed: \(error.localizedDescription)")
+            print("Video transcription failed: \(error.localizedDescription)")
             return (nil, false)
         }
     }

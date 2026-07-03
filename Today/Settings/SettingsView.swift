@@ -21,10 +21,11 @@ struct SettingsView: View {
     @AppStorage("transcribeOnSave") private var transcribeOnSave: Bool = DefaultSettings.transcribeOnSave
     @AppStorage("transcriptionLocale") private var transcriptionLocale: String = DefaultSettings.transcriptionLocale
     
-    @State var authorizationStatus: UNAuthorizationStatus = .notDetermined
-    @State var showOnboarding: Bool = false
-    @State var showDeleteModelConfirmation: Bool = false
+    @State private var authorizationStatus: UNAuthorizationStatus = .notDetermined
+    @State private var showOnboarding: Bool = false
+    @State private var showDeleteModelConfirmation: Bool = false
     @State private var modelSizeString: String = ""
+    @State private var showTranscriptionError: Bool = false
     
     // Dynamically fetch and sort supported locales
     var supportedLocales: [Locale] {
@@ -115,6 +116,22 @@ struct SettingsView: View {
                         }
                     }
                     .disabled(!enableTranscription)
+                    
+                    HStack {
+                        Text("Status:")
+                        Spacer()
+                        Text(
+                            !enableTranscription ?
+                            "Disabled" : transcriptionManager.isProcessing ?
+                            "Downloading" : transcriptionManager.isReady ?
+                            "Ready" : "Idle"
+                        )
+                        
+                        if transcriptionManager.isProcessing {
+                            Image(systemName: "progress.indicator")
+                                .symbolEffect(.variableColor.iterative.nonReversing, options: .repeat(.continuous))
+                        }
+                    }
                 }
                 
                 Section(header: Text("Export")) {
@@ -131,6 +148,14 @@ struct SettingsView: View {
                 Task {
                     authorizationStatus = await NotificationsManager.notificatonPermissionStatus()
                 }
+            }
+            .onChange(of: transcriptionManager.error) {
+                showTranscriptionError = (transcriptionManager.error != nil)
+            }
+            .alert("Transcription Error", isPresented: $showTranscriptionError) {
+                Button("OK") { transcriptionManager.clearError() }
+            } message: {
+                Text(transcriptionManager.error ?? "An error has occured with audio transcription")
             }
             .fullScreenCover(isPresented: $showOnboarding) {
                 OnboardingView()
