@@ -27,21 +27,6 @@ struct SettingsView: View {
     @State private var modelSizeString: String = ""
     @State private var showTranscriptionError: Bool = false
     
-    // Dynamically fetch and sort supported locales
-    var supportedLocales: [Locale] {
-        let locales = SFSpeechRecognizer.supportedLocales()
-        return locales.map { locale in
-            if locale.identifier.contains("_") {
-                return Locale(identifier: locale.identifier.replacingOccurrences(of: "_", with: "-"))
-            }
-            return locale
-        }
-        .sorted {
-            ($0.localizedString(forIdentifier: $0.identifier) ?? $0.identifier) <
-                ($1.localizedString(forIdentifier: $1.identifier) ?? $1.identifier)
-        }
-    }
-    
     var body: some View {
         NavigationStack {
             Form {
@@ -104,18 +89,10 @@ struct SettingsView: View {
                 Section(header: Text("Audio Transcription"), footer: Text("All features run on-device. Your entries stay safe and never leave your device.")) {
                     Toggle("Enable audio transcription", isOn: $enableTranscription)
                     
-                    Picker("Language", selection: Binding(
-                        get: { transcriptionLocale.replacingOccurrences(of: "_", with: "-") },
-                        set: { newValue in
-                            let normalizedValue = newValue.replacingOccurrences(of: "_", with: "-")
-                            transcriptionLocale = normalizedValue
-                            transcriptionManager.initializeTranscriber()
-                        }
-                    )) {
-                        ForEach(supportedLocales, id: \.identifier) { locale in
-                            let normalizedTag = locale.identifier.replacingOccurrences(of: "_", with: "-")
+                    Picker("Language", selection: $transcriptionLocale) {
+                        ForEach(transcriptionManager.supportedLocales, id: \.identifier) { locale in
                             Text(formatLocaleName(locale))
-                                .tag(normalizedTag)
+                                .tag(locale.identifier)
                         }
                     }
                     .pickerStyle(.navigationLink)
@@ -178,12 +155,7 @@ struct SettingsView: View {
     }
     
     private func formatLocaleName(_ locale: Locale) -> String {
-        if locale.identifier == "hi-IN-translit" {
-            return "Hindi (Transliteration)"
-        }
-        
         let rawName = locale.localizedString(forIdentifier: locale.identifier) ?? locale.identifier
-        
         return rawName.localizedCapitalized
     }
     

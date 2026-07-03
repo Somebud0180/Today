@@ -18,6 +18,7 @@ final class AudioTranscriptionManager: ObservableObject {
     @Published private(set) var isProcessing: Bool = false
     @Published private(set) var isReady: Bool = false
     @Published private(set) var error: String?
+    @Published private(set) var supportedLocales: [Locale] = []
     
     private var transcriber: SpeechTranscriber?
     
@@ -35,6 +36,14 @@ final class AudioTranscriptionManager: ObservableObject {
         let currentSavedLocale = Locale(identifier: transcriptionLocale)
         
         Task {
+            if self.supportedLocales.isEmpty {
+                let locales = await SpeechTranscriber.supportedLocales
+                self.supportedLocales = locales.sorted {
+                    ($0.localizedString(forIdentifier: $0.identifier) ?? $0.identifier) <
+                        ($1.localizedString(forIdentifier: $1.identifier) ?? $1.identifier)
+                }
+            }
+            
             if let verifiedLocale = await SpeechTranscriber.supportedLocale(equivalentTo: currentSavedLocale) {
                 if self.transcriptionLocale != verifiedLocale.identifier {
                     self.transcriptionLocale = verifiedLocale.identifier
