@@ -94,6 +94,9 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.navigationLink)
                     .disabled(!enableTranscription)
+                    .onChange(of: transcriptionLocale) { _ in
+                        transcriptionManager.initializeTranscriber()
+                    }
                     
                     Toggle(isOn: $transcribeOnSave) {
                         VStack(alignment: .leading) {
