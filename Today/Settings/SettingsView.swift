@@ -12,18 +12,17 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var transcriptionManager: AudioTranscriptionManager
     
-    @AppStorage("asrModelsURL") private var asrModelsURL: URL?
     @AppStorage("preferredColorScheme") private var preferredColorScheme: PreferredColorScheme = DefaultSettings.preferredColorTheme
     @AppStorage("autoPlayOnOpen") private var autoPlayOnOpen: Bool = DefaultSettings.autoPlayOnOpen
     @AppStorage("remindMeToJournal") private var remindMeToJournal: Bool = DefaultSettings.remindMeToJournal
     @AppStorage("reminderTime") private var reminderTime: Date = DefaultSettings.reminderTime
     @AppStorage("enableTranscription") private var enableTranscription: Bool = DefaultSettings.enableTranscription
     @AppStorage("transcribeOnSave") private var transcribeOnSave: Bool = DefaultSettings.transcribeOnSave
+    @AppStorage("transcriptionLocale") private var transcriptionLocale: String = DefaultSettings.transcriptionLocale
     
-    @State var authorizationStatus: UNAuthorizationStatus = .notDetermined
-    @State var showOnboarding: Bool = false
-    @State var showDeleteModelConfirmation: Bool = false
-    @State private var modelSizeString: String = ""
+    @State private var authorizationStatus: UNAuthorizationStatus = .notDetermined
+    @State private var showOnboarding: Bool = false
+    @State private var showTranscriptionError: Bool = false
     
     var body: some View {
         NavigationStack {
@@ -87,6 +86,18 @@ struct SettingsView: View {
                 Section(header: Text("Audio Transcription"), footer: Text("All features run on-device. Your entries stay safe and never leave your device.")) {
                     Toggle("Enable audio transcription", isOn: $enableTranscription)
                     
+                    Picker("Language", selection: $transcriptionLocale) {
+                        ForEach(transcriptionManager.supportedLocales, id: \.identifier) { locale in
+                            Text(formatLocaleName(locale))
+                                .tag(locale.identifier)
+                        }
+                    }
+                    .pickerStyle(.navigationLink)
+                    .disabled(!enableTranscription)
+                    .onChange(of: transcriptionLocale) { _ in
+                        transcriptionManager.initializeTranscriber()
+                    }
+                    
                     Toggle(isOn: $transcribeOnSave) {
                         VStack(alignment: .leading) {
                             Text("Transcribe entry on save")
@@ -95,36 +106,22 @@ struct SettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                        .disabled(!enableTranscription)
+                    .disabled(!enableTranscription)
                     
                     HStack {
-                        Text("Transcription Status: ")
-                        
+                        Text("Status:")
                         Spacer()
+                        Text(
+                            !enableTranscription ?
+                            "Disabled" : transcriptionManager.isProcessing ?
+                            "Processing" : transcriptionManager.isReady ?
+                            "Ready" : "Idle"
+                        )
                         
-                        Text(transcriptionManager.modelLoadState.description)
-                        
-                        switch transcriptionManager.modelLoadState {
-                        case .loading, .downloading:
+                        if transcriptionManager.isProcessing {
                             Image(systemName: "progress.indicator")
                                 .symbolEffect(.variableColor.iterative.nonReversing, options: .repeat(.continuous))
-                        default:
-                            EmptyView()
                         }
-                    }
-                    
-                    if transcriptionManager.isModelDownloaded() {
-                        Button(action: {
-                            showDeleteModelConfirmation = true
-                        }, label: {
-                            HStack {
-                                Text("Model Downloaded: \(modelSizeString)")
-                                    .foregroundStyle(.primary)
-                                Spacer()
-                                Text("Delete")
-                                    .foregroundStyle(.red)
-                            }
-                        })
                     }
                 }
                 
@@ -141,30 +138,25 @@ struct SettingsView: View {
             .onAppear {
                 Task {
                     authorizationStatus = await NotificationsManager.notificatonPermissionStatus()
-                    refreshModelSize()
                 }
             }
-            .onChange(of: transcriptionManager.modelLoadState) {
-                    refreshModelSize()
+            .onChange(of: transcriptionManager.error) {
+                showTranscriptionError = (transcriptionManager.error != nil)
             }
-            .onChange(of: enableTranscription) {
-                refreshModelSize()
+            .alert("Transcription Error", isPresented: $showTranscriptionError) {
+                Button("OK") { transcriptionManager.clearError() }
+            } message: {
+                Text(transcriptionManager.error ?? "An error has occurred with audio transcription")
             }
-            .alert("Delete Transcription Model?", isPresented: $showDeleteModelConfirmation, actions: {
-                Button(role: .destructive, action: {
-                    Task {
-                        await transcriptionManager.deleteModel()
-                    }
-                })
-                
-                Button(role: .cancel, action: {})
-            }, message: {
-                Text("This will disable transcription and delete the model from your device. You will need to download the model again to use transcription.")
-            })
             .fullScreenCover(isPresented: $showOnboarding) {
                 OnboardingView()
             }
         }
+    }
+    
+    private func formatLocaleName(_ locale: Locale) -> String {
+        let rawName = locale.localizedString(forIdentifier: locale.identifier) ?? locale.identifier
+        return rawName.localizedCapitalized
     }
     
     private var notificationsButton: some View {
@@ -192,21 +184,4 @@ struct SettingsView: View {
             }
         }
     }
-    
-    private func refreshModelSize() {
-        guard transcriptionManager.isModelDownloaded() else {
-            modelSizeString = ""
-            return
-        }
-        Task {
-            let size = await transcriptionManager.totalModelAndCacheSizeStringAsync()
-            await MainActor.run {
-                self.modelSizeString = size
-            }
-        }
-    }
-}
-
-#Preview {
-    SettingsView()
 }

@@ -12,7 +12,7 @@ Journaling but easier and richer.
 - **Keep track.** View your entries day-by-day in the Jog Book. A calendar of your entries.
 - **Accessible.** The app supports VoiceOver. Along with other considerations to make the app work better for everyone.
 - **Searchable.** Find the day you want. Search by title, day or what you said.
-- **Transcribe on device.** Powered by [FluidAudio](https://github.com/FluidInference/FluidAudio). Get a transcript of your entries. For reading or for searching.[^1]
+- **Transcribe on device.** Powered by SpeechTranscriber. Get a transcript of your entries. For reading or for searching.[^1]
 - **Sync with iCloud.** Keep your journal safe, and access them across device if need be.
 
 ### Made with Swift
