@@ -30,7 +30,13 @@ struct SettingsView: View {
     // Dynamically fetch and sort supported locales
     var supportedLocales: [Locale] {
         let locales = SFSpeechRecognizer.supportedLocales()
-        return locales.sorted {
+        return locales.map { locale in
+            if locale.identifier.contains("_") {
+                return Locale(identifier: locale.identifier.replacingOccurrences(of: "_", with: "-"))
+            }
+            return locale
+        }
+        .sorted {
             ($0.localizedString(forIdentifier: $0.identifier) ?? $0.identifier) <
                 ($1.localizedString(forIdentifier: $1.identifier) ?? $1.identifier)
         }
@@ -98,10 +104,18 @@ struct SettingsView: View {
                 Section(header: Text("Audio Transcription"), footer: Text("All features run on-device. Your entries stay safe and never leave your device.")) {
                     Toggle("Enable audio transcription", isOn: $enableTranscription)
                     
-                    Picker("Language", selection: $transcriptionLocale) {
+                    Picker("Language", selection: Binding(
+                        get: { transcriptionLocale.replacingOccurrences(of: "_", with: "-") },
+                        set: { newValue in
+                            let normalizedValue = newValue.replacingOccurrences(of: "_", with: "-")
+                            transcriptionLocale = normalizedValue
+                            transcriptionManager.initializeTranscriber()
+                        }
+                    )) {
                         ForEach(supportedLocales, id: \.identifier) { locale in
+                            let normalizedTag = locale.identifier.replacingOccurrences(of: "_", with: "-")
                             Text(formatLocaleName(locale))
-                                .tag(locale.identifier)
+                                .tag(normalizedTag)
                         }
                     }
                     .pickerStyle(.navigationLink)

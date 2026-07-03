@@ -32,17 +32,28 @@ final class AudioTranscriptionManager: ObservableObject {
             return
         }
         
-        let rawLocale = Locale(identifier: transcriptionLocale)
+        let currentSavedLocale = Locale(identifier: transcriptionLocale)
         
         Task {
-            guard let verifiedLocale = await SpeechTranscriber.supportedLocale(equivalentTo: rawLocale) else {
-                self.error = "The selected locale is not supported by the transcriber."
-                return
+            if let verifiedLocale = await SpeechTranscriber.supportedLocale(equivalentTo: currentSavedLocale) {
+                if self.transcriptionLocale != verifiedLocale.identifier {
+                    self.transcriptionLocale = verifiedLocale.identifier
+                }
+                
+                _ = try? await AssetInventory.reserve(locale: verifiedLocale)
+                self.transcriber = SpeechTranscriber(locale: verifiedLocale, preset: .transcription)
+                self.isReady = true
+            } else {
+                let fallbackLocale = Locale(identifier: "en-US")
+                if let verifiedFallback = await SpeechTranscriber.supportedLocale(equivalentTo: fallbackLocale) {
+                    self.transcriptionLocale = verifiedFallback.identifier
+                    _ = try? await AssetInventory.reserve(locale: verifiedFallback)
+                    self.transcriber = SpeechTranscriber(locale: verifiedFallback, preset: .transcription)
+                    self.isReady = true
+                } else {
+                    self.error = "The system locale is not supported by the transcriber."
+                }
             }
-            
-            _ = try? await AssetInventory.reserve(locale: verifiedLocale)
-            self.transcriber = SpeechTranscriber(locale: verifiedLocale, preset: .transcription)
-            self.isReady = true
         }
     }
     
