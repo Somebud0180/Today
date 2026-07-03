@@ -7,7 +7,6 @@
 
 import SwiftUI
 import UserNotifications
-import Speech
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
