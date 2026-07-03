@@ -56,9 +56,14 @@ final class AudioTranscriptionManager: ObservableObject {
                 let fallbackLocale = Locale(identifier: "en-US")
                 if let verifiedFallback = await SpeechTranscriber.supportedLocale(equivalentTo: fallbackLocale) {
                     self.transcriptionLocale = verifiedFallback.identifier
-                    _ = try? await AssetInventory.reserve(locale: verifiedFallback)
-                    self.transcriber = SpeechTranscriber(locale: verifiedFallback, preset: .transcription)
-                    self.isReady = true
+                    do {
+                        try await AssetInventory.reserve(locale: verifiedFallback)
+                        self.transcriber = SpeechTranscriber(locale: verifiedFallback, preset: .transcription)
+                        self.isReady = true
+                    } catch {
+                        self.isReady = false
+                        self.error = "Failed to prepare transcription assets: \(error.localizedDescription)"
+                    }
                 } else {
                     self.error = "The system locale is not supported by the transcriber."
                 }
