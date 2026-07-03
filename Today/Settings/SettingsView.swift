@@ -114,7 +114,7 @@ struct SettingsView: View {
                         Text(
                             !enableTranscription ?
                             "Disabled" : transcriptionManager.isProcessing ?
-                            "Downloading" : transcriptionManager.isReady ?
+                            "Processing" : transcriptionManager.isReady ?
                             "Ready" : "Idle"
                         )
                         
