@@ -7,7 +7,6 @@
 
 import SwiftUI
 import SwiftData
-import FluidAudio
 
 struct NoteCardView: View {
     @EnvironmentObject var transcriptionManager: AudioTranscriptionManager
@@ -288,7 +287,7 @@ struct NoteCardView: View {
         
         transcriptionInProgress = true
         
-        let result: (ASRResult?, Bool)
+        let result: (String?, Bool)
         if entry.mediaType == .audio, let audioURL = entry.mediaURL  {
             result = await transcriptionManager.transcribeAudio(audioURL)
         } else if entry.mediaType == .video, let videoURL = entry.mediaURL {
@@ -297,7 +296,7 @@ struct NoteCardView: View {
             result = (.none, false)
         }
         
-        if let transcript = result.0?.text {
+        if let transcript = result.0 {
             Task { @MainActor in
                 withAnimation(.snappy) {
                     entry.transcript = transcript

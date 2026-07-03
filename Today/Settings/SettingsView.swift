@@ -96,36 +96,6 @@ struct SettingsView: View {
                         }
                     }
                         .disabled(!enableTranscription)
-                    
-                    HStack {
-                        Text("Transcription Status: ")
-                        
-                        Spacer()
-                        
-                        Text(transcriptionManager.modelLoadState.description)
-                        
-                        switch transcriptionManager.modelLoadState {
-                        case .loading, .downloading:
-                            Image(systemName: "progress.indicator")
-                                .symbolEffect(.variableColor.iterative.nonReversing, options: .repeat(.continuous))
-                        default:
-                            EmptyView()
-                        }
-                    }
-                    
-                    if transcriptionManager.isModelDownloaded() {
-                        Button(action: {
-                            showDeleteModelConfirmation = true
-                        }, label: {
-                            HStack {
-                                Text("Model Downloaded: \(modelSizeString)")
-                                    .foregroundStyle(.primary)
-                                Spacer()
-                                Text("Delete")
-                                    .foregroundStyle(.red)
-                            }
-                        })
-                    }
                 }
                 
                 Section(header: Text("Export")) {
@@ -141,26 +111,8 @@ struct SettingsView: View {
             .onAppear {
                 Task {
                     authorizationStatus = await NotificationsManager.notificatonPermissionStatus()
-                    refreshModelSize()
                 }
             }
-            .onChange(of: transcriptionManager.modelLoadState) {
-                    refreshModelSize()
-            }
-            .onChange(of: enableTranscription) {
-                refreshModelSize()
-            }
-            .alert("Delete Transcription Model?", isPresented: $showDeleteModelConfirmation, actions: {
-                Button(role: .destructive, action: {
-                    Task {
-                        await transcriptionManager.deleteModel()
-                    }
-                })
-                
-                Button(role: .cancel, action: {})
-            }, message: {
-                Text("This will disable transcription and delete the model from your device. You will need to download the model again to use transcription.")
-            })
             .fullScreenCover(isPresented: $showOnboarding) {
                 OnboardingView()
             }
@@ -189,19 +141,6 @@ struct SettingsView: View {
                         await UIApplication.shared.open(url)
                     }
                 }
-            }
-        }
-    }
-    
-    private func refreshModelSize() {
-        guard transcriptionManager.isModelDownloaded() else {
-            modelSizeString = ""
-            return
-        }
-        Task {
-            let size = await transcriptionManager.totalModelAndCacheSizeStringAsync()
-            await MainActor.run {
-                self.modelSizeString = size
             }
         }
     }

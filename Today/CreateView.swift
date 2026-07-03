@@ -7,11 +7,9 @@
 
 import SwiftUI
 import SwiftData
-import FluidAudio
 #if canImport(JournalingSuggestions)
 import JournalingSuggestions
 #endif
-
 
 private enum TransitionDirection {
     case forward
@@ -47,7 +45,7 @@ struct CreateView: View {
     @State private var suggestionTitle: String = ""
     @State private var entryTitle: String = ""
     @State private var entryNote: String = ""
-    @State private var transcript: ASRResult?
+    @State private var transcript: String?
     @State private var transcriptSuccess: Bool = true
     @State private var transcriptionInProgress: Bool = false
     @State private var invokedTranscription: Bool = false
@@ -554,13 +552,13 @@ struct CreateView: View {
                         in:
                             RoundedRectangle(cornerRadius: 24, style: .continuous)
                     )
-                )
+            )
             
             Button(action: {
                 tempEntry = JournalEntry(
                     title: entryTitle,
                     note: entryNote,
-                    transcript: transcript?.text ?? "",
+                    transcript: transcript ?? "",
                     mediaData: try! Data(contentsOf: activeURL),
                     fileExtension: fileExtension,
                     mediaType: mediaType,
@@ -604,9 +602,7 @@ struct CreateView: View {
                     .padding(12)
             }
             .buttonStyle(.glass)
-            
         }
-
     }
     
     func getCardPosY(_ proxy: GeometryProxy) -> CGFloat {
@@ -755,9 +751,9 @@ struct CreateView: View {
             transcriptionInProgress = true
             transcriptSuccess = true // optimistic until proven otherwise
         }
-            
+        
         Task {
-            let result: (ASRResult?, Bool)
+            let result: (String?, Bool)
             if let recordedAudioURL {
                 result = await transcriptionManager.transcribeAudio(recordedAudioURL)
             } else if let recordedVideoURL {
@@ -777,7 +773,6 @@ struct CreateView: View {
         }
     }
 }
-
 
 // Source - https://stackoverflow.com/a/69687031
 // Posted by Asperi

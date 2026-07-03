@@ -6,10 +6,6 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		AA7EA85B2FDECFA500F1CCEA /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = AA7EA85A2FDECFA500F1CCEA /* FluidAudio */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXContainerItemProxy section */
 		AA8C50EB2FAB9A7300FC23FF /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -69,7 +65,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AA7EA85B2FDECFA500F1CCEA /* FluidAudio in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -123,7 +118,6 @@
 			);
 			name = Today;
 			packageProductDependencies = (
-				AA7EA85A2FDECFA500F1CCEA /* FluidAudio */,
 			);
 			productName = Today;
 			productReference = AA7EA80F2FDECEA900F1CCEA /* Today.app */;
@@ -208,7 +202,6 @@
 			mainGroup = AA8C50D22FAB9A7000FC23FF;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				AA7EA8592FDECFA500F1CCEA /* XCRemoteSwiftPackageReference "FluidAudio" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AA8C50D22FAB9A7000FC23FF;
@@ -611,25 +604,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		AA7EA8592FDECFA500F1CCEA /* XCRemoteSwiftPackageReference "FluidAudio" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/FluidInference/FluidAudio";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.12.4;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		AA7EA85A2FDECFA500F1CCEA /* FluidAudio */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = AA7EA8592FDECFA500F1CCEA /* XCRemoteSwiftPackageReference "FluidAudio" */;
-			productName = FluidAudio;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = AA8C50D32FAB9A7000FC23FF /* Project object */;
 }
