@@ -35,6 +35,7 @@ struct HomeView: View {
     @State private var gridZoomStep: Int = 4
     @State private var gestureStartZoomStep: Int? = nil
     @State private var continuousZoomFactor: CGFloat = 4.0
+    @State private var outerPage: Int? = 1
     @State private var scrollPosition: ScrollPosition = .init(idType: Date.self)
     @State private var isFollowingBottom: Bool = true
     @State private var isInWelcomeScreen: Bool = false
@@ -63,111 +64,94 @@ struct HomeView: View {
                 
                 ZStack(alignment: .topLeading) {
                     GeometryReader { innerProxy in
-                        VStack(spacing: 0) {
-                            ScrollViewReader { reader in
-                                ScrollView(.vertical, showsIndicators: false) {
-                                    ZStack(alignment: .topLeading) {
-                                        gridLayer(metrics: transition.currentMetrics)
-                                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                                            .scaleEffect(transition.currentScale, anchor: .center)
-                                            .opacity(transition.currentOpacity)
-                                        
-                                        if transition.nextStep != transition.currentStep {
-                                            gridLayer(metrics: transition.nextMetrics)
+                        ScrollView(.vertical, showsIndicators: false) {
+                            VStack(spacing: 0) {
+                                ScrollViewReader { reader in
+                                    ScrollView(.vertical, showsIndicators: false) {
+                                        ZStack(alignment: .topLeading) {
+                                            gridLayer(metrics: transition.currentMetrics)
                                                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                                                .scaleEffect(transition.nextScale, anchor: .center)
-                                                .opacity(transition.nextOpacity)
+                                                .scaleEffect(transition.currentScale, anchor: .center)
+                                                .opacity(transition.currentOpacity)
+                                            
+                                            if transition.nextStep != transition.currentStep {
+                                                gridLayer(metrics: transition.nextMetrics)
+                                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                                                    .scaleEffect(transition.nextScale, anchor: .center)
+                                                    .opacity(transition.nextOpacity)
+                                            }
                                         }
+                                        .padding(.top, blurHeight)
+                                        .padding(.bottom, proxy.safeAreaInsets.bottom)
+                                        .padding(gridPadding)
                                     }
-                                    .padding(gridPadding)
-                                    .frame(maxWidth: .infinity, minHeight: proxy.size.height - blurHeight - 24, alignment: .top)
-                                }
-                                .defaultScrollAnchor(.bottom)
-                                .scrollPosition($scrollPosition)
-                                .scrollEdgeEffectStyle(.soft, for: .top)
-                                .onAppear {
-                                    if !didPerformInitialScroll {
-                                        didPerformInitialScroll = true
-                                        isInWelcomeScreen = true
-                                        
-                                        DispatchQueue.main.async {
-                                            if let lastOpenedEntryDate {
-                                                scrollPosition.scrollTo(id: lastOpenedEntryDate, anchor: .bottom)
+                                    .defaultScrollAnchor(.bottom)
+                                    .scrollPosition($scrollPosition)
+                                    .scrollEdgeEffectStyle(.soft, for: .vertical)
+                                    .onAppear {
+                                        if !didPerformInitialScroll {
+                                            didPerformInitialScroll = true
+                                            DispatchQueue.main.async {
+                                                if let lastOpenedEntryDate {
+                                                    scrollPosition.scrollTo(id: lastOpenedEntryDate, anchor: .bottom)
+                                                }
                                             }
                                         }
                                     }
-                                }
-                                .onChange(of: journalEntries.last?.date) { _, newDate in
-                                    guard let newDate else { return }
-                                    if isFollowingBottom {
-                                        withAnimation(.easeOut) {
-                                            scrollPosition.scrollTo(id: newDate)
-                                        }
-                                    }
-                                }
-                                .onScrollTargetVisibilityChange(idType: Date.self, threshold: 0.2) { visibleIDs in
-                                    if let lastDate = journalEntries.last?.date {
-                                        isFollowingBottom = visibleIDs.contains(lastDate)
-                                    } else {
-                                        isFollowingBottom = true
-                                    }
-                                    
-                                    let journalDates = visibleIDs.sorted()
-                                    
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                        if !isInWelcomeScreen {
-                                            dateOnScreen = journalDates.first
-                                        }
-                                    }
-                                }
-                                .onChange(of: proxy.size) {
-                                    guard dateOnScreen != nil else { return }
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                        withAnimation(.snappy) {
-                                            scrollPosition.scrollTo(id: dateOnScreen, anchor: .bottom)
-                                        }
-                                    }
-                                }
-                            }
-                            .frame(width: innerProxy.size.width, height: innerProxy.size.height)
-                            
-                            welcomeScreen
-                                .frame(width: innerProxy.size.width, height: innerProxy.size.height)
-                                .contentShape(Rectangle())
-                        }
-                        .frame(width: innerProxy.size.width)
-                        .offset(y: (isInWelcomeScreen ? -innerProxy.size.height : 0) + manualDragOffset)
-                        .simultaneousGesture(
-                            DragGesture()
-                                .onChanged { value in
-                                    if isInWelcomeScreen {
-                                        if value.translation.height > 0 {
-                                            manualDragOffset = value.translation.height
-                                        }
-                                    } else {
-                                        if isFollowingBottom, value.translation.height < 0 {
-                                            manualDragOffset = value.translation.height
-                                        }
-                                    }
-                                }
-                                .onEnded { value in
-                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                        if isInWelcomeScreen {
-                                            if value.translation.height > 100 || value.velocity.height > 300 {
-                                                isInWelcomeScreen = false
-                                                dateOnScreen = nil
+                                    .onChange(of: journalEntries.last?.date) { _, newDate in
+                                        guard let newDate else { return }
+                                        if isFollowingBottom {
+                                            withAnimation(.easeOut) {
+                                                scrollPosition.scrollTo(id: newDate)
                                             }
+                                        }
+                                    }
+                                    .onScrollTargetVisibilityChange(idType: Date.self, threshold: 0.2) { visibleIDs in
+                                        if let lastDate = journalEntries.last?.date {
+                                            isFollowingBottom = visibleIDs.contains(lastDate)
                                         } else {
-                                            if isFollowingBottom && (value.translation.height < -100 || value.velocity.height < -300) {
-                                                isInWelcomeScreen = true
-                                                dateOnScreen = nil
+                                            isFollowingBottom = true
+                                        }
+                                        
+                                        let journalDates = visibleIDs.sorted()
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                            if !isInWelcomeScreen {
+                                                dateOnScreen = journalDates.first
                                             }
                                         }
-                                        manualDragOffset = 0
+                                    }
+                                    .onChange(of: proxy.size) {
+                                        guard dateOnScreen != nil else { return }
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                            withAnimation(.snappy) {
+                                                scrollPosition.scrollTo(id: dateOnScreen, anchor: .bottom)
+                                            }
+                                        }
                                     }
                                 }
-                        )
+                                .frame(height: innerProxy.size.height)
+                                .id(0)
+                                
+                                welcomeScreen
+                                    .padding(.top, blurHeight)
+                                    .frame(height: innerProxy.size.height)
+                                    .id(1)
+                            }
+                            .scrollTargetLayout()
+                        }
+                        .scrollPosition(id: $outerPage)
+                        .scrollTargetBehavior(.paging)
+                        .defaultScrollAnchor(.bottom)
+                        .scrollEdgeEffectStyle(.soft, for: .top)
+                        .onChange(of: outerPage) {
+                            let isWelcome = (outerPage == 1)
+                            isInWelcomeScreen = isWelcome
+                            if isWelcome {
+                                dateOnScreen = nil
+                            }
+                        }
                     }
+                    .ignoresSafeArea()
                     
                     LinearGradient(
                         colors: [.black.opacity(0.5), .clear],
