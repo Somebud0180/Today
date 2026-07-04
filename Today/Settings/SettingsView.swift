@@ -94,7 +94,7 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.navigationLink)
                     .disabled(!enableTranscription)
-                    .onChange(of: transcriptionLocale) { _ in
+                    .onChange(of: transcriptionLocale) {
                         transcriptionManager.initializeTranscriber()
                     }
                     
