@@ -88,7 +88,7 @@ struct SettingsView: View {
                     
                     Picker("Language", selection: $transcriptionLocale) {
                         ForEach(transcriptionManager.supportedLocales, id: \.identifier) { locale in
-                            Text(formatLocaleName(locale))
+                            Text(transcriptionManager.formatLocaleName(locale))
                                 .tag(locale.identifier)
                         }
                     }
@@ -129,11 +129,6 @@ struct SettingsView: View {
                 OnboardingView()
             }
         }
-    }
-    
-    private func formatLocaleName(_ locale: Locale) -> String {
-        let rawName = locale.localizedString(forIdentifier: locale.identifier) ?? locale.identifier
-        return rawName.localizedCapitalized
     }
     
     private var notificationsButton: some View {

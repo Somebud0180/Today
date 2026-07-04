@@ -11,18 +11,25 @@ import UserNotifications
 struct OnboardingView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject var transcriptionManager: AudioTranscriptionManager
     
     @AppStorage("selectedBackground") private var selectedBackground: String = DefaultSettings.selectedBackground
     @AppStorage("remindMeToJournal") private var remindMeToJournal: Bool = DefaultSettings.remindMeToJournal
     @AppStorage("reminderTime") private var reminderTime: Date = DefaultSettings.reminderTime
+    @AppStorage("enableTranscription") private var enableTranscription: Bool = DefaultSettings.enableTranscription
+    @AppStorage("transcribeOnSave") private var transcribeOnSave: Bool = DefaultSettings.transcribeOnSave
+    @AppStorage("transcriptionLocale") private var transcriptionLocale: String = DefaultSettings.transcriptionLocale
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = DefaultSettings.hasCompletedOnboarding
     
-    @State var currentStep: Int = 0
-    @State var animateGlyph: Bool = false
-    @State var calendarGridColumn: [GridItem] = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
-    @State var showNotificaitonsSheet: Bool = false
-    @State var authorizationStatus: UNAuthorizationStatus = .notDetermined
-    @State var showDismissConfirmation: Bool = false
+    @State private var currentStep: Int = 0
+    @State private var animateAVGlyph: Bool = false
+    @State private var calendarGridColumn: [GridItem] = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
+    @State private var showNotificaitonsSheet: Bool = false
+    @State private var authorizationStatus: UNAuthorizationStatus = .notDetermined
+    @State private var showDismissConfirmation: Bool = false
+    @State private var showTranscriptionSheet: Bool = false
+    @State private var transcriptionSheetDetent: PresentationDetent = .fraction(0.35)
+    @State private var animateTranscriptionGlyph: Bool = false
     
     var body: some View {
         NavigationStack {
@@ -94,7 +101,7 @@ struct OnboardingView: View {
                         
                         Spacer()
                         
-                        continueButton
+                        continueButton(prominent: true)
                         
                     case 1:
                         Text("Journal your everyday life")
@@ -109,16 +116,21 @@ struct OnboardingView: View {
                         
                         Spacer()
                         
-                        Image(systemName: animateGlyph ? "video.badge.waveform" : "waveform.mid")
+                        Image(systemName: animateAVGlyph ? "video.badge.waveform" : "waveform.mid")
                             .resizable()
                             .scaledToFit()
                             .contentTransition(.symbolEffect(.replace))
                             .symbolEffect(.variableColor.iterative.dimInactiveLayers.nonReversing, options: .repeat(.continuous))
                             .padding(32)
                             .task {
-                                try? await Task.sleep(nanoseconds: 2_000_000_000)
-                                withAnimation(.bouncy){
-                                    animateGlyph.toggle()
+                                while !Task.isCancelled {
+                                    try? await Task.sleep(nanoseconds: 4_000_000_000)
+                                    
+                                    await MainActor.run {
+                                        withAnimation(.bouncy) {
+                                            animateAVGlyph.toggle()
+                                        }
+                                    }
                                 }
                             }
                             .accessibilityHidden(true)
@@ -126,7 +138,7 @@ struct OnboardingView: View {
                         
                         Spacer()
                         
-                        continueButton
+                        continueButton(prominent: true)
                         
                     case 2:
                         Text("The Jog Book")
@@ -204,7 +216,7 @@ struct OnboardingView: View {
                         
                         Spacer()
                         
-                        continueButton
+                        continueButton(prominent: true)
                         
                     case 3:
                         Text("Get reminded")
@@ -254,16 +266,62 @@ struct OnboardingView: View {
                         Button("Get Reminders") {
                             showNotificaitonsSheet = true
                         }
-                        .buttonStyle(RoundProminentButton())
+                        .buttonStyle(RoundGlassButton(prominent: true))
                         .font(.title2)
                         .fontWeight(.medium)
                         
-                        Button("Continue") {
-                            currentStep += 1
+                        continueButton()
+                        
+                    case 4:
+                        var glyphImage: Image {
+                            if animateTranscriptionGlyph {
+                                return Image("text.word")
+                            } else {
+                                return Image(systemName: "waveform.mid")
+                            }
                         }
-                        .buttonStyle(RoundGlassButton())
+                        
+                        Text("Transcribe Your Entries")
+                            .font(.title)
+                            .fontWeight(.bold)
+                        
+                        Text("Get a transcript of your entry and easily look them up by searching for what you said.")
+                            .font(.title3)
+                            .fontWeight(.medium)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                        
+                        Spacer()
+                        
+                        glyphImage
+                            .resizable()
+                            .scaledToFit()
+                            .contentTransition(.symbolEffect(.replace))
+                            .symbolEffect(.variableColor.iterative.dimInactiveLayers.nonReversing, options: .repeat(.continuous))
+                            .padding(32)
+                            .task {
+                                while !Task.isCancelled {
+                                    try? await Task.sleep(nanoseconds: 4_000_000_000)
+                                    
+                                    await MainActor.run {
+                                        withAnimation(.bouncy) {
+                                            animateTranscriptionGlyph.toggle()
+                                        }
+                                    }
+                                }
+                            }
+                            .accessibilityHidden(true)
+                        
+                        Spacer()
+                        
+                        Button("Configure Transcription") {
+                            showTranscriptionSheet = true
+                        }
+                        .buttonStyle(RoundGlassButton(prominent: true))
                         .font(.title2)
                         .fontWeight(.medium)
+                        
+                        continueButton()
                         
                     default:
                         Spacer()
@@ -278,7 +336,7 @@ struct OnboardingView: View {
                             hasCompletedOnboarding = true
                             dismiss()
                         }
-                        .buttonStyle(RoundProminentButton())
+                        .buttonStyle(RoundGlassButton(prominent: true))
                         .font(.title2)
                         .fontWeight(.medium)
                     }
@@ -290,6 +348,11 @@ struct OnboardingView: View {
                 notificationsSheet
                     .presentationBackgroundInteraction(.disabled)
                     .presentationDetents([.fraction(0.3)])
+            }
+            .sheet(isPresented: $showTranscriptionSheet) {
+                    transcriptionSheet
+                        .presentationBackgroundInteraction(.disabled)
+                        .presentationDetents([.fraction(0.35)])
             }
             .alert("Skip introduction?", isPresented: $showDismissConfirmation) {
                 Button("Cancel", role: .cancel) {}
@@ -323,7 +386,7 @@ struct OnboardingView: View {
     var progressBar: some View {
         GlassEffectContainer {
             HStack(spacing: 6) {
-                ForEach(1...5, id: \.self) { page in
+                ForEach(1...6, id: \.self) { page in
                     let isActive = page <= (currentStep + 1)
                     
                     RoundedRectangle(cornerRadius: 12)
@@ -349,11 +412,11 @@ struct OnboardingView: View {
         }
     }
     
-    var continueButton: some View {
+    func continueButton(prominent: Bool = false) -> some View {
         Button("Continue") {
-            currentStep = min(4, currentStep + 1)
+            currentStep = min(5, currentStep + 1)
         }
-        .buttonStyle(RoundProminentButton())
+        .buttonStyle(RoundGlassButton(prominent: prominent))
         .font(.title2)
         .fontWeight(.medium)
     }
@@ -381,7 +444,7 @@ struct OnboardingView: View {
                     }
                 }
             }
-            .buttonStyle(RoundProminentButton())
+            .buttonStyle(RoundGlassButton(prominent: true))
             .font(.title2)
             .fontWeight(.medium)
             
@@ -417,28 +480,58 @@ struct OnboardingView: View {
         }
         .padding(16)
     }
-}
-
-struct RoundGlassButton: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .padding(.vertical, 8)
-            .glassEffect(
-                .regular.interactive(),
-                in: Capsule()
-            )
-            .contentShape(Capsule())
+    
+    var transcriptionSheet: some View {
+        VStack(spacing: 16) {
+            RoundedRectangle(cornerRadius: 3)
+                .frame(width: 44, height: 6)
+            
+            Toggle("Enable audio transcription", isOn: $enableTranscription)
+            
+            HStack {
+                Text("Language")
+                
+                Spacer(minLength: 0)
+                
+                Picker("Language", selection: $transcriptionLocale) {
+                    ForEach(transcriptionManager.supportedLocales, id: \.identifier) { locale in
+                        Text(transcriptionManager.formatLocaleName(locale))
+                            .tag(locale.identifier)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
+                .disabled(!enableTranscription)
+                .onChange(of: transcriptionLocale) {
+                    transcriptionManager.initializeTranscriber()
+                }
+            }
+            
+            VStack(alignment: .leading) {
+                Toggle("Transcribe entry on save", isOn: $transcribeOnSave)
+                    .disabled(!enableTranscription)
+                
+                Text("When enabled, transcription starts automatically after you finish creating your entry. Otherwise, you can use the \"Transcribe entry\" button manually in the entry confirmation screen or in the transcript viewer inside your entry.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            
+            Spacer()
+        }
+        .padding(16)
     }
 }
 
-struct RoundProminentButton: ButtonStyle {
+struct RoundGlassButton: ButtonStyle {
+    var prominent: Bool = false
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.vertical, 8)
             .glassEffect(
-                .regular.interactive().tint(.green.opacity(0.5)),
+                .regular.interactive().tint(prominent ? .green.opacity(0.5) : nil),
                 in: Capsule()
             )
             .contentShape(Capsule())

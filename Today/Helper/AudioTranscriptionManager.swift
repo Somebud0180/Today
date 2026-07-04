@@ -94,6 +94,14 @@ final class AudioTranscriptionManager: ObservableObject {
     }
 }
 
+// MARK: - Locale Name Function
+extension AudioTranscriptionManager {
+    func formatLocaleName(_ locale: Locale) -> String {
+        let rawName = locale.localizedString(forIdentifier: locale.identifier) ?? locale.identifier
+        return rawName.localizedCapitalized
+    }
+}
+
 // MARK: - Transcribe Functions
 extension AudioTranscriptionManager {
     /// Transcribes an audio file using Apple's native SpeechAnalyzer
