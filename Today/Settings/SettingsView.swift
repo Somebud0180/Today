@@ -83,7 +83,7 @@ struct SettingsView: View {
                     }
                 }
                 
-                Section(header: Text("Audio Transcription"), footer: Text("All features run on-device. Your entries stay safe and never leave your device.")) {
+                Section(header: Text("Audio Transcription"), footer: Text("All features run on-device. Your entries stay private and never leave your device.")) {
                     Toggle("Enable audio transcription", isOn: $enableTranscription)
                     
                     Picker("Language", selection: $transcriptionLocale) {
@@ -98,31 +98,8 @@ struct SettingsView: View {
                         transcriptionManager.initializeTranscriber()
                     }
                     
-                    Toggle(isOn: $transcribeOnSave) {
-                        VStack(alignment: .leading) {
-                            Text("Transcribe entry on save")
-                            Text("Transcribe audio upon creating an entry, you may do this manually within the entry.")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .disabled(!enableTranscription)
-                    
-                    HStack {
-                        Text("Status:")
-                        Spacer()
-                        Text(
-                            !enableTranscription ?
-                            "Disabled" : transcriptionManager.isProcessing ?
-                            "Processing" : transcriptionManager.isReady ?
-                            "Ready" : "Idle"
-                        )
-                        
-                        if transcriptionManager.isProcessing {
-                            Image(systemName: "progress.indicator")
-                                .symbolEffect(.variableColor.iterative.nonReversing, options: .repeat(.continuous))
-                        }
-                    }
+                    Toggle("Transcribe entry on save", isOn: $transcribeOnSave)
+                        .disabled(!enableTranscription)
                 }
                 
                 Section(header: Text("Export")) {
