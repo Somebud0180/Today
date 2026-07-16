@@ -33,3 +33,6 @@ Powered by SwiftUI and SwiftData. Each part of the app made for your device. Wit
 Find the build documentation in [BUILD.md](BUILD.md)
 <br>**Made with Swift and SwiftUI.**
 <br>**Made with** [**Hack Club**](https://hackclub.com/)
+
+**AI Disclosure**<br>
+AI was utilized in code generation and assistance throughout the development. No image was generated with AI throughout the development. All assets and backgrounds are made by hand. No art was referenced from AI either.
