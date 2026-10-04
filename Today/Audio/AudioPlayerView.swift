@@ -24,7 +24,7 @@ struct AudioPlayerView: View {
 
             Spacer()
 
-            GeometryReader { proxy in
+            GeometryReader { _ in
                 WaveformView(
                     fullLevels: viewModel.fullWaveformLevels,
                     currentTime: viewModel.currentTime,
@@ -44,9 +44,11 @@ struct AudioPlayerView: View {
                             }
 
                             let startTime = scrubStartTime ?? viewModel.currentTime
-                            let width = max(1, proxy.size.width)
-                            let timeDelta = Double(value.translation.width / width)
-                                * viewModel.duration * -1
+                            guard !viewModel.fullWaveformLevels.isEmpty else { return }
+                            let secondsPerSample = viewModel.waveformDuration
+                                / Double(viewModel.fullWaveformLevels.count)
+                            let timeDelta = -Double(value.translation.width / WaveformView.sampleSpacing)
+                                * secondsPerSample
                             let targetTime = startTime + timeDelta
 
                             viewModel.seek(to: targetTime)

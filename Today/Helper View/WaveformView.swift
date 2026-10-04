@@ -23,6 +23,8 @@ struct WaveformView: View {
     
     @State private var displayLevels: [CGFloat] = []
     
+    static let sampleSpacing: CGFloat = 7
+
     private let barWidth: CGFloat = 4
     private let barSpacing: CGFloat = 3
     private let minAmplitude: CGFloat = 0.02
@@ -51,27 +53,8 @@ struct WaveformView: View {
             }
             .onChange(of: resetToken) { _, _ in
                 if !isPlaybackView {
-                    let snapshot = displayLevels
-                    let duration: TimeInterval = 0.3
-                    let fps = 60.0
-                    let totalFrames = Int(duration * fps)
-                    let frameDuration = duration / Double(totalFrames)
-                    
-                    for frame in 1...totalFrames {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + frameDuration * Double(frame)) {
-                            let progress = CGFloat(frame) / CGFloat(totalFrames)
-                            let easeOutProgress = 1 - pow(1 - progress, 3)
-                            
-                            displayLevels = snapshot.map { val in
-                                let target = minAmplitude
-                                return val - (val - target) * easeOutProgress
-                            }
-                        }
-                    }
-                    
-                    DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.05) {
-                        displayLevels = []
-                    }
+                    // Reset synchronously so delayed animation frames cannot erase new samples.
+                    displayLevels = []
                 }
             }
             .onAppear {
@@ -84,7 +67,7 @@ struct WaveformView: View {
     }
     
     private func drawRecordingWaveform(_ context: inout GraphicsContext, size: CGSize) {
-        let barsToShow = max(1, Int(size.width / (barWidth + barSpacing)))
+        let barsToShow = max(1, Int(size.width / Self.sampleSpacing))
         
         var source: [CGFloat]
         if displayLevels.isEmpty {
@@ -103,7 +86,7 @@ struct WaveformView: View {
             let level = source[i]
             let height = max(minAmplitude, level) * size.height * 0.8
             
-            let x = CGFloat(i) * (barWidth + barSpacing) + barSpacing
+            let x = CGFloat(i) * Self.sampleSpacing + barSpacing
             let y = (size.height - height) / 2
             
             var path = Path()
@@ -130,7 +113,7 @@ struct WaveformView: View {
             // Show idle state
             let idleBarCount = 5
             for i in 0..<idleBarCount {
-                let x = centerX + CGFloat(i + 1) * (barWidth + barSpacing)
+                let x = centerX + CGFloat(i + 1) * Self.sampleSpacing
                 let height = minAmplitude * size.height * 0.8
                 let y = (size.height - height) / 2
                 
@@ -145,7 +128,7 @@ struct WaveformView: View {
         }
         
         // Calculate how many bars fit on each side of center
-        let barsPerSide = max(1, Int((size.width / 2) / (barWidth + barSpacing)))
+        let barsPerSide = max(1, Int((size.width / 2) / Self.sampleSpacing))
         
         // Calculate the current position in the waveform as an index
         let ratio = max(0, min(1, currentTime / duration))
@@ -167,7 +150,7 @@ struct WaveformView: View {
             
             // Calculate position: playhead is at center
             let offsetFromPlayhead = CGFloat(i - playheadPositionInWindow)
-            let x = centerX + offsetFromPlayhead * (barWidth + barSpacing) + barSpacing
+            let x = centerX + offsetFromPlayhead * Self.sampleSpacing + barSpacing
             let y = (size.height - height) / 2
             
             // Only draw if within bounds
@@ -184,7 +167,7 @@ struct WaveformView: View {
     }
     
     private func drawThumbnailWaveform(_ context: inout GraphicsContext, size: CGSize) {
-        let barsToShow = max(1, Int(size.width / (barWidth + barSpacing)))
+        let barsToShow = max(1, Int(size.width / Self.sampleSpacing))
         let source = levels.isEmpty ? Array(repeating: minAmplitude, count: barsToShow) : Array(levels.prefix(barsToShow))
         
         let totalSpacing = CGFloat(source.count + 1) * barSpacing

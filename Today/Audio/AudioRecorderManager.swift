@@ -307,6 +307,10 @@ extension AudioRecorderManager {
     func stopRecording() {
         let finishedURL = self.recorder?.url
         
+        captureWaveformSample()
+        if let recorder = self.recorder {
+            recordedWaveformDuration = recorder.currentTime
+        }
         self.recorder?.stop()
         self.recorder = nil
         self.recorderState = .stopped
@@ -647,14 +651,23 @@ extension AudioRecorderManager {
         // when the loud sound ends, because the average power drops quicker than the peak.
         let blendedDb = (peak * 0.3) + (avg * 0.7)
         
-        recordedWaveformSamplesDb.append(blendedDb)
-        recordedWaveformSamplesLinear.append(normalizeDbToLinear(blendedDb))
+        // Place samples on the audio clock, even when the UI timer skips a tick.
+        // Hold the previous level across missing bins; lost audio detail cannot be recovered
+        // from metering, but subsequent transients retain their correct time position.
+        let index = max(0, Int(recorder.currentTime * Double(waveformSampleRateHz)))
+        let missingCount = max(0, index + 1 - recordedWaveformSamplesDb.count)
+        recordedWaveformSamplesDb.append(contentsOf: repeatElement(recordedWaveformSamplesDb.last ?? -160, count: missingCount))
+        recordedWaveformSamplesLinear.append(contentsOf: repeatElement(recordedWaveformSamplesLinear.last ?? 0, count: missingCount))
+        recordedWaveformSamplesDb[index] = blendedDb
+        recordedWaveformSamplesLinear[index] = normalizeDbToLinear(blendedDb)
         recordedWaveformDuration = recorder.currentTime
     }
     
     func waveformSampleLinear(at time: TimeInterval) -> Float? {
         guard waveformSampleRateHz > 0, !recordedWaveformSamplesLinear.isEmpty else { return nil }
-        let index = Int(time * Double(waveformSampleRateHz))
+        guard recordedWaveformDuration > 0 else { return recordedWaveformSamplesLinear.first }
+        let ratio = max(0, min(1, time / recordedWaveformDuration))
+        let index = Int(ratio * Double(recordedWaveformSamplesLinear.count))
         let clampedIndex = max(0, min(index, recordedWaveformSamplesLinear.count - 1))
         return recordedWaveformSamplesLinear[clampedIndex]
     }
