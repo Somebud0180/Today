@@ -80,12 +80,12 @@ struct VideoRecordingView: View {
                     HStack(spacing: 12) {
                         if manager.showConfirmation {
                             AspectFitPlayerView(player: videoViewModel.player)
-                                .frame(maxHeight: .infinity)
                                 .background(.black)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                                 .onTapGesture {
                                     videoViewModel.togglePlayback()
                                 }
+                                .frame(maxHeight: .infinity)
                         } else {
                             Spacer()
                         }
@@ -103,12 +103,12 @@ struct VideoRecordingView: View {
                     VStack(spacing: 12) {
                         if manager.showConfirmation {
                             AspectFitPlayerView(player: videoViewModel.player)
-                                .frame(maxHeight: .infinity)
                                 .background(.black)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                                 .onTapGesture {
                                     videoViewModel.togglePlayback()
                                 }
+                                .frame(maxHeight: .infinity)
                         } else {
                             Spacer()
                         }
