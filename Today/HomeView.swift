@@ -35,17 +35,15 @@ struct HomeView: View {
     @State private var gridZoomStep: Int = 4
     @State private var gestureStartZoomStep: Int? = nil
     @State private var continuousZoomFactor: CGFloat = 4.0
-    @State private var outerPage: Int? = 1
     @State private var scrollPosition: ScrollPosition = .init(idType: Date.self)
     @State private var isFollowingBottom: Bool = true
-    @State private var isInWelcomeScreen: Bool = false
+    @State private var isInWelcomeScreen: Bool = true
     @State private var didPerformInitialScroll = false
     @State private var isPad: Bool = UIDevice.current.userInterfaceIdiom == .pad
     @State private var topBarHeight: CGFloat = 0.0
     @State private var showDeleteConfirmaton: Bool = false
     @State private var dateOnScreen: Date?
     @State private var lastOpenedEntryDate: Date?
-    @State private var manualDragOffset: CGFloat = 0
     
     @State private var selectedEntries: [JournalEntry] = []
     @State private var shareHelper: ShareHelper = ShareHelper()
@@ -54,7 +52,9 @@ struct HomeView: View {
     private let cardAspectRatio: CGFloat = 2 / 3
     private let gridSpacing: [CGFloat] = [4, 8, 12, 16, 20]
     private let gridPadding: CGFloat = 10
-    private let welcomeScreenID = Date.distantFuture
+    @State private var outerPage: Int? = 1
+    @State private var gridOwnsScroll = false
+    @State private var gridBottomOverscroll: CGFloat = 0
     
     var body: some View {
         GeometryReader { proxy in
@@ -66,89 +66,98 @@ struct HomeView: View {
                     GeometryReader { innerProxy in
                         ScrollView(.vertical, showsIndicators: false) {
                             VStack(spacing: 0) {
-                                ScrollViewReader { reader in
-                                    ScrollView(.vertical, showsIndicators: false) {
-                                        ZStack(alignment: .topLeading) {
-                                            gridLayer(metrics: transition.currentMetrics)
-                                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                                                .scaleEffect(transition.currentScale, anchor: .center)
-                                                .opacity(transition.currentOpacity)
-                                            
-                                            if transition.nextStep != transition.currentStep {
-                                                gridLayer(metrics: transition.nextMetrics)
-                                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                                                    .scaleEffect(transition.nextScale, anchor: .center)
-                                                    .opacity(transition.nextOpacity)
-                                            }
-                                        }
-                                        .padding(.top, blurHeight)
-                                        .padding(.bottom, proxy.safeAreaInsets.bottom)
-                                        .padding(gridPadding)
-                                    }
-                                    .defaultScrollAnchor(.bottom)
-                                    .scrollPosition($scrollPosition)
-                                    .scrollEdgeEffectStyle(.soft, for: .vertical)
-                                    .onAppear {
-                                        if !didPerformInitialScroll {
-                                            didPerformInitialScroll = true
-                                            DispatchQueue.main.async {
-                                                if let lastOpenedEntryDate {
-                                                    scrollPosition.scrollTo(id: lastOpenedEntryDate, anchor: .bottom)
-                                                }
-                                            }
+                                ScrollView(.vertical, showsIndicators: false) {
+                                    ZStack(alignment: .topLeading) {
+                                        gridLayer(metrics: transition.currentMetrics)
+                                            .scaleEffect(transition.currentScale, anchor: .center)
+                                            .opacity(transition.currentOpacity)
+
+                                        if transition.nextStep != transition.currentStep {
+                                            gridLayer(metrics: transition.nextMetrics)
+                                                .scaleEffect(transition.nextScale, anchor: .center)
+                                                .opacity(transition.nextOpacity)
+                                                .allowsHitTesting(false)
+                                                .accessibilityHidden(true)
                                         }
                                     }
-                                    .onChange(of: journalEntries.last?.date) { _, newDate in
-                                        guard let newDate else { return }
-                                        if isFollowingBottom {
-                                            withAnimation(.easeOut) {
-                                                scrollPosition.scrollTo(id: newDate)
-                                            }
-                                        }
+                                    .padding(.top, blurHeight)
+                                    .padding(.bottom, proxy.safeAreaInsets.bottom)
+                                    .padding(gridPadding)
+                                }
+                                .defaultScrollAnchor(.bottom)
+                                .scrollPosition($scrollPosition)
+                                .scrollDisabled(!gridOwnsScroll)
+                                .scrollEdgeEffectStyle(.soft, for: .vertical)
+                                .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                                    let bottom = max(-geometry.contentInsets.top,
+                                        geometry.contentSize.height - geometry.containerSize.height + geometry.contentInsets.bottom)
+                                    return max(0, geometry.contentOffset.y - bottom)
+                                } action: { _, overscroll in
+                                    gridBottomOverscroll = overscroll
+                                }
+                                .onScrollPhaseChange { oldPhase, newPhase in
+                                    // A deliberate pull beyond the newest entries returns to welcome.
+                                    // Momentum alone must never take ownership away from the grid.
+                                    if gridOwnsScroll, oldPhase == .interacting,
+                                       newPhase != .interacting, gridBottomOverscroll > 72 {
+                                        gridOwnsScroll = false
+                                        withAnimation(.snappy) { outerPage = 1 }
                                     }
-                                    .onScrollTargetVisibilityChange(idType: Date.self, threshold: 0.2) { visibleIDs in
-                                        if let lastDate = journalEntries.last?.date {
-                                            isFollowingBottom = visibleIDs.contains(lastDate)
-                                        } else {
-                                            isFollowingBottom = true
-                                        }
-                                        
-                                        let journalDates = visibleIDs.sorted()
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                            if !isInWelcomeScreen {
-                                                dateOnScreen = journalDates.first
-                                            }
-                                        }
+                                }
+                                .onScrollTargetVisibilityChange(idType: Date.self, threshold: 0.2) { visibleIDs in
+                                    isFollowingBottom = journalEntries.last.map { visibleIDs.contains($0.date) } ?? true
+                                    if let firstDate = visibleIDs.min() {
+                                        dateOnScreen = firstDate
                                     }
-                                    .onChange(of: proxy.size) {
-                                        guard dateOnScreen != nil else { return }
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                            withAnimation(.snappy) {
-                                                scrollPosition.scrollTo(id: dateOnScreen, anchor: .bottom)
-                                            }
-                                        }
+                                }
+                                .onAppear {
+                                    guard !didPerformInitialScroll else { return }
+                                    didPerformInitialScroll = true
+                                    if let lastOpenedEntryDate {
+                                        scrollPosition.scrollTo(id: lastOpenedEntryDate, anchor: .bottom)
+                                    }
+                                }
+                                .onChange(of: journalEntries.last?.date) { _, newDate in
+                                    guard let newDate, isFollowingBottom else { return }
+                                    withAnimation(.easeOut) {
+                                        scrollPosition.scrollTo(id: newDate, anchor: .bottom)
+                                    }
+                                }
+                                .onChange(of: proxy.size) {
+                                    if let dateOnScreen {
+                                        scrollPosition.scrollTo(id: dateOnScreen, anchor: .bottom)
                                     }
                                 }
                                 .frame(height: innerProxy.size.height)
                                 .id(0)
-                                
+
                                 welcomeScreen
                                     .padding(.top, blurHeight)
                                     .frame(height: innerProxy.size.height)
                                     .id(1)
                             }
                             .scrollTargetLayout()
+                            .background(HomePagedInteraction(isEnabled: !gridOwnsScroll))
                         }
+                        .defaultScrollAnchor(.bottom)
                         .scrollPosition(id: $outerPage)
                         .scrollTargetBehavior(.paging)
-                        .defaultScrollAnchor(.bottom)
-                        .scrollEdgeEffectStyle(.soft, for: .top)
-                        .onChange(of: outerPage) {
-                            let isWelcome = (outerPage == 1)
-                            isInWelcomeScreen = isWelcome
-                            if isWelcome {
-                                dateOnScreen = nil
+                        .onScrollGeometryChange(for: Bool.self) { geometry in
+                            geometry.contentOffset.y <= 1
+                        } action: { _, isAtGrid in
+                            // Lock the pager as soon as it reaches the grid, including
+                            // when a second touch interrupts the paging deceleration.
+                            if isAtGrid, outerPage == 0 {
+                                gridOwnsScroll = true
                             }
+                        }
+                        .onScrollPhaseChange { _, phase in
+                            if phase == .idle, outerPage == 0 {
+                                gridOwnsScroll = true
+                            }
+                        }
+                        .onChange(of: outerPage) { _, page in
+                            isInWelcomeScreen = page != 0
                         }
                     }
                     .ignoresSafeArea()
@@ -196,7 +205,7 @@ struct HomeView: View {
                     )
                 }
                 .onChange(of: dateOnScreen) { _, newValue in
-                    if let newValue {
+                    if !isInWelcomeScreen, let newValue {
                         UIAccessibility.post(notification: .announcement, argument: newValue.formatted(date: .long, time: .omitted))
                     }
                 }
@@ -310,6 +319,7 @@ struct HomeView: View {
                     }
                         .ignoresSafeArea(.all)
                 )
+                .scrollEdgeEffectStyle(.soft, for: .top)
             }
         }
     }
@@ -357,7 +367,7 @@ struct HomeView: View {
     var titleSubtext: String {
         if shareHelper.isPreparingShare {
             return "Exporting entry..."
-        } else if let dateOnScreen {
+        } else if !isInWelcomeScreen, let dateOnScreen {
             return dateOnScreen.formatted(date: .long, time: .omitted)
         } else {
             return "\(journalEntries.count.formatted(.number)) Entries"

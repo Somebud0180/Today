@@ -5,8 +5,10 @@
 //  Created by Ethan John Lagera on 10/4/26.
 //
 
+import Foundation
+import SwiftUI
 
-private struct HomePagedInteraction: UIViewRepresentable {
+struct HomePagedInteraction: UIViewRepresentable {
     var isEnabled: Bool
 
     func makeUIView(context: Context) -> UIView { UIView() }
