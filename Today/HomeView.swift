@@ -31,7 +31,7 @@ struct HomeView: View {
     @Binding var backgroundBlur: CGFloat
     
     @Namespace private var namespace
-    @GestureState private var magnifyBy = 1.0
+    @GestureState private var isMagnifying = false
     @State private var gridZoomStep: Int = 4
     @State private var gestureStartZoomStep: Int? = nil
     @State private var continuousZoomFactor: CGFloat = 4.0
@@ -55,6 +55,8 @@ struct HomeView: View {
     @State private var outerPage: Int? = 1
     @State private var gridOwnsScroll = false
     @State private var gridBottomOverscroll: CGFloat = 0
+    @State private var suppressWelcomeUntilNextDrag = false
+    @State private var gridScrollPhase: ScrollPhase = .idle
     
     var body: some View {
         GeometryReader { proxy in
@@ -85,8 +87,10 @@ struct HomeView: View {
                                     .padding(gridPadding)
                                 }
                                 .defaultScrollAnchor(.bottom)
+                                .defaultScrollAnchor(.top, for: .alignment)
                                 .scrollPosition($scrollPosition)
                                 .scrollDisabled(!gridOwnsScroll)
+                                .scrollBounceBehavior(.always, axes: .vertical)
                                 .scrollEdgeEffectStyle(.soft, for: .vertical)
                                 .onScrollGeometryChange(for: CGFloat.self) { geometry in
                                     let bottom = max(-geometry.contentInsets.top,
@@ -96,13 +100,21 @@ struct HomeView: View {
                                     gridBottomOverscroll = overscroll
                                 }
                                 .onScrollPhaseChange { oldPhase, newPhase in
-                                    // A deliberate pull beyond the newest entries returns to welcome.
-                                    // Momentum alone must never take ownership away from the grid.
-                                    if gridOwnsScroll, oldPhase == .interacting,
+                                    gridScrollPhase = newPhase
+                                    // A pinch can resize content and interrupt a pan. Only a fresh
+                                    // drag after the pinch may hand scrolling back to the pager.
+                                    if (newPhase == .tracking || (oldPhase == .idle && newPhase == .interacting)),
+                                       !isMagnifying, gestureStartZoomStep == nil {
+                                        suppressWelcomeUntilNextDrag = false
+                                        gridBottomOverscroll = 0
+                                    }
+                                    if gridOwnsScroll, !suppressWelcomeUntilNextDrag, !isMagnifying,
+                                       oldPhase == .interacting,
                                        newPhase != .interacting, gridBottomOverscroll > 72 {
                                         gridOwnsScroll = false
                                         withAnimation(.snappy) { outerPage = 1 }
                                     }
+                                    resetZoomHandoffIfIdle()
                                 }
                                 .onScrollTargetVisibilityChange(idType: Date.self, threshold: 0.2) { visibleIDs in
                                     isFollowingBottom = journalEntries.last.map { visibleIDs.contains($0.date) } ?? true
@@ -177,6 +189,12 @@ struct HomeView: View {
                         .ignoresSafeArea()
                 }
                 .simultaneousGesture(zoomGesture)
+                .onChange(of: isMagnifying) { _, active in
+                    if !active {
+                        finishZoom()
+                        resetZoomHandoffIfIdle()
+                    }
+                }
                 .navigationBarTitleDisplayMode(.inline)
                 .alert("Delete Entries?", isPresented: $showDeleteConfirmaton, actions: {
                     Button("Cancel", role: .cancel) {}
@@ -401,31 +419,52 @@ struct HomeView: View {
     // MARK: - Zoom Transition
     private var zoomGesture: some Gesture {
         MagnifyGesture()
-            .updating($magnifyBy) { value, gestureState, _ in
-                gestureState = value.magnification
-                
+            .updating($isMagnifying) { _, active, _ in
+                active = true
+            }
+            .onChanged { value in
+                guard gridOwnsScroll else { return }
+                suppressWelcomeUntilNextDrag = true
+                gridBottomOverscroll = 0
                 if gestureStartZoomStep == nil {
                     gestureStartZoomStep = gridZoomStep
                 }
-                
-                let baseStep = gestureStartZoomStep ?? gridZoomStep
-                let maxStep = CGFloat(gridSpacing.count - 1)
-                let rawFactor = CGFloat(baseStep) + (value.magnification - 1.0) * maxStep
-                let clampedFactor = clamp(rawFactor, lower: 0, upper: maxStep)
-                continuousZoomFactor = clampedFactor
+                continuousZoomFactor = zoomFactor(for: value.magnification)
             }
-            .onEnded { _ in
-                let finalStep = clampStep(Int(round(continuousZoomFactor)))
-                
-                withAnimation(.interactiveSpring(response: 0.3, dampingFraction: 0.78, blendDuration: 0.2)) {
-                    gridZoomStep = finalStep
-                    continuousZoomFactor = CGFloat(finalStep)
-                }
-                
-                gestureStartZoomStep = nil
+            .onEnded { value in
+                guard gestureStartZoomStep != nil else { return }
+                continuousZoomFactor = zoomFactor(for: value.magnification)
+                finishZoom()
             }
     }
-    
+
+    private func zoomFactor(for magnification: CGFloat) -> CGFloat {
+        let maxStep = CGFloat(gridSpacing.count - 1)
+        return clamp(CGFloat(gestureStartZoomStep ?? gridZoomStep)
+                     + (magnification - 1) * maxStep, lower: 0, upper: maxStep)
+    }
+
+    private func finishZoom() {
+        // GestureState resets on cancellation too; onEnded alone misses that case.
+        guard gestureStartZoomStep != nil else { return }
+        let finalStep = clampStep(Int(round(continuousZoomFactor)))
+        withAnimation(.interactiveSpring(response: 0.3, dampingFraction: 0.78, blendDuration: 0.2)) {
+            gridZoomStep = finalStep
+            continuousZoomFactor = CGFloat(finalStep)
+        }
+        gestureStartZoomStep = nil
+        // Keep the welcome handoff suppressed through any remaining pan/deceleration.
+        gridBottomOverscroll = 0
+    }
+
+    private func resetZoomHandoffIfIdle() {
+        // A stationary pinch may finish without another scroll-phase callback.
+        // Reset from both gesture completion and scroll idle, after exit evaluation.
+        guard gridScrollPhase == .idle, !isMagnifying, gestureStartZoomStep == nil else { return }
+        suppressWelcomeUntilNextDrag = false
+        gridBottomOverscroll = 0
+    }
+
     private func zoomTransition(in size: CGSize) -> ZoomTransitionState {
         let currentStep = clampStep(Int(floor(continuousZoomFactor)))
         let nextStep = clampStep(Int(ceil(continuousZoomFactor)))
@@ -474,23 +513,40 @@ struct HomeView: View {
             availableWidth: availableWidth,
             columns: columns,
             cardSize: CGSize(width: cardWidth, height: cardHeight),
-            spacing: gridSpacing[safeStep]
+            spacing: layoutSpacing(availableWidth: availableWidth, forStep: safeStep)
         )
     }
     
+    private func columnCount(availableWidth: CGFloat, forStep step: Int) -> Int {
+        max(1, Int((availableWidth + gridSpacing[step]) / (minimumCardWidth[step] + gridSpacing[step])))
+    }
+
+    private func layoutSpacing(availableWidth: CGFloat, forStep step: Int) -> CGFloat {
+        let count = columnCount(availableWidth: availableWidth, forStep: step)
+        var lastMatchingStep = step
+        // Retain the original columns and the largest stop's spacing. Stops with
+        // identical columns must also share spacing so zooming in cannot shrink cards.
+        while lastMatchingStep + 1 < gridSpacing.count,
+              columnCount(availableWidth: availableWidth, forStep: lastMatchingStep + 1) == count {
+            lastMatchingStep += 1
+        }
+        return gridSpacing[lastMatchingStep]
+    }
+
     private func calculateGridColumns(availableWidth: CGFloat, forStep step: Int) -> [GridItem] {
         let safeStep = clampStep(step)
-        let columnCount = max(1, Int((availableWidth + gridSpacing[safeStep]) / (minimumCardWidth[safeStep] + gridSpacing[safeStep])))
-        return Array(repeating: GridItem(.flexible(), spacing: gridSpacing[safeStep]), count: columnCount)
+        let count = columnCount(availableWidth: availableWidth, forStep: safeStep)
+        let spacing = layoutSpacing(availableWidth: availableWidth, forStep: safeStep)
+        return Array(repeating: GridItem(.flexible(), spacing: spacing), count: count)
     }
-    
+
     private func calculateCardWidth(availableWidth: CGFloat, columns: [GridItem], forStep step: Int) -> CGFloat {
         let safeStep = clampStep(step)
         let columnCount = CGFloat(columns.count)
-        let totalSpacingWidth = (columnCount - 1) * gridSpacing[safeStep]
+        let totalSpacingWidth = (columnCount - 1) * layoutSpacing(availableWidth: availableWidth, forStep: safeStep)
         return max(minimumCardWidth[safeStep], (availableWidth - totalSpacingWidth) / columnCount)
     }
-    
+
     private func clampStep(_ step: Int) -> Int {
         max(0, min(gridSpacing.count - 1, step))
     }
