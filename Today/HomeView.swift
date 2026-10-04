@@ -302,8 +302,10 @@ struct HomeView: View {
                             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .center)
                             .clipped()
                             .blur(radius: backgroundBlur, opaque: true)
+                            .animation(.smooth(duration: 0.4)) { content in
+                                content.blur(radius: backgroundBlur, opaque: true)
+                            }
                             .accessibilityHidden(true)
-                            .animation(.smooth(duration: 0.4), value: backgroundBlur)
                             .animation(.easeInOut(duration: 0.5), value: colorScheme)
                     }
                         .ignoresSafeArea(.all)

@@ -71,20 +71,7 @@ struct ContentView: View {
             showOnboarding = !hasCompletedOnboarding
         }
         .onChange(of: tabSelection) {
-            if tabSelection == 1 {
-                if !hasOpenedCreate {
-                    hasOpenedCreate = true
-                    withAnimation(.default.delay(0.1)) {
-                        backgroundBlur = 24
-                    }
-                } else {
-                    backgroundBlur = 24
-                }
-            } else {
-                if backgroundBlur != 0 {
-                    backgroundBlur = 0
-                }
-            }
+            backgroundBlur = tabSelection == 1 ? 24 : 0
             
             if tabSelection == 3 {
                 searchPresented = true
