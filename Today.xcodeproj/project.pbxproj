@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		AA4CFD5B3073DC58000E8D2B /* VariableBlur in Frameworks */ = {isa = PBXBuildFile; productRef = AA4CFD5A3073DC58000E8D2B /* VariableBlur */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		AA8C50EB2FAB9A7300FC23FF /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -65,6 +69,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA4CFD5B3073DC58000E8D2B /* VariableBlur in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -118,6 +123,7 @@
 			);
 			name = Today;
 			packageProductDependencies = (
+				AA4CFD5A3073DC58000E8D2B /* VariableBlur */,
 			);
 			productName = Today;
 			productReference = AA7EA80F2FDECEA900F1CCEA /* Today.app */;
@@ -202,6 +208,7 @@
 			mainGroup = AA8C50D22FAB9A7000FC23FF;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				AA4CFD593073DC58000E8D2B /* XCRemoteSwiftPackageReference "VariableBlur" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AA8C50D22FAB9A7000FC23FF;
@@ -608,6 +615,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		AA4CFD593073DC58000E8D2B /* XCRemoteSwiftPackageReference "VariableBlur" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/nikstar/VariableBlur";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AA4CFD5A3073DC58000E8D2B /* VariableBlur */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA4CFD593073DC58000E8D2B /* XCRemoteSwiftPackageReference "VariableBlur" */;
+			productName = VariableBlur;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = AA8C50D32FAB9A7000FC23FF /* Project object */;
 }
