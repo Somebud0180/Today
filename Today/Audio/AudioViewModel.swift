@@ -85,13 +85,9 @@ class AudioViewModel: ObservableObject {
         // Connect player to output
         engine.connect(playerNode, to: engine.mainMixerNode, format: nil)
 
-        do {
-            try engine.start()
-            self.engine = engine
-            self.playerNode = playerNode
-        } catch {
-            print("Error starting audio engine: \(error)")
-        }
+        // Activate the playback session before starting the engine in play().
+        self.engine = engine
+        self.playerNode = playerNode
     }
 
     private func loadWaveformFromSavedWaveform(_ waveform: CodableAudioWaveform)
@@ -202,6 +198,7 @@ class AudioViewModel: ObservableObject {
 
         if !(playerNode?.isPlaying ?? false) {
             do {
+                try AppAudioSession.activatePlayback()
                 if !engine.isRunning {
                     try engine.start()
                 }

@@ -200,6 +200,11 @@ class VideoViewModel: ObservableObject {
     }
     
     func play() {
+        do { try AppAudioSession.activatePlayback() }
+        catch {
+            print("Error activating video playback audio: \(error)")
+            return
+        }
         // If we're at the end, reset to beginning before playing
         if let currentItem = player.currentItem {
             let duration = CMTimeGetSeconds(currentItem.duration)

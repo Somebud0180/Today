@@ -143,6 +143,8 @@ class AudioRecorderManager: NSObject, ObservableObject {
     
     /// AVFoundation Core
     private let audioSession: AVAudioSession = AVAudioSession.sharedInstance()
+    private var ownsAudioSession = false
+    private var preferredRecordingInputUID: String?
     private var recorder: AVAudioRecorder?
     private var player: AVAudioPlayer? {
         didSet {
@@ -199,6 +201,7 @@ extension AudioRecorderManager {
         if let currentInput = audioSession.currentRoute.inputs.first {
             let name = currentInput.selectedDataSource?.dataSourceName ?? currentInput.portName
             self.activeMicrophoneName = name
+            self.preferredRecordingInputUID = currentInput.uid
         }
     }
     
@@ -222,8 +225,6 @@ extension AudioRecorderManager {
     
     // Start in (time) seconds, for (duration) seconds
     func startRecording(in time: TimeInterval?, forDuration duration: TimeInterval?, recordingOption: RecordingOption, enableMetering: Bool) async throws {
-        self.activateAudioSessionForAppAudio()
-        
         guard self.recorderState == .stopped else {
             return
         }
@@ -239,6 +240,12 @@ extension AudioRecorderManager {
         try await self.checkPermission()
         
         self.stopPlayingRecording(deactivateAudio: false)
+        try self.configureAudioSession()
+        try self.activateAudioSessionForRecording()
+        var recordingStarted = false
+        defer {
+            if !recordingStarted { self.deactivateAudioSessionAndNotifyOthers() }
+        }
         try self.configureStereo(recordingOption: recordingOption)
         self.audioSettings[AVNumberOfChannelsKey] = (recordingOption == .mono) ? 1 : 2
         
@@ -275,6 +282,7 @@ extension AudioRecorderManager {
             self.recorderState = .started(0, self.getPowerMetrics())
         }
         
+        recordingStarted = true
         self.startTimer()
         self.startWaveformSampling()
     }
@@ -284,6 +292,8 @@ extension AudioRecorderManager {
         guard let recorder = self.recorder else {
             return
         }
+        try self.configureAudioSession()
+        try self.activateAudioSessionForRecording()
         let result = recorder.record()
         if result == false {
             throw _Error.failToResumeRecording
@@ -365,14 +375,15 @@ extension AudioRecorderManager {
     }
     
     func resumePlayingRecording() throws {
-        self.activateAudioSessionForAppAudio()
-        
         guard let player = self.player else {
             throw _Error.failToResumePlaying("Failed to prepare player")
         }
         
+        try AppAudioSession.activatePlayback()
+        ownsAudioSession = true
         let result = player.play()
         if result == false {
+            self.deactivateAudioSessionAndNotifyOthers()
             throw _Error.failToResumePlaying("Failed to resume playing recording.")
         }
         
@@ -449,12 +460,20 @@ extension AudioRecorderManager: AVAudioPlayerDelegate {
 
 // MARK: - Private helpers for managing recording session / permission
 extension AudioRecorderManager {
-    private func activateAudioSessionForAppAudio() {
-        try? self.audioSession.setActive(true)
+    private func activateAudioSessionForRecording() throws {
+        try self.audioSession.setActive(true)
+        ownsAudioSession = true
     }
-    
+
     private func deactivateAudioSessionAndNotifyOthers() {
-        try? self.audioSession.setActive(false, options: .notifyOthersOnDeactivation)
+        guard ownsAudioSession else { return }
+        do {
+            try self.audioSession.setActive(false, options: .notifyOthersOnDeactivation)
+        } catch {
+            self.error = error
+        }
+        // A subsequent player may activate the shared session. A late deinit must not deactivate it.
+        ownsAudioSession = false
     }
     
     private func checkPermission() async throws {
@@ -482,26 +501,19 @@ extension AudioRecorderManager {
     
     
     private func configureAudioSession() throws {
-        try audioSession.setCategory(
-            .playAndRecord,
-            mode: .default,
-            options: [
-                .allowAirPlay,
-                .allowBluetoothA2DP,
-                .allowBluetoothHFP,
-                .bluetoothHighQualityRecording,
-                .interruptSpokenAudioAndMixWithOthers
-            ]
-        )
-        
-        // not required, only for retrieving the input source a little easier
-        // when configuring for stereo
-        guard let availableInputs = audioSession.availableInputs,
-              let builtInMicInput = availableInputs.first(where: { $0.portType == .builtInMic }) else {
-            throw _Error.builtinMicNotFound
+        let preferredUID = audioSession.preferredInput?.uid ?? preferredRecordingInputUID
+        try AppAudioSession.configureRecording()
+
+        // Preserve the input-picker selection when returning from playback.
+        // Use the built-in mic only as a default, not on every recording start.
+        guard let availableInputs = audioSession.availableInputs else { return }
+        let selectedInput = availableInputs.first(where: { $0.uid == preferredUID })
+            ?? availableInputs.first(where: { $0.portType == .builtInMic })
+            ?? availableInputs.first
+        if let selectedInput {
+            try audioSession.setPreferredInput(selectedInput)
+            preferredRecordingInputUID = selectedInput.uid
         }
-        
-        try audioSession.setPreferredInput(builtInMicInput)
     }
     
     private func setupAvailableRecordingOptions() {
