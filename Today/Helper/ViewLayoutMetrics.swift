@@ -30,3 +30,9 @@ struct ViewLayoutMetrics {
         self.titleHorizontalPadding = titleHorizontalPadding
     }
 }
+
+nonisolated enum GridSizing {
+    static func columnCount(width: CGFloat, minimum: CGFloat, spacing: CGFloat) -> Int {
+        max(1, Int((max(0, width) + spacing) / (minimum + spacing)))
+    }
+}

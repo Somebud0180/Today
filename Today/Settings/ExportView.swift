@@ -197,18 +197,10 @@ struct ExportView: View {
     
     /// Async helper to pause execution until an iCloud file is downloaded locally
     private func ensureLocalDownload(at url: URL) async -> Bool {
-        let fm = FileManager.default
-        if !fm.fileExists(atPath: url.path) {
-            do { try fm.startDownloadingUbiquitousItem(at: url) } catch { return false }
-        }
-        
-        // Poll for up to 30 seconds to wait for iCloud download
-        for _ in 0..<30 {
-            if let values = try? url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey]),
-               values.ubiquitousItemDownloadingStatus == .current {
-                return true
-            }
-            try? await Task.sleep(nanoseconds: 1_000_000_000) // Wait 1 second
+        for _ in 0..<60 {
+            if Task.isCancelled { return false }
+            if await Task.detached(operation: { MediaStore.downloadIfNeeded(at: url) }).value { return true }
+            do { try await Task.sleep(for: .milliseconds(500)) } catch { return false }
         }
         return false
     }
@@ -245,7 +237,7 @@ struct ExportView: View {
         
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
-        let exportRoot = URL.documentsDirectory.appending(path: "Today-Export_\(df.string(from: now))", directoryHint: .isDirectory)
+        let exportRoot = URL.documentsDirectory.appending(path: "Today-Export_\(df.string(from: now))-\(UUID().uuidString)", directoryHint: .isDirectory)
         
         do { try FileManager.default.createDirectory(at: exportRoot, withIntermediateDirectories: true) }
         catch { print("Export: failed to create root folder: \(error)"); return }
@@ -267,7 +259,7 @@ struct ExportView: View {
                 
                 for entry in entries {
                     let baseTitle = entry.title.isEmpty ? "Untitled" : safeName(entry.title)
-                    let baseName = safeName("\(dayFormatter.string(from: entry.date)) - \(baseTitle)")
+                    let baseName = safeName("\(dayFormatter.string(from: entry.date)) - \(baseTitle) - \(entry.uuid.uuidString)")
                     
                     if includedIndex != 1, let srcURL = entry.mediaURL {
                         _ = await ensureLocalDownload(at: srcURL)
@@ -295,7 +287,7 @@ struct ExportView: View {
                 
                 for entry in entries {
                     let baseTitle = entry.title.isEmpty ? "Untitled" : safeName(entry.title)
-                    let baseName = safeName("\(dayFormatter.string(from: entry.date)) - \(baseTitle)")
+                    let baseName = safeName("\(dayFormatter.string(from: entry.date)) - \(baseTitle) - \(entry.uuid.uuidString)")
                     
                     if includedIndex != 1, let srcURL = entry.mediaURL {
                         _ = await ensureLocalDownload(at: srcURL)

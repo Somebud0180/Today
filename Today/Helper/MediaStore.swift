@@ -7,41 +7,90 @@
 
 import Foundation
 
-struct MediaStore {
+nonisolated struct MediaStore {
     private static let mediaFolderName = "TodayMedia"
     private static let thumbnailSuffix = "-thumb.jpg"
     private static let icloudContainerID = "iCloud.com.lagera.Today"
     
-    /// Returns the base media directory. Prefer ubiquity container; fallback to Application Support.
+    static func localDirectory() -> URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: Bundle.main.bundleIdentifier ?? "Today", directoryHint: .isDirectory)
+            .appending(path: mediaFolderName, directoryHint: .isDirectory)
+    }
+
+    static func cloudDirectory() -> URL? {
+        FileManager.default.url(forUbiquityContainerIdentifier: icloudContainerID)?
+            .appending(path: mediaFolderName, directoryHint: .isDirectory)
+    }
+
     private static func mediaDirectory() -> URL? {
-        let fm = FileManager.default
-        
-        if let ubiquity = fm.url(forUbiquityContainerIdentifier: icloudContainerID) {
-            let dir = ubiquity.appending(path: mediaFolderName, directoryHint: .isDirectory)
-            do {
-                try fm.createDirectory(at: dir, withIntermediateDirectories: true)
-                return dir
-            } catch {
-                print("Failed to create ubiquity media directory: \(error)")
-            }
-        } else {
-            print("iCloud container '\(icloudContainerID)' is temporarily unavailable. Using local fallback.")
+        let directory = localDirectory()
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            return directory
+        } catch { return nil }
+    }
+
+    /// Prefer an available local copy, but retain cloud placeholders for downloading.
+    static func resolve(_ filename: String, local: URL, cloud: URL?) -> URL {
+        let localURL = local.appendingPathComponent(filename)
+        if FileManager.default.fileExists(atPath: localURL.path) { return localURL }
+        return cloud?.appendingPathComponent(filename) ?? localURL
+    }
+
+    static func importRecording(from source: URL, filename: String) throws -> URL {
+        let directory = localDirectory()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let destination = directory.appendingPathComponent(filename)
+        guard !FileManager.default.fileExists(atPath: destination.path) else {
+            throw CocoaError(.fileWriteFileExists)
         }
-        
-        // Fallback: Application Support/<bundle-id>/Media
-        if let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
-            let bundleID = Bundle.main.bundleIdentifier ?? "Today"
-            let dir = appSupport.appending(path: bundleID, directoryHint: .isDirectory).appending(path: mediaFolderName, directoryHint: .isDirectory)
-            do {
-                try fm.createDirectory(at: dir, withIntermediateDirectories: true)
-                return dir
-            } catch {
-                print("Failed to create Application Support media directory: \(error)")
-                return nil
+        do { try FileManager.default.copyItem(at: source, to: destination) }
+        catch {
+            try? FileManager.default.removeItem(at: destination)
+            throw error
+        }
+        return destination
+    }
+
+    /// Copy local saves to iCloud without removing the playable local originals.
+    /// Failed uploads remain local and are retried on the next foreground transition.
+    static func synchronize(excluding deleted: Set<String> = []) throws {
+        guard let cloud = cloudDirectory() else { return }
+        let local = localDirectory()
+        try FileManager.default.createDirectory(at: local, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: cloud, withIntermediateDirectories: true)
+        for source in try FileManager.default.contentsOfDirectory(at: local, includingPropertiesForKeys: nil)
+            where !source.lastPathComponent.hasPrefix(".") && !deleted.contains(source.lastPathComponent) {
+            let destination = cloud.appendingPathComponent(source.lastPathComponent)
+            let placeholder = cloud.appendingPathComponent(".\(source.lastPathComponent).icloud")
+            guard !FileManager.default.fileExists(atPath: destination.path),
+                  !FileManager.default.fileExists(atPath: placeholder.path) else { continue }
+            var coordinationError: NSError?
+            var copyError: Error?
+            NSFileCoordinator().coordinate(writingItemAt: destination, options: [], error: &coordinationError) { url in
+                do { try FileManager.default.copyItem(at: source, to: url) }
+                catch { copyError = error }
+            }
+            if let error = coordinationError ?? (copyError as NSError?) { throw error }
+        }
+    }
+
+    static func removeFiles(_ filenames: [String]) throws {
+        for directory in [localDirectory(), cloudDirectory()].compactMap({ $0 }) {
+            for filename in filenames {
+                let url = directory.appendingPathComponent(filename)
+                let placeholder = directory.appendingPathComponent(".\(filename).icloud")
+                guard FileManager.default.fileExists(atPath: url.path) || FileManager.default.fileExists(atPath: placeholder.path) else { continue }
+                var coordinationError: NSError?
+                var removalError: Error?
+                NSFileCoordinator().coordinate(writingItemAt: url, options: .forDeleting, error: &coordinationError) { target in
+                    do { try FileManager.default.removeItem(at: target) }
+                    catch { removalError = error }
+                }
+                if let error = coordinationError ?? (removalError as NSError?) { throw error }
             }
         }
-        
-        return nil
     }
 
     /// Synchronously saves media data to the chosen media directory using a UUID-based filename.
@@ -128,8 +177,9 @@ struct MediaStore {
     /// Resolve a stored media filename to an absolute file URL in the current media directory.
     /// Filenames are kept stable; paths are resolved dynamically so stored values remain valid across container moves.
     static func urlForMediaFilename(_ fileName: String) -> URL? {
-        guard !fileName.isEmpty, let dir = mediaDirectory() else { return nil }
-        return dir.appending(path: fileName, directoryHint: .notDirectory)
+        guard !fileName.isEmpty else { return nil }
+        let filename = URL(string: fileName).flatMap { $0.scheme != nil ? $0.lastPathComponent : nil } ?? fileName
+        return resolve(filename, local: localDirectory(), cloud: cloudDirectory())
     }
 
     /// Delete a media file by its stored filename.

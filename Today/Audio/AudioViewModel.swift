@@ -33,6 +33,7 @@ class AudioViewModel: ObservableObject {
     @Published private(set) var waveformResetToken = 0
 
     private var cancellables = Set<AnyCancellable>()
+    private var playbackLifecycle = PlaybackLifecycle()
 
     /// Pre-loaded waveform from saved data (audio-only)
     private var savedWaveform: CodableAudioWaveform? = nil
@@ -151,12 +152,19 @@ class AudioViewModel: ObservableObject {
     }
 
     //MARK: - Observers
+    func setVisible(_ visible: Bool) {
+        playbackLifecycle.setVisible(visible)
+        if !visible { pause() }
+    }
+
     private func observeAppLifecycle() {
         NotificationCenter.default.publisher(
             for: UIApplication.willResignActiveNotification
         )
         .sink { [weak self] _ in
-            self?.pause()
+            guard let self else { return }
+            self.playbackLifecycle.interrupt(wasPlaying: self.isPlaying)
+            self.pause()
         }
         .store(in: &cancellables)
 
@@ -164,7 +172,8 @@ class AudioViewModel: ObservableObject {
             for: UIApplication.didBecomeActiveNotification
         )
         .sink { [weak self] _ in
-            self?.play()
+            guard let self, self.playbackLifecycle.resumeIfNeeded() else { return }
+            self.play()
         }
         .store(in: &cancellables)
     }

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import VariableBlur
 
 private struct ZoomTransitionState {
     var currentStep: Int
@@ -41,7 +42,7 @@ struct HomeView: View {
     @State private var didPerformInitialScroll = false
     @State private var isPad: Bool = UIDevice.current.userInterfaceIdiom == .pad
     @State private var topBarHeight: CGFloat = 0.0
-    @State private var showDeleteConfirmaton: Bool = false
+    @State private var pendingDeletion: [JournalEntry] = []
     @State private var dateOnScreen: Date?
     @State private var lastOpenedEntryDate: Date?
     
@@ -196,20 +197,10 @@ struct HomeView: View {
                     }
                 }
                 .navigationBarTitleDisplayMode(.inline)
-                .alert("Delete Entries?", isPresented: $showDeleteConfirmaton, actions: {
-                    Button("Cancel", role: .cancel) {}
-                    
-                    Button("Delete", role: .destructive) {
-                        withAnimation(.snappy) {
-                            for entry in selectedEntries {
-                                modelContext.delete(entry)
-                            }
-                            
-                            editMode?.wrappedValue = .inactive
-                            selectedEntries.removeAll()
-                        }
-                    }
-                })
+                .journalDeletion($pendingDeletion) {
+                    editMode?.wrappedValue = .inactive
+                    selectedEntries.removeAll()
+                }
                 .sheet(isPresented: $shareHelper.showShareSheet) {
                     ShareSheet(
                         items: shareHelper.sharedURLs,
@@ -283,7 +274,7 @@ struct HomeView: View {
                                     .disabled(shareHelper.isPreparingShare)
                                     
                                     Button(action: {
-                                        showDeleteConfirmaton = true
+                                        pendingDeletion = selectedEntries
                                     }, label: {
                                         Label("Delete Selected Entries", systemImage: "trash.fill")
                                             .labelStyle(.iconOnly)
@@ -566,5 +557,5 @@ struct HomeView: View {
 
 #Preview {
     HomeView(backgroundBlur: .constant(0))
-        .modelContainer(for: JournalEntry.self)
+        .modelContainer(for: [JournalEntry.self, MediaDeletion.self], inMemory: true)
 }

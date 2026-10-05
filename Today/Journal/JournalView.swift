@@ -17,6 +17,7 @@ struct JournalView: View {
     @AppStorage("selectedBackground") private var selectedBackground: String = DefaultSettings.selectedBackground
     
     let selectedEntry: JournalEntry
+    @State private var pendingDeletion: [JournalEntry] = []
     @State private var isLandscape: Bool = false
     @State private var isExpanded: Bool = false
     
@@ -119,9 +120,7 @@ struct JournalView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(role: .destructive, action: {
-                        modelContext.delete(selectedEntry)
-                        try? modelContext.save()
-                        dismiss()
+                        pendingDeletion = [selectedEntry]
                     }) {
                         Image(systemName: "trash")
                     }
@@ -139,7 +138,16 @@ struct JournalView: View {
             .task {
                 await resolveAndPrepareMedia()
             }
-            .onDisappear { saveChanges() }
+            .journalDeletion($pendingDeletion) { dismiss() }
+            .onAppear {
+                audioViewModel?.setVisible(true)
+                videoViewModel?.setVisible(true)
+            }
+            .onDisappear {
+                audioViewModel?.setVisible(false)
+                videoViewModel?.setVisible(false)
+                saveChanges()
+            }
         }
     }
     
@@ -153,7 +161,9 @@ struct JournalView: View {
         isDownloading = true
         
         for _ in 0..<60 {
-            if MediaStore.downloadIfNeeded(at: targetURL) {
+            guard !Task.isCancelled else { return }
+            if await Task.detached(operation: { MediaStore.downloadIfNeeded(at: targetURL) }).value {
+                guard !Task.isCancelled else { return }
                 resolvedURL = targetURL
                 
                 if selectedEntry.mediaType == .video {
@@ -168,7 +178,7 @@ struct JournalView: View {
                 return
             }
             
-            try? await Task.sleep(nanoseconds: 500 * 1_000_000)
+            do { try await Task.sleep(for: .milliseconds(500)) } catch { return }
         }
         
         isDownloading = false
@@ -218,14 +228,6 @@ struct JournalView: View {
 }
 
 #Preview {
-    @Previewable @State var entry = JournalEntry(
-        title: "Sample Entry",
-        note: "This is a sample journal entry.",
-        transcript: "",
-        mediaData: try! Data(contentsOf: Bundle.main.url(forResource: "example", withExtension: "mp4")!),
-        fileExtension: "mp4",
-        mediaType: .video
-    )
-    
-    JournalView(selectedEntry: entry!)
+    JournalView(selectedEntry: JournalEntry(title: "Sample Entry", note: "This is a sample entry."))
+        .environmentObject(AudioTranscriptionManager())
 }

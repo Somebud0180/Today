@@ -100,6 +100,7 @@ class VideoViewModel: ObservableObject {
     private(set) var player = AVPlayer()
     
     private var cancellables = Set<AnyCancellable>()
+    private var playbackLifecycle = PlaybackLifecycle()
     private var playbackObserver: NSObjectProtocol?
     private var readyObserver: NSKeyValueObservation?
     
@@ -163,18 +164,26 @@ class VideoViewModel: ObservableObject {
             }
     }
     
+    func setVisible(_ visible: Bool) {
+        playbackLifecycle.setVisible(visible)
+        if !visible { pause() }
+    }
+
     private func observeAppLifecycle() {
         NotificationCenter.default
-            .publisher(for: UIApplication.didEnterBackgroundNotification)
+            .publisher(for: UIApplication.willResignActiveNotification)
             .sink { [weak self] _ in
-                self?.pause()
+                guard let self else { return }
+                self.playbackLifecycle.interrupt(wasPlaying: self.isPlaying)
+                self.pause()
             }
             .store(in: &self.cancellables)
         
         NotificationCenter.default
             .publisher(for: UIApplication.didBecomeActiveNotification)
             .sink { [weak self] _ in
-                self?.play()
+                guard let self, self.playbackLifecycle.resumeIfNeeded() else { return }
+                self.play()
             }
             .store(in: &self.cancellables)
     }

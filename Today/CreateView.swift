@@ -53,7 +53,8 @@ struct CreateView: View {
     @FocusState private var titleFieldFocused: Bool
     @FocusState private var noteFieldFocused: Bool
     
-    @State private var tempEntry: JournalEntry?
+    @State private var saveError: String?
+    @State private var previewThumbnail: UIImage?
     @State private var isSaving: Bool = false
     @State private var cardOpacity: Double = 0.0
     @State private var cardScale: CGFloat = 0.0
@@ -250,6 +251,23 @@ struct CreateView: View {
                     }
                 }
             }
+            .task(id: recordedVideoURL) {
+                previewThumbnail = nil
+                guard let url = recordedVideoURL else { return }
+                let data = try? await ThumbnailLoader.videoData(url: url)
+                guard !Task.isCancelled else { return }
+                previewThumbnail = data.flatMap(UIImage.init(data:))
+            }
+            .overlay {
+                if isSaving {
+                    ProgressView("Saving entry…")
+                        .padding()
+                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
+                }
+            }
+            .alert("Couldn’t Save Entry", isPresented: Binding(get: { saveError != nil }, set: { if !$0 { saveError = nil } })) {
+                Button("OK", role: .cancel) { saveError = nil }
+            } message: { Text(saveError ?? "Your recording is still available. Please try again.") }
             .sensoryFeedback(.success, trigger: transcriptSuccess) { oldValue,newValue in
                 return newValue == true && transcript != nil
             }
@@ -469,10 +487,10 @@ struct CreateView: View {
     
     func previewCard(finalWidth: CGFloat, height: CGFloat, proxy: GeometryProxy, isLandscape: Bool) -> some View {
         ZStack {
-            if let recordedVideoURL = recordedVideoURL,
-               let thumbnail = videoThumbnail(for: recordedVideoURL)
+            if recordedVideoURL != nil,
+               let thumbnail = previewThumbnail
             {
-                thumbnail
+                Image(uiImage: thumbnail)
                     .resizable()
                     .scaledToFill()
                     .frame(width: finalWidth, height: height)
@@ -557,22 +575,22 @@ struct CreateView: View {
             )
             
             Button(action: {
-                tempEntry = JournalEntry(
-                    title: entryTitle,
-                    note: entryNote,
-                    transcript: transcript ?? "",
-                    mediaData: try! Data(contentsOf: activeURL),
-                    fileExtension: fileExtension,
-                    mediaType: mediaType,
-                    waveform: mediaType == .audio ? recordedAudioWaveform : nil
-                )
-                
-                withAnimation(.snappy) {
-                    hideKeyboard()
-                    isSaving = true
+                guard !isSaving else { return }
+                hideKeyboard()
+                isSaving = true
+                Task {
+                    do {
+                        _ = try await JournalStore.saveRecording(
+                            source: activeURL, title: entryTitle, note: entryNote,
+                            transcript: transcript ?? "", mediaType: mediaType,
+                            waveform: mediaType == .audio ? recordedAudioWaveform : nil,
+                            context: modelContext)
+                        performSaveAnimation(proxy)
+                    } catch {
+                        isSaving = false
+                        saveError = error.localizedDescription
+                    }
                 }
-                
-                performSaveAnimation(proxy)
             }) {
                 Text("Save Entry")
                     .frame(maxWidth: .infinity)
@@ -580,7 +598,7 @@ struct CreateView: View {
                     .padding(12)
             }
             .buttonStyle(.glassProminent)
-            .disabled(transcriptionInProgress)
+            .disabled(transcriptionInProgress || isSaving)
             
             Button(action: {
                 hideKeyboard()
@@ -655,14 +673,6 @@ struct CreateView: View {
         }
     }
     
-    func videoThumbnail(for URL: URL) -> Image? {
-        let data = JournalEntry.generateThumbnailData(from: URL)
-        if let data, let uiImage = UIImage(data: data) {
-            return Image(uiImage: uiImage)
-        }
-        return nil
-    }
-    
     func showCardAnimation() {
         cardOpacity = 0.0
         cardScale = 0.8
@@ -694,23 +704,15 @@ struct CreateView: View {
         }
         
         Task { @MainActor in
-            if let entry = tempEntry {
-                modelContext.insert(entry)
-                try? modelContext.save()
-            }
-            
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-            
-            if tempEntry != nil {
-                resetVariables()
-                tabSelection = 0
-                NotificationsManager.cancelCurrentReminderNotification()
-            }
+            try? await Task.sleep(for: .seconds(2))
+            resetVariables()
+            tabSelection = 0
+            NotificationsManager.cancelCurrentReminderNotification()
         }
     }
     
     func resetVariables() {
-        tempEntry = nil
+        previewThumbnail = nil
         isSaving = false
         cardOpacity = 0.0
         cardScale = 0.8

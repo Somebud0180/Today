@@ -18,6 +18,7 @@ struct JogBookView: View {
     
     @Binding var backgroundBlur: CGFloat
     
+    @State private var pendingDeletion: [JournalEntry] = []
     @Namespace private var namespace
     @State private var calendarGridColumn: [GridItem] = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
     @State private var selectedMonthYear: Date = Calendar.current.dateComponents([.year, .month], from: Date()).date ?? Date()
@@ -92,6 +93,8 @@ struct JogBookView: View {
                 .padding(.horizontal, isLandscape ? nil : 16)
                 .padding(.top, isLandscape ? 16 : nil)
             }
+            .onGeometryChange(for: Bool.self) { $0.size.width > $0.size.height } action: { isLandscape = $0 }
+            .journalDeletion($pendingDeletion)
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $shareHelper.showShareSheet) {
                 ShareSheet(
@@ -315,7 +318,7 @@ struct JogBookView: View {
                         }
                         
                         Button(role: .destructive) {
-                            modelContext.delete(entry)
+                            pendingDeletion = [entry]
                         } label: {
                             Label("Delete Entry", systemImage: "trash")
                         }
@@ -349,5 +352,5 @@ struct TrailingIcon: LabelStyle {
 
 #Preview {
     JogBookView(backgroundBlur: .constant(0))
-        .modelContainer(for: JournalEntry.self)
+        .modelContainer(for: [JournalEntry.self, MediaDeletion.self], inMemory: true)
 }

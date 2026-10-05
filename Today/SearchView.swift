@@ -7,10 +7,12 @@
  
 import SwiftUI
 import SwiftData
+import VariableBlur
 
 struct SearchView: View {
     @AppStorage("selectedBackground") private var selectedBackground: String = DefaultSettings.selectedBackground
     @EnvironmentObject var transcriptionManager: AudioTranscriptionManager
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.editMode) private var editMode
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
@@ -21,7 +23,7 @@ struct SearchView: View {
     @Binding var backgroundBlur: CGFloat
     
     @Namespace private var namespace
-    @State private var showDeleteConfirmaton: Bool = false
+    @State private var pendingDeletion: [JournalEntry] = []
     @State private var topBarHeight: CGFloat = 0.0
     @State private var isPad: Bool = UIDevice.current.userInterfaceIdiom == .pad
     @State private var hideTabBar: Bool = false
@@ -35,30 +37,12 @@ struct SearchView: View {
     private let gridPadding: CGFloat = 10
     
     var filteredEntries: [JournalEntry] {
-        guard !searchText.isEmpty else { return journalEntries }
-        let query = searchText.lowercased()
-        
-        func matches(_ entry: JournalEntry) -> Bool {
-            // Adjust property names to match your model
-            let title = entry.title.lowercased()
-            let transcript = entry.transcript.lowercased()
-            // Create a few date strings to match against
-            let dateLong = entry.date.formatted(date: .long, time: .omitted).lowercased()
-            let dateAbbrev = entry.date.formatted(date: .abbreviated, time: .omitted).lowercased()
-            let dateNumeric = entry.date.formatted(.dateTime.year().month().day()).lowercased()
-            
-            return title.contains(query)
-            || transcript.contains(query)
-            || dateLong.contains(query)
-            || dateAbbrev.contains(query)
-            || dateNumeric.contains(query)
-        }
-        
-        return journalEntries.filter(matches)
+        journalEntries.filter { $0.matchesSearch(searchText) }
     }
-    
+
     var body: some View {
         GeometryReader { proxy in
+            let results = filteredEntries
             let metrics = layoutMetrics(in: proxy.size)
             let blurHeight = topBarHeight + TitlePadding.top(proxy, isPad: isPad)
             let isEditing = editMode?.wrappedValue.isEditing == true
@@ -68,7 +52,7 @@ struct SearchView: View {
                     ScrollView(.vertical, showsIndicators: true) {
                         JournalGridView(
                             selectedEntries: $selectedEntries,
-                            entries: journalEntries,
+                            entries: results,
                             metrics: metrics,
                             isEditing: isEditing,
                             namespace: namespace,
@@ -84,6 +68,13 @@ struct SearchView: View {
                         )
                         .padding(gridPadding)
                     }
+                    .overlay {
+                        if results.isEmpty {
+                            ContentUnavailableView.search(text: searchText)
+                                .allowsHitTesting(false)
+                        }
+                    }
+                    .scrollEdgeEffectStyle(.soft, for: .top)
                     
                     LinearGradient(
                         colors: [.black.opacity(0.5), .clear],
@@ -100,20 +91,10 @@ struct SearchView: View {
                         .ignoresSafeArea()
                 }
                 .navigationBarTitleDisplayMode(.inline)
-                .alert("Delete Entries?", isPresented: $showDeleteConfirmaton, actions: {
-                    Button("Cancel", role: .cancel) {}
-                    
-                    Button("Delete", role: .destructive) {
-                        withAnimation(.snappy) {
-                            for entry in selectedEntries {
-                                modelContext.delete(entry)
-                            }
-                            
-                            editMode?.wrappedValue = .inactive
-                            selectedEntries.removeAll()
-                        }
-                    }
-                })
+                .journalDeletion($pendingDeletion) {
+                    editMode?.wrappedValue = .inactive
+                    selectedEntries.removeAll()
+                }
                 .sheet(isPresented: $shareHelper.showShareSheet) {
                     ShareSheet(
                         items: shareHelper.sharedURLs,
@@ -189,7 +170,7 @@ struct SearchView: View {
                             Spacer()
                             
                             Button(action: {
-                                showDeleteConfirmaton = true
+                                pendingDeletion = selectedEntries
                             }, label: {
                                 Label("Delete Selected Entries", systemImage: "trash.fill")
                                     .labelStyle(.iconOnly)
@@ -259,7 +240,7 @@ struct SearchView: View {
     }
     
     private func calculateGridColumns(availableWidth: CGFloat) -> [GridItem] {
-        let columnCount = max(3, Int((availableWidth + gridSpacing) / (minimumCardWidth + gridSpacing)))
+        let columnCount = GridSizing.columnCount(width: availableWidth, minimum: dynamicTypeSize.isAccessibilitySize ? 240 : minimumCardWidth, spacing: gridSpacing)
         return Array(repeating: GridItem(.flexible(), spacing: gridSpacing), count: columnCount)
     }
     
@@ -273,5 +254,5 @@ struct SearchView: View {
 #Preview {
     @Previewable @State var searchPresented: Bool = false
     SearchView(searchText: .constant(""), searchPresented: $searchPresented, backgroundBlur: .constant(0))
-        .modelContainer(for: JournalEntry.self)
+        .modelContainer(for: [JournalEntry.self, MediaDeletion.self], inMemory: true)
 }

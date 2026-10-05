@@ -1,62 +1,74 @@
-//
-//  NotificationsManager.swift
-//  Today
-//
-//  Created by Ethan John Lagera on 6/7/26.
-//
-//  Referenced from https://www.hackingwithswift.com/books/ios-swiftui/scheduling-local-notifications
-//  Scheduling local notifications by Paul Hudson
-//
-//  Additional reference from
-//  https://www.createwithswift.com/notifications-tutorial-creating-and-scheduling-user-notifications-with-async-await/
-//  Creating and Scheduling Local Notifications with async/await by Tiago Gomes Pereira
-
 import Foundation
 import UserNotifications
+import SwiftUI
 
 struct NotificationsManager {
+    @AppStorage("reminderTime") private static var savedReminderTime: Date = DefaultSettings.reminderTime
+    @AppStorage("remindMeToJournal") private static var remindersEnabled: Bool = DefaultSettings.remindMeToJournal
+    private static var schedulingTask: Task<Void, Never>?
+    static let identifierPrefix = "journal-reminder-"
+
+    /// A rolling window lets saving skip today's reminder without deleting future ones.
+    /// Refresh on foreground and settings changes; leave headroom under the pending limit.
+    static func reminderDates(time: Date, now: Date, skipToday: Bool, calendar: Calendar = .current) -> [Date] {
+        let components = calendar.dateComponents([.hour, .minute], from: time)
+        return (0..<60).compactMap { offset in
+            guard !(skipToday && offset == 0),
+                  let day = calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: now)),
+                  let date = calendar.date(bySettingHour: components.hour ?? 20, minute: components.minute ?? 0, second: 0, of: day),
+                  date > now else { return nil }
+            return date
+        }
+    }
+
     static func registerReminderNotification(_ reminderTime: Date) {
-        // Create the date components for the notification trigger
-        var dateComponents = DateComponents()
-        dateComponents.calendar = Calendar.current
-        dateComponents.hour = Calendar.current.component(.hour, from: reminderTime)
-        dateComponents.minute = Calendar.current.component(.minute, from: reminderTime)
-        
-        // Remove existing notifications to avoid duplicates
-        unregisterReminderNotifications()
-        
-        // Create the notification content
-        let content = UNMutableNotificationContent()
-        content.title = "Today"
-        content.body = "It's time for your daily journal, spend some time in the app."
-        content.sound = UNNotificationSound.default
-        
-        // Create the notification trigger
-        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
-        
-        // Set a predictable identifier
-        let identifier = Date().formatted(date: .numeric, time: .omitted)
-        
-        // Create request
-        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
-        
-        // Add our notification request
-        UNUserNotificationCenter.current().add(request)
+        let lastEntry = UserDefaults.standard.object(forKey: "lastJournalSaveDate") as? Date
+        let skipToday = lastEntry.map { Calendar.current.isDateInToday($0) } ?? false
+        schedule(time: reminderTime, skipToday: skipToday)
     }
-    
-    static func unregisterReminderNotifications() {
-        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+
+    private static func schedule(time: Date?, skipToday: Bool) {
+        schedulingTask?.cancel()
+        let previousTask = schedulingTask
+        schedulingTask = Task {
+            await previousTask?.value
+            guard !Task.isCancelled else { return }
+            let center = UNUserNotificationCenter.current()
+            let pending = await center.pendingNotificationRequests()
+            guard !Task.isCancelled else { return }
+            // Include the legacy date-based identifiers when migrating existing installs.
+            center.removePendingNotificationRequests(withIdentifiers: pending.filter {
+                $0.identifier.hasPrefix(identifierPrefix) || $0.content.body == "It's time for your daily journal, spend some time in the app."
+            }.map(\.identifier))
+            guard let time else { return }
+            for date in reminderDates(time: time, now: Date(), skipToday: skipToday) {
+                guard !Task.isCancelled else { return }
+                let content = UNMutableNotificationContent()
+                content.title = "Today"
+                content.body = "It's time for your daily journal, spend some time in the app."
+                content.sound = .default
+                let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+                let request = UNNotificationRequest(identifier: identifierPrefix + String(Int(date.timeIntervalSince1970)), content: content,
+                    trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false))
+                do { try await center.add(request) }
+                catch { print("Could not schedule journal reminder: \(error)") }
+            }
+        }
     }
-    
+
+    static func unregisterReminderNotifications() { schedule(time: nil, skipToday: false) }
+
     static func cancelCurrentReminderNotification() {
-        let currentDate = Date().formatted(date: .numeric, time: .omitted)
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [currentDate])
+        UserDefaults.standard.set(Date(), forKey: "lastJournalSaveDate")
+        refresh()
     }
-    
+
+    static func refresh() {
+        guard remindersEnabled else { unregisterReminderNotifications(); return }
+        registerReminderNotification(savedReminderTime)
+    }
+
     static func notificatonPermissionStatus() async -> UNAuthorizationStatus {
-        let current = UNUserNotificationCenter.current()
-        let settings = await current.notificationSettings()
-        
-        return settings.authorizationStatus
+        await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
     }
 }

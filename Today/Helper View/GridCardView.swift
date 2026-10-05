@@ -10,6 +10,7 @@ import SwiftUI
 struct GridCardView: View {
     var journalEntry: JournalEntry
     var size: CGSize
+    @State private var waveformLevels: [CGFloat] = []
     
     init(for journalEntry: JournalEntry, size: CGSize) {
         self.journalEntry = journalEntry
@@ -22,7 +23,7 @@ struct GridCardView: View {
                 AsyncThumbnailView(entry: journalEntry, targetSize: size)
                     .frame(width: size.width, height: size.height)
                     .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
-            } else if let waveformLevels = journalEntry.audioWaveformThumbnailLevels(maxBars: max(1, Int(size.width / 7))) {
+            } else if journalEntry.mediaType == .audio {
                 WaveformView(levels: waveformLevels, isThumbnailView: true)
                     .frame(width: size.width, height: size.height)
                     .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
@@ -72,6 +73,14 @@ struct GridCardView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .frame(width: size.width, height: size.height)
+        .task(id: WaveformRequest(data: journalEntry.waveformData, bars: max(1, Int(size.width / 7)))) {
+            guard journalEntry.mediaType == .audio, let data = journalEntry.waveformData else { return }
+            do {
+                let levels = try await ThumbnailLoader.shared.waveform(id: journalEntry.uuid, data: data, maxBars: max(1, Int(size.width / 7)))
+                try Task.checkCancellation()
+                waveformLevels = levels
+            } catch { }
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityTitle)
         .accessibilityValue(accessibilityValue)
@@ -134,4 +143,9 @@ extension GridCardView {
             return ""
         }
     }
+}
+
+private struct WaveformRequest: Equatable {
+    let data: Data?
+    let bars: Int
 }

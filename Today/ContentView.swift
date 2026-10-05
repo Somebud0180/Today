@@ -22,9 +22,11 @@ struct DefaultSettings {
 
 struct ContentView: View {
     @EnvironmentObject var transcriptionManager: AudioTranscriptionManager
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Query private var journalEntries: [JournalEntry]
+    @Query private var mediaDeletions: [MediaDeletion]
     
     @AppStorage("preferredColorScheme") private var preferredColorScheme: PreferredColorScheme = DefaultSettings.preferredColorTheme
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = DefaultSettings.hasCompletedOnboarding
@@ -67,6 +69,15 @@ struct ContentView: View {
         .tabViewSearchActivation(.searchTabSelection)
         .searchPresentationToolbarBehavior(.avoidHidingContent)
         .searchToolbarBehavior(.automatic)
+        .task(id: Set(mediaDeletions.flatMap(\.filenames))) {
+            try? await MediaMaintenance.shared.run(deletions: Set(mediaDeletions.flatMap(\.filenames)))
+            if hasCompletedOnboarding { NotificationsManager.refresh() }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { try? await MediaMaintenance.shared.run(deletions: Set(mediaDeletions.flatMap(\.filenames))) }
+            if hasCompletedOnboarding { NotificationsManager.refresh() }
+        }
         .onAppear {
             showOnboarding = !hasCompletedOnboarding
         }
@@ -99,5 +110,5 @@ extension Color {
 
 #Preview {
     ContentView()
-        .modelContainer(for: JournalEntry.self)
+        .modelContainer(for: [JournalEntry.self, MediaDeletion.self], inMemory: true)
 }

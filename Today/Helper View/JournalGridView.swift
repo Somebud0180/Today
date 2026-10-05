@@ -11,6 +11,7 @@ import SwiftData
 struct JournalGridView<Destination: View>: View {
     @Environment(\.modelContext) private var modelContext
     
+    @State private var pendingDeletion: [JournalEntry] = []
     @Binding var selectedEntries: [JournalEntry]
     let entries: [JournalEntry]
     let metrics: ViewLayoutMetrics
@@ -43,7 +44,7 @@ struct JournalGridView<Destination: View>: View {
                     }
                     
                     Button(role: .destructive) {
-                        modelContext.delete(entry)
+                        pendingDeletion = [entry]
                     } label: {
                         Label("Delete Entry", systemImage: "trash")
                     }
@@ -86,5 +87,6 @@ struct JournalGridView<Destination: View>: View {
             }
         }
         .scrollTargetLayout()
+        .journalDeletion($pendingDeletion)
     }
 }

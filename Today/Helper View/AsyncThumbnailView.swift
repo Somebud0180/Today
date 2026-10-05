@@ -11,6 +11,7 @@ struct AsyncThumbnailView: View {
     let entry: JournalEntry
     let targetSize: CGSize
     
+    @Environment(\.displayScale) private var displayScale
     @State private var uiImage: UIImage? = nil
     @State private var isDownloading: Bool = false
     
@@ -35,35 +36,24 @@ struct AsyncThumbnailView: View {
                 .frame(width: targetSize.width, height: targetSize.height)
             }
         }
-        .task(id: entry.thumbnailURLString) {
+        .task(id: "\(entry.thumbnailURLString ?? "")-\(pixelSize)") {
             await loadThumbnail()
         }
     }
     
+    private var pixelSize: Int {
+        // Bucket dimensions so pinch gestures reuse nearby cached sizes.
+        max(128, Int(ceil(max(targetSize.width, targetSize.height) * displayScale / 128)) * 128)
+    }
+
     private func loadThumbnail() async {
-        guard entry.mediaType == .video else { return }
-        
-        guard let thumbURL = entry.thumbnailURL else {
-            return
-        }
-        
+        guard let filename = entry.thumbnailURLString else { return }
         isDownloading = true
-        
-        for _ in 0..<30 {
-            if MediaStore.downloadIfNeeded(at: thumbURL) {
-                if let data = try? Data(contentsOf: thumbURL),
-                   let image = UIImage(data: data) {
-                    await MainActor.run {
-                        self.uiImage = image
-                        self.isDownloading = false
-                    }
-                    return
-                }
-            }
-            
-            try? await Task.sleep(nanoseconds: 500 * 1_000_000)
-        }
-        
-        await MainActor.run { isDownloading = false }
+        defer { isDownloading = false }
+        do {
+            let image = try await ThumbnailLoader.shared.image(filename: filename, pixelSize: pixelSize)
+            try Task.checkCancellation()
+            uiImage = image
+        } catch { /* Cancellation leaves the existing thumbnail in place. */ }
     }
 }

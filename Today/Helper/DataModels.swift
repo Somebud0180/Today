@@ -55,58 +55,18 @@ class JournalEntry: Identifiable {
     /// Encoded waveform data (audio recordings)
     var waveformData: Data? = nil
 
-    init?(title: String,
-          note: String,
-          transcript: String,
-          mediaData: Data,
-          fileExtension: String,
-          mediaType: MediaType,
-          powerFrames: [CodableRecordedPowerFrame]? = nil,
-          waveform: CodableAudioWaveform? = nil) {
-
-        let id = UUID()
-
-        guard let mediaURL = MediaStore.saveMedia(data: mediaData, fileExtension: fileExtension, entryID: id) else {
-            print("Failed to save media for entry")
-            return nil
-        }
-
-        var thumbURLString: String? = nil
-        if mediaType == .video {
-            if let thumbData = Self.generateThumbnailData(from: mediaURL) {
-                if let thumbURL = MediaStore.saveThumbnail(data: thumbData, entryID: id) {
-                    // store only the filename so paths can be resolved dynamically later
-                    thumbURLString = thumbURL.lastPathComponent
-                }
-            }
-        }
-
-        self.uuid = id
-        self.date = Date()
+    init(title: String = "", note: String = "", transcript: String = "",
+         mediaType: MediaType = .video, uuid: UUID = UUID(),
+         mediaFilename: String = "", thumbnailFilename: String? = nil,
+         waveformData: Data? = nil) {
+        self.uuid = uuid
         self.title = title
         self.note = note
         self.transcript = transcript
         self.mediaTypeRaw = mediaType.rawValue
-        self.mediaURLString = mediaURL.lastPathComponent
-        self.thumbnailURLString = thumbURLString
-
-        if mediaType == .audio, let powerFrames = powerFrames, !powerFrames.isEmpty {
-            do {
-                self.powerMetricsData = try JSONEncoder().encode(powerFrames)
-            } catch {
-                print("Failed to encode power metrics: \(error)")
-                self.powerMetricsData = nil
-            }
-        }
-
-        if mediaType == .audio, let waveform {
-            do {
-                self.waveformData = try JSONEncoder().encode(waveform)
-            } catch {
-                print("Failed to encode waveform: \(error)")
-                self.waveformData = nil
-            }
-        }
+        self.mediaURLString = mediaFilename
+        self.thumbnailURLString = thumbnailFilename
+        self.waveformData = waveformData
     }
 
     var mediaType: MediaType {
@@ -210,35 +170,7 @@ extension JournalEntry {
         return linearSamples[startIndex..<endIndex].map { CGFloat($0) }
     }
     
-    static func generateThumbnailData(from videoURL: URL) -> Data? {
-        final class ThumbnailDataBox: @unchecked Sendable { var data: Data? }
-        
-        let asset = AVURLAsset(url: videoURL)
-        let imageGenerator = AVAssetImageGenerator(asset: asset)
-        imageGenerator.appliesPreferredTrackTransform = true
-        imageGenerator.maximumSize = CGSize(width: 600, height: 400)
-        
-        let time = CMTimeMakeWithSeconds(1, preferredTimescale: 600)
-        let box = ThumbnailDataBox()
-        let semaphore = DispatchSemaphore(value: 0)
-        
-        imageGenerator.generateCGImageAsynchronously(for: time) { cgImage, _, error in
-            defer { semaphore.signal() }
-            
-            if let error {
-                print("Thumbnail generation error: \(error)")
-                return
-            }
-            
-            guard let cgImage else { return }
-            
-            let thumbnail = UIImage(cgImage: cgImage)
-            box.data = thumbnail.jpegData(compressionQuality: 0.85)
-        }
-        
-        semaphore.wait()
-        return box.data
-    }
+
 }
 
 // MARK: - Quick Export
@@ -267,14 +199,14 @@ extension JournalEntry {
         guard mediaType == .audio, let originalURL = mediaURL else { return nil }
         
         let originalExt = originalURL.pathExtension
-        let tempDir = FileManager.default.temporaryDirectory
-        let outputURL = tempDir.appending(path: "\(self.title.isEmpty ? self.date.formatted(date: .long, time: .omitted) : self.title).\(originalExt)", directoryHint: .notDirectory)
+        let tempDir = try ExportNaming.makeDirectory()
+        let outputURL = tempDir.appending(path: "\(ExportNaming.safeName(self.title.isEmpty ? self.date.formatted(date: .long, time: .omitted) : self.title)).\(originalExt)", directoryHint: .notDirectory)
         
         // Remove any existing file at destination
         try? FileManager.default.removeItem(at: outputURL)
         
         do {
-            try FileManager.default.copyItem(at: originalURL, to: outputURL)
+            try await Task.detached { try FileManager.default.copyItem(at: originalURL, to: outputURL) }.value
             return outputURL
         } catch {
             print("Failed to copy audio: \(error)")
@@ -289,8 +221,8 @@ extension JournalEntry {
         guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality) else { return nil }
         
         // Prepare temp output URL
-        let tempDir = FileManager.default.temporaryDirectory
-        let outputURL = tempDir.appending(path: "\(self.title.isEmpty ? self.date.formatted(date: .long, time: .omitted) : self.title).mov", directoryHint: .notDirectory)
+        let tempDir = try ExportNaming.makeDirectory()
+        let outputURL = tempDir.appending(path: "\(ExportNaming.safeName(self.title.isEmpty ? self.date.formatted(date: .long, time: .omitted) : self.title)).mov", directoryHint: .notDirectory)
         // Remove any existing file
         try? FileManager.default.removeItem(at: outputURL)
         exportSession.outputURL = outputURL
@@ -312,5 +244,37 @@ extension JournalEntry {
         } catch {
             return nil
         }
+    }
+}
+
+extension JournalEntry {
+    func matchesSearch(_ text: String) -> Bool {
+        let query = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return true }
+        return [title, transcript,
+                date.formatted(date: .long, time: .omitted),
+                date.formatted(date: .abbreviated, time: .omitted),
+                date.formatted(date: .numeric, time: .omitted),
+                date.formatted(.dateTime.year().month().day())]
+            .contains { $0.localizedStandardContains(query) }
+    }
+}
+
+/// Persisted in the same transaction as entry deletion, including across devices.
+/// Retaining this record prevents an offline device from uploading a deleted file again.
+@Model
+final class MediaDeletion {
+    var uuid: UUID = UUID()
+    var mediaFilename: String = ""
+    var thumbnailFilename: String? = nil
+
+    init(entry: JournalEntry) {
+        uuid = entry.uuid
+        mediaFilename = URL(string: entry.mediaURLString)?.lastPathComponent ?? entry.mediaURLString
+        thumbnailFilename = entry.thumbnailURLString.map { URL(string: $0)?.lastPathComponent ?? $0 }
+    }
+
+    var filenames: [String] {
+        [mediaFilename, thumbnailFilename].compactMap { $0 }.filter { !$0.isEmpty }
     }
 }

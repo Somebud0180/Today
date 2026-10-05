@@ -13,7 +13,7 @@ struct TodayApp: App {
     @StateObject private var transcriptionManager = AudioTranscriptionManager()
     
     var sharedModelContainer: ModelContainer = {
-        let schema = Schema([JournalEntry.self])
+        let schema = Schema([JournalEntry.self, MediaDeletion.self])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {
