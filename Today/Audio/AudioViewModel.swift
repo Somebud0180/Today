@@ -19,6 +19,9 @@ class AudioViewModel: ObservableObject {
     @Published var isScrubbing = false
     @Published private(set) var fullWaveformLevels: [CGFloat] = []
 
+    var isPreparingPlayback: Bool { playbackRequest != nil }
+    private var playbackRequest: UUID?
+    private var audioSessionOwner = UUID()
     private var engine: AVAudioEngine?
     private var playerNode: AVAudioPlayerNode?
     private var audioFile: AVAudioFile?
@@ -51,6 +54,7 @@ class AudioViewModel: ObservableObject {
         self.cancellables.forEach { $0.cancel() }
         self.stopPlaybackTimer()
         self.stopEngine()
+        AppAudioSession.deactivate(owner: audioSessionOwner)
     }
 
     private func loadAudio(fileURL: URL) {
@@ -169,7 +173,7 @@ class AudioViewModel: ObservableObject {
         )
         .sink { [weak self] _ in
             guard let self, self.playbackLifecycle.resumeIfNeeded() else { return }
-            self.play()
+            Task { await self.play() }
         }
         .store(in: &cancellables)
     }
@@ -177,15 +181,20 @@ class AudioViewModel: ObservableObject {
     //MARK: - Playback Controls
     func togglePlayback() {
         guard isPlayerReady else { return }
-        if playerNode?.isPlaying == true {
+        if playerNode?.isPlaying == true || playbackRequest != nil {
             pause()
         } else {
-            play()
+            Task { await play() }
         }
     }
 
-    func play() {
-        guard isPlayerReady, let engine = engine else { return }
+    func play() async {
+        guard playbackLifecycle.isVisible, isPlayerReady, let engine = engine, playbackRequest == nil,
+              !(playerNode?.isPlaying ?? false) else { return }
+        let request = UUID()
+        playbackRequest = request
+        audioSessionOwner = request
+        defer { if playbackRequest == request { playbackRequest = nil } }
 
         // If we're at the end, reset to beginning before playing
         if currentTime >= duration - 0.01 {
@@ -198,19 +207,25 @@ class AudioViewModel: ObservableObject {
 
         if !(playerNode?.isPlaying ?? false) {
             do {
-                try AppAudioSession.activatePlayback()
+                try await AppAudioSession.activatePlayback(owner: request)
+                guard playbackRequest == request, !Task.isCancelled else {
+                    AppAudioSession.deactivate(owner: request)
+                    return
+                }
                 if !engine.isRunning {
                     try engine.start()
                 }
 
                 scheduleFromCurrentTime(playImmediately: true)
             } catch {
+                AppAudioSession.deactivate(owner: request)
                 print("Error starting playback: \(error)")
             }
         }
     }
 
     func pause() {
+        playbackRequest = nil
         scheduleToken = UUID()
         updateCurrentTime()
         playerNode?.pause()

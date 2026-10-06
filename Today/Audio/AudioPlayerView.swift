@@ -57,7 +57,7 @@ struct AudioPlayerView: View {
                             viewModel.isScrubbing = false
                             scrubStartTime = nil
                             if wasPlayingBeforeScrub {
-                                viewModel.play()
+                                Task { await viewModel.play() }
                             }
                         }
                 )

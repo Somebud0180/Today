@@ -6,6 +6,56 @@ import Testing
 @MainActor
 @Suite(.serialized)
 struct AudioSessionTests {
+    @Test func sessionHardwareWorkDoesNotRunOnMainThread() async throws {
+        let onMainThread = try await AppAudioSession.perform { Thread.isMainThread }
+        #expect(!onMainThread)
+    }
+
+    /// Hold the hardware queue while a playback request is paused on the UI actor.
+    private func checkPendingPlaybackCancellation(video: Bool) async throws {
+        let url = try makeAudioFile()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let audioPlayer = AudioViewModel(fileURL: url)
+        let videoPlayer = VideoViewModel(fileURL: url)
+        let gate = DispatchSemaphore(value: 0)
+        let (started, continuation) = AsyncStream<Void>.makeStream()
+        let blocker = Task {
+            try await AppAudioSession.perform {
+                continuation.yield(())
+                continuation.finish()
+                gate.wait()
+            }
+        }
+        var iterator = started.makeAsyncIterator()
+        _ = await iterator.next()
+        defer { gate.signal() }
+
+        let playback = Task {
+            if video { await videoPlayer.play() }
+            else { await audioPlayer.play() }
+        }
+        for _ in 0..<1_000 {
+            if video ? videoPlayer.isPreparingPlayback : audioPlayer.isPreparingPlayback { break }
+            await Task.yield()
+        }
+        #expect(video ? videoPlayer.isPreparingPlayback : audioPlayer.isPreparingPlayback)
+        if video { videoPlayer.pause() }
+        else { audioPlayer.pause() }
+        gate.signal()
+        try await blocker.value
+        await playback.value
+        #expect(!audioPlayer.isPlaying)
+        #expect(!videoPlayer.isPlaying)
+    }
+
+    @Test func pauseCancelsPendingAudioPlayback() async throws {
+        try await checkPendingPlaybackCancellation(video: false)
+    }
+
+    @Test func pauseCancelsPendingVideoPlayback() async throws {
+        try await checkPendingPlaybackCancellation(video: true)
+    }
+
     private func makeAudioFile() throws -> URL {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("session-test-\(UUID()).caf")
         let format = try #require(AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1))
@@ -20,67 +70,65 @@ struct AudioSessionTests {
         return url
     }
 
-    @Test func recordingRestoresInputCategoryAfterPlayback() throws {
+    @Test func recordingRestoresInputCategoryAfterPlayback() async throws {
         let session = AVAudioSession.sharedInstance()
-        defer { try? session.setActive(false, options: .notifyOthersOnDeactivation) }
-        try AppAudioSession.activatePlayback()
-        try AppAudioSession.configureRecording()
+        let owner = UUID()
+        defer { AppAudioSession.deactivate(owner: owner) }
+        try await AppAudioSession.activatePlayback(owner: owner)
+        _ = try await AppAudioSession.configureRecording()
         #expect(session.category == .playAndRecord)
         #expect(session.categoryOptions.contains(.defaultToSpeaker))
     }
 
-    @Test func recordingPreviewRestoresPlaybackCategory() throws {
+    @Test func recordingPreviewRestoresPlaybackCategory() async throws {
         let url = try makeAudioFile()
         defer { try? FileManager.default.removeItem(at: url) }
         let recorder = AudioRecorderManager()
-        try AppAudioSession.configureRecording()
+        _ = try await AppAudioSession.configureRecording()
         recorder.restoreAudio(from: url)
-        try recorder.resumePlayingRecording()
+        try await recorder.resumePlayingRecording()
         defer { recorder.pausePlayingRecording() }
         #expect(AVAudioSession.sharedInstance().category == .playback)
         #expect(recorder.isPlayingRecording)
     }
 
-    @Test func journalAudioRestoresPlaybackAfterRecording() throws {
+    @Test func journalAudioRestoresPlaybackAfterRecording() async throws {
         let url = try makeAudioFile()
         defer {
-            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
             try? FileManager.default.removeItem(at: url)
         }
-        try AppAudioSession.configureRecording()
+        _ = try await AppAudioSession.configureRecording()
         let player = AudioViewModel(fileURL: url)
-        player.play()
+        await player.play()
         defer { player.pause() }
         #expect(AVAudioSession.sharedInstance().category == .playback)
         #expect(player.isPlaying)
     }
 
-    @Test func journalVideoRestoresPlaybackAfterRecording() throws {
+    @Test func journalVideoRestoresPlaybackAfterRecording() async throws {
         let url = try makeAudioFile()
         defer {
-            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
             try? FileManager.default.removeItem(at: url)
         }
-        try AppAudioSession.configureRecording()
+        _ = try await AppAudioSession.configureRecording()
         let player = VideoViewModel(fileURL: url)
-        player.play()
+        await player.play()
         defer { player.pause() }
         #expect(AVAudioSession.sharedInstance().category == .playback)
         #expect(player.isPlaying)
     }
 
-    @Test func releasedRecorderDoesNotDeactivateLaterPlayback() throws {
+    @Test func releasedRecorderDoesNotDeactivateLaterPlayback() async throws {
         let url = try makeAudioFile()
         defer {
-            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
             try? FileManager.default.removeItem(at: url)
         }
         var recorder: AudioRecorderManager? = AudioRecorderManager()
         recorder?.restoreAudio(from: url)
-        try recorder?.resumePlayingRecording()
+        try await recorder?.resumePlayingRecording()
         recorder?.pausePlayingRecording()
         let player = AudioViewModel(fileURL: url)
-        player.play()
+        await player.play()
         recorder = nil
         defer { player.pause() }
         #expect(AVAudioSession.sharedInstance().category == .playback)

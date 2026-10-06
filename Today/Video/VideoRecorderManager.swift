@@ -116,6 +116,14 @@ extension VideoRecorderManager {
         guard granted else { return }
         guard !showConfirmation, !Task.isCancelled else { return }
 
+        do {
+            try await AppAudioSession.handOffToCapture(owner: UUID())
+        } catch {
+            setErrorOnMain(error)
+            return
+        }
+        guard !showConfirmation, !Task.isCancelled else { return }
+
         sessionQueue.async { [weak self] in
             guard let self else { return }
             if !self.isConfigured {
@@ -165,10 +173,7 @@ extension VideoRecorderManager {
                 connection.preferredVideoStabilizationMode = .auto
             }
             
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                output.startRecording(to: url, recordingDelegate: self)
-            }
+            output.startRecording(to: url, recordingDelegate: self)
         }
     }
 
@@ -699,7 +704,7 @@ extension VideoRecorderManager {
         return videoGranted && audioGranted
     }
 
-    private func setErrorOnMain(_ error: Error) {
+    nonisolated private func setErrorOnMain(_ error: Error) {
         DispatchQueue.main.async {
             self.errorMessage = error.localizedDescription
             self.showError = true
@@ -709,7 +714,7 @@ extension VideoRecorderManager {
 
 // MARK: - AVCaptureFileOutputRecordingDelegate
 extension VideoRecorderManager: AVCaptureFileOutputRecordingDelegate {
-    func fileOutput(_ output: AVCaptureFileOutput, didStartRecordingTo fileURL: URL, from connections: [AVCaptureConnection]) {
+    nonisolated func fileOutput(_ output: AVCaptureFileOutput, didStartRecordingTo fileURL: URL, from connections: [AVCaptureConnection]) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             
@@ -727,7 +732,7 @@ extension VideoRecorderManager: AVCaptureFileOutputRecordingDelegate {
         }
     }
 
-    func fileOutput(_ output: AVCaptureFileOutput, didFinishRecordingTo outputFileURL: URL, from connections: [AVCaptureConnection], error: Error?) {
+    nonisolated func fileOutput(_ output: AVCaptureFileOutput, didFinishRecordingTo outputFileURL: URL, from connections: [AVCaptureConnection], error: Error?) {
         DispatchQueue.main.async {
             self.isRecording = false
             self.durationCancellable?.cancel()
@@ -748,7 +753,7 @@ extension VideoRecorderManager: AVCaptureFileOutputRecordingDelegate {
         finishRecordingForConfirmation(at: outputFileURL)
     }
 
-    private func finishRecordingForConfirmation(at url: URL) {
+    nonisolated private func finishRecordingForConfirmation(at url: URL) {
         sessionQueue.async {
             // Capture must relinquish its microphone before AVPlayer changes
             // the shared audio session to playback (otherwise activation fails).

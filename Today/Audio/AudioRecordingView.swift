@@ -107,6 +107,7 @@ struct AudioRecordingView: View {
                 firstTimePlaying = true
             }
         }
+        .task { await manager.prepareRecordingSession() }
         .onAppear {
             if let recordedURL = recordedURL, recordedWaveform != nil, localRecordedURL == nil {
                 let fileName = recordedURL.lastPathComponent
@@ -234,14 +235,18 @@ struct AudioRecordingView: View {
                             firstTimePlaying = false
                         }
                         
-                        do {
-                            try manager.resumePlayingRecording()
-                            isPlaying = true
-                            smoothedLevels = [0, 0, 0, 0, 0]
-                            startPlaybackMetering()
-                        } catch {
-                            errorMessage = "Failed to play recording: \(error.localizedDescription)"
-                            showError = true
+                        Task {
+                            do {
+                                try await manager.resumePlayingRecording()
+                                isPlaying = manager.isPlayingRecording
+                                smoothedLevels = [0, 0, 0, 0, 0]
+                                startPlaybackMetering()
+                            } catch is CancellationError {
+                                // The screen disappeared or playback was stopped while activating.
+                            } catch {
+                                errorMessage = "Failed to play recording: \(error.localizedDescription)"
+                                showError = true
+                            }
                         }
                     }
                 }) {

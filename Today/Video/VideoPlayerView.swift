@@ -99,6 +99,9 @@ class VideoViewModel: ObservableObject {
     @Published var isPlaying = false
     private(set) var player = AVPlayer()
     
+    var isPreparingPlayback: Bool { playbackRequest != nil }
+    private var playbackRequest: UUID?
+    private var audioSessionOwner = UUID()
     private var cancellables = Set<AnyCancellable>()
     private var playbackLifecycle = PlaybackLifecycle()
     private var playbackObserver: NSObjectProtocol?
@@ -115,6 +118,8 @@ class VideoViewModel: ObservableObject {
         self.removePlaybackObserver()
         self.readyObserver?.invalidate()
         self.readyObserver = nil
+        self.player.pause()
+        AppAudioSession.deactivate(owner: audioSessionOwner)
     }
     
     //MARK: - Setup
@@ -123,6 +128,7 @@ class VideoViewModel: ObservableObject {
     }
     
     func loadVideo(fileURL: URL?) {
+        pause()
         guard let file = fileURL else { return }
         let item = AVPlayerItem(url: file)
         self.player.replaceCurrentItem(with: item)
@@ -130,6 +136,7 @@ class VideoViewModel: ObservableObject {
     }
     
     func unloadVideo() {
+        pause()
         self.removePlaybackObserver()
         self.player = AVPlayer()
         self.configurePlayer()
@@ -183,7 +190,7 @@ class VideoViewModel: ObservableObject {
             .publisher(for: UIApplication.didBecomeActiveNotification)
             .sink { [weak self] _ in
                 guard let self, self.playbackLifecycle.resumeIfNeeded() else { return }
-                self.play()
+                Task { await self.play() }
             }
             .store(in: &self.cancellables)
     }
@@ -196,13 +203,24 @@ class VideoViewModel: ObservableObject {
     
     //MARK: - Playback Controls
     func togglePlayback() {
-        self.isPlaying ? self.pause() : self.play()
+        if isPlaying || playbackRequest != nil { pause() }
+        else { Task { await play() } }
     }
     
-    func play() {
-        do { try AppAudioSession.activatePlayback() }
+    func play() async {
+        guard playbackLifecycle.isVisible, !isPlaying, playbackRequest == nil, player.currentItem != nil else { return }
+        let request = UUID()
+        playbackRequest = request
+        audioSessionOwner = request
+        defer { if playbackRequest == request { playbackRequest = nil } }
+        do { try await AppAudioSession.activatePlayback(owner: request) }
         catch {
+            AppAudioSession.deactivate(owner: request)
             print("Error activating video playback audio: \(error)")
+            return
+        }
+        guard playbackRequest == request, !Task.isCancelled else {
+            AppAudioSession.deactivate(owner: request)
             return
         }
         // If we're at the end, reset to beginning before playing
@@ -210,10 +228,11 @@ class VideoViewModel: ObservableObject {
             let duration = CMTimeGetSeconds(currentItem.duration)
             let currentTime = CMTimeGetSeconds(player.currentTime())
             if currentTime >= duration - 0.01 {
-                player.seek(to: .zero)
+                await player.seek(to: .zero)
             }
         }
         
+        guard playbackRequest == request, !Task.isCancelled else { return }
         player.volume = 0.0
         self.player.play()
         isPlaying = true
@@ -229,6 +248,7 @@ class VideoViewModel: ObservableObject {
     }
     
     func pause() {
+        playbackRequest = nil
         self.player.pause()
         isPlaying = false
     }

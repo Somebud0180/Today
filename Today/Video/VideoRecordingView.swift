@@ -140,7 +140,7 @@ struct VideoRecordingView: View {
             if newValue, let url = manager.lastRecordingURL {
                 localRecordedURL = url
                 videoViewModel.loadVideo(fileURL: localRecordedURL)
-                videoViewModel.play()
+                Task { await videoViewModel.play() }
             } else {
                 videoViewModel.pause()
                 videoViewModel.unloadVideo()
@@ -166,6 +166,7 @@ struct VideoRecordingView: View {
             await manager.startSession()
         }
         .onAppear {
+            videoViewModel.setVisible(true)
             if let recordedURL = recordedURL, localRecordedURL == nil {
                 let fileName = recordedURL.lastPathComponent
                 
@@ -189,7 +190,7 @@ struct VideoRecordingView: View {
             return nil
         }
         .onDisappear {
-            videoViewModel.pause()
+            videoViewModel.setVisible(false)
             manager.stopRecording()
             manager.stopSession()
         }

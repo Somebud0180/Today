@@ -3,6 +3,8 @@ struct PlaybackLifecycle {
     private var visible = true
     private var shouldResume = false
 
+    var isVisible: Bool { visible }
+
     mutating func interrupt(wasPlaying: Bool) { shouldResume = visible && wasPlaying }
     mutating func setVisible(_ value: Bool) {
         visible = value

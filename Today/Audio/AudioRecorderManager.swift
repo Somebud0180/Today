@@ -143,9 +143,19 @@ class AudioRecorderManager: NSObject, ObservableObject {
     
     /// AVFoundation Core
     private let audioSession: AVAudioSession = AVAudioSession.sharedInstance()
-    private var ownsAudioSession = false
+    private var audioSessionOwner = UUID()
+    private var sessionRequest = UUID()
+    private var isStartingRecording = false
     private var preferredRecordingInputUID: String?
+    private nonisolated struct PreparedRecorder: @unchecked Sendable {
+        let recorder: AVAudioRecorder
+    }
     private var recorder: AVAudioRecorder?
+    private nonisolated struct PreparedPlayer: @unchecked Sendable {
+        let player: AVAudioPlayer
+    }
+    private var playerPreparationTask: Task<Void, Never>?
+    private var isStartingPlayback = false
     private var player: AVAudioPlayer? {
         didSet {
             self.recordedContentsDuration = self.player?.duration
@@ -172,17 +182,15 @@ class AudioRecorderManager: NSObject, ObservableObject {
     override init() {
         super.init()
         
-        do {
-            try self.configureAudioSession()
-            self.setupAvailableRecordingOptions()
-            self.updateActiveMicrophoneName()
-            self.setupRouteChangeListener()
-        } catch(let error) {
-            self.error = error
-        }
+        self.setupAvailableRecordingOptions()
+        self.updateActiveMicrophoneName()
+        self.setupRouteChangeListener()
     }
     
     isolated deinit {
+        self.playerPreparationTask?.cancel()
+        self.recorder?.stop()
+        self.player?.stop()
         self.deactivateAudioSessionAndNotifyOthers()
         self.stopWaveformSampling()
         self.stopTimer()
@@ -214,9 +222,10 @@ extension AudioRecorderManager {
         )
     }
     
-    @objc private func handleRouteChange(notification: Notification) {
-        // Whenever the route changes, refresh our published string
-        updateActiveMicrophoneName()
+    @objc nonisolated private func handleRouteChange(notification: Notification) {
+        Task { @MainActor [weak self] in
+            self?.updateActiveMicrophoneName()
+        }
     }
 }
 
@@ -225,7 +234,7 @@ extension AudioRecorderManager {
     
     // Start in (time) seconds, for (duration) seconds
     func startRecording(in time: TimeInterval?, forDuration duration: TimeInterval?, recordingOption: RecordingOption, enableMetering: Bool) async throws {
-        guard self.recorderState == .stopped else {
+        guard self.recorderState == .stopped, !isStartingRecording else {
             return
         }
         
@@ -237,40 +246,60 @@ extension AudioRecorderManager {
             throw _Error.failToStartRecording("Invalid Duration.")
         }
         
+        isStartingRecording = true
+        defer { isStartingRecording = false }
+        let request = UUID()
+        sessionRequest = request
         try await self.checkPermission()
+        try Task.checkCancellation()
+        guard sessionRequest == request else { throw CancellationError() }
         
         self.stopPlayingRecording(deactivateAudio: false)
-        try self.configureAudioSession()
-        try self.activateAudioSessionForRecording()
+        sessionRequest = request
+        audioSessionOwner = request
+        do {
+            try await self.configureAudioSession(recordingOption: recordingOption, activate: true)
+            try Task.checkCancellation()
+            guard sessionRequest == request else { throw CancellationError() }
+        } catch {
+            AppAudioSession.deactivate(owner: request)
+            throw error
+        }
         var recordingStarted = false
         defer {
-            if !recordingStarted { self.deactivateAudioSessionAndNotifyOthers() }
+            if !recordingStarted { AppAudioSession.deactivate(owner: request) }
         }
-        try self.configureStereo(recordingOption: recordingOption)
         self.audioSettings[AVNumberOfChannelsKey] = (recordingOption == .mono) ? 1 : 2
         
         let fileURL = self.makeRecordingURL()
-        self.recorder = try AVAudioRecorder(url: fileURL, settings: self.audioSettings)
-        self.recorder?.delegate = self
-        self.recorder?.isMeteringEnabled = enableMetering
-        
-        let currentTime = self.recorder?.deviceCurrentTime ?? 0
-        
-        let result = switch (time == nil, duration == nil) {
-        case (true, true) :
-            self.recorder?.record()
-        case (true, false):
-            self.recorder?.record(forDuration: duration!)
-        case (false, true):
-            self.recorder?.record(atTime: currentTime + time!)
-        case (false, false):
-            self.recorder?.record(atTime: currentTime + time!, forDuration: duration!)
+        let settings = self.audioSettings
+        let prepared = try await AppAudioSession.perform {
+            PreparedRecorder(recorder: try AVAudioRecorder(url: fileURL, settings: settings))
         }
-        
-        if result == false {
-            throw _Error.failToStartRecording("Fail to start playing")
+        try Task.checkCancellation()
+        guard sessionRequest == request else { throw CancellationError() }
+        self.recorder = prepared.recorder
+        prepared.recorder.delegate = self
+        prepared.recorder.isMeteringEnabled = enableMetering
+        let result = try await AppAudioSession.perform {
+            let recorder = prepared.recorder
+            let currentTime = recorder.deviceCurrentTime
+            switch (time, duration) {
+            case (nil, nil): return recorder.record()
+            case (nil, let duration?): return recorder.record(forDuration: duration)
+            case (let time?, nil): return recorder.record(atTime: currentTime + time)
+            case (let time?, let duration?):
+                return recorder.record(atTime: currentTime + time, forDuration: duration)
+            }
         }
-        
+        guard sessionRequest == request, !Task.isCancelled else {
+            prepared.recorder.stop()
+            throw CancellationError()
+        }
+        guard result else {
+            throw _Error.failToStartRecording("Failed to start recording")
+        }
+
         // Clear any previous captured metrics for a fresh recording session
         self.recordedWaveformSamplesDb = []
         self.recordedWaveformSamplesLinear = []
@@ -288,15 +317,29 @@ extension AudioRecorderManager {
     }
     
     
-    func resumeRecording() throws {
+    func resumeRecording() async throws {
         guard let recorder = self.recorder else {
             return
         }
-        try self.configureAudioSession()
-        try self.activateAudioSessionForRecording()
-        let result = recorder.record()
-        if result == false {
-            throw _Error.failToResumeRecording
+        let request = UUID()
+        sessionRequest = request
+        audioSessionOwner = request
+        do {
+            try await self.configureAudioSession(activate: true)
+            try Task.checkCancellation()
+            guard sessionRequest == request, recorder === self.recorder else {
+                throw CancellationError()
+            }
+            let prepared = PreparedRecorder(recorder: recorder)
+            let started = try await AppAudioSession.perform { prepared.recorder.record() }
+            guard sessionRequest == request, !Task.isCancelled else {
+                recorder.pause()
+                throw CancellationError()
+            }
+            guard started else { throw _Error.failToResumeRecording }
+        } catch {
+            AppAudioSession.deactivate(owner: request)
+            throw error
         }
         self.recorderState = .started(recorder.currentTime, self.getPowerMetrics())
         self.startTimer()
@@ -304,6 +347,7 @@ extension AudioRecorderManager {
     }
     
     func pauseRecording() {
+        sessionRequest = UUID()
         self.recorder?.pause()
         if case .started(let timeInterval, let powerMetrics) = recorderState {
             self.recorderState = .paused(timeInterval, powerMetrics)
@@ -315,6 +359,7 @@ extension AudioRecorderManager {
     }
     
     func stopRecording() {
+        sessionRequest = UUID()
         let finishedURL = self.recorder?.url
         
         captureWaveformSample()
@@ -361,38 +406,71 @@ extension AudioRecorderManager {
 // MARK: - Player
 extension AudioRecorderManager {
     private func preparePlayer() {
-        if let fileURL = self.lastRecordingURL {
-            self.didRecordingEnd = false
-            self.player = try? AVAudioPlayer(contentsOf: fileURL)
-            self.player?.delegate = self
+        playerPreparationTask?.cancel()
+        guard let fileURL = lastRecordingURL else { return }
+        player?.stop()
+        player = nil
+        didRecordingEnd = false
+        playerPreparationTask = Task { [weak self] in
+            do {
+                let prepared = try await AppAudioSession.perform {
+                    PreparedPlayer(player: try AVAudioPlayer(contentsOf: fileURL))
+                }
+                guard !Task.isCancelled, let self, self.lastRecordingURL == fileURL else { return }
+                prepared.player.delegate = self
+                self.player = prepared.player
+            } catch {
+                guard !Task.isCancelled else { return }
+                self?.error = error
+            }
         }
     }
-    
+
     func pausePlayingRecording() {
+        sessionRequest = UUID()
         self.player?.pause()
         self.isPlayingRecording = false
         self.deactivateAudioSessionAndNotifyOthers()
     }
     
-    func resumePlayingRecording() throws {
+    func resumePlayingRecording() async throws {
+        guard !isStartingPlayback else { return }
+        isStartingPlayback = true
+        defer { isStartingPlayback = false }
+        let request = UUID()
+        sessionRequest = request
+        await playerPreparationTask?.value
+        try Task.checkCancellation()
+        guard sessionRequest == request else { throw CancellationError() }
         guard let player = self.player else {
             throw _Error.failToResumePlaying("Failed to prepare player")
         }
-        
-        try AppAudioSession.activatePlayback()
-        ownsAudioSession = true
-        let result = player.play()
-        if result == false {
-            self.deactivateAudioSessionAndNotifyOthers()
-            throw _Error.failToResumePlaying("Failed to resume playing recording.")
+        let prepared = PreparedPlayer(player: player)
+        audioSessionOwner = request
+        do {
+            try await AppAudioSession.activatePlayback(owner: request)
+            try Task.checkCancellation()
+            guard sessionRequest == request else { throw CancellationError() }
+            let result = try await AppAudioSession.perform { prepared.player.play() }
+            try Task.checkCancellation()
+            guard sessionRequest == request else {
+                prepared.player.pause()
+                throw CancellationError()
+            }
+            guard result else {
+                throw _Error.failToResumePlaying("Failed to resume playing recording.")
+            }
+        } catch {
+            if sessionRequest == request { prepared.player.pause() }
+            AppAudioSession.deactivate(owner: request)
+            throw error
         }
-        
         self.isPlayingRecording = true
         self.didRecordingEnd = false
     }
-    
-    
+
     private func stopPlayingRecording(deactivateAudio: Bool = true) {
+        sessionRequest = UUID()
         self.player?.stop()
         self.isPlayingRecording = false
         self.didRecordingEnd = true
@@ -460,22 +538,10 @@ extension AudioRecorderManager: AVAudioPlayerDelegate {
 
 // MARK: - Private helpers for managing recording session / permission
 extension AudioRecorderManager {
-    private func activateAudioSessionForRecording() throws {
-        try self.audioSession.setActive(true)
-        ownsAudioSession = true
+    private func deactivateAudioSessionAndNotifyOthers() {
+        AppAudioSession.deactivate(owner: audioSessionOwner)
     }
 
-    private func deactivateAudioSessionAndNotifyOthers() {
-        guard ownsAudioSession else { return }
-        do {
-            try self.audioSession.setActive(false, options: .notifyOthersOnDeactivation)
-        } catch {
-            self.error = error
-        }
-        // A subsequent player may activate the shared session. A late deinit must not deactivate it.
-        ownsAudioSession = false
-    }
-    
     private func checkPermission() async throws {
         let permission = AVAudioApplication.shared.recordPermission
         switch permission {
@@ -500,22 +566,34 @@ extension AudioRecorderManager {
     }
     
     
-    private func configureAudioSession() throws {
-        let preferredUID = audioSession.preferredInput?.uid ?? preferredRecordingInputUID
-        try AppAudioSession.configureRecording()
-
-        // Preserve the input-picker selection when returning from playback.
-        // Use the built-in mic only as a default, not on every recording start.
-        guard let availableInputs = audioSession.availableInputs else { return }
-        let selectedInput = availableInputs.first(where: { $0.uid == preferredUID })
-            ?? availableInputs.first(where: { $0.portType == .builtInMic })
-            ?? availableInputs.first
-        if let selectedInput {
-            try audioSession.setPreferredInput(selectedInput)
-            preferredRecordingInputUID = selectedInput.uid
+    func prepareRecordingSession() async {
+        guard lastRecordingURL == nil, recorderState == .stopped, !isStartingRecording else { return }
+        do {
+            try await configureAudioSession()
+            setupAvailableRecordingOptions()
+            updateActiveMicrophoneName()
+        } catch {
+            self.error = error
         }
     }
-    
+
+    private func configureAudioSession(recordingOption: RecordingOption? = nil, activate: Bool = false) async throws {
+        let interfaceOrientation = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.effectiveGeometry.interfaceOrientation ?? .portrait
+        let orientation: AVAudioSession.StereoOrientation
+        switch interfaceOrientation {
+        case .portraitUpsideDown: orientation = .portraitUpsideDown
+        case .landscapeLeft: orientation = .landscapeLeft
+        case .landscapeRight: orientation = .landscapeRight
+        default: orientation = .portrait
+        }
+        preferredRecordingInputUID = try await AppAudioSession.configureRecording(
+            owner: activate ? audioSessionOwner : nil,
+            preferredInputUID: preferredRecordingInputUID,
+            microphoneOrientation: recordingOption?.audioOrientation,
+            stereoOrientation: orientation
+        )
+    }
+
     private func setupAvailableRecordingOptions() {
         
         // datasources will be nil on simulators
@@ -542,49 +620,6 @@ extension AudioRecorderManager {
         
     }
     
-    
-    // Important: setPreferredInputOrientation should not be called after recording stared
-    // ie: should only be called when recorderState is .stopped
-    private func configureStereo(recordingOption: RecordingOption) throws {
-        guard let preferredInput = audioSession.preferredInput,
-              preferredInput.portType == .builtInMic,
-              let dataSources = preferredInput.dataSources,
-              let newDataSource = dataSources.first(where: { $0.orientation == recordingOption.audioOrientation }),
-              let supportedPolarPatterns = newDataSource.supportedPolarPatterns else {
-            return
-        }
-        
-        // false if RecordingOption is .mono (ie: orientation is .bottom)
-        // true for the rest options
-        let isStereoSupported = supportedPolarPatterns.contains(.stereo)
-        
-        if isStereoSupported {
-            // Set the preferred polar pattern to stereo.
-            try newDataSource.setPreferredPolarPattern(.stereo)
-        }
-        
-        // Set the preferred data source and polar pattern.
-        try preferredInput.setPreferredDataSource(newDataSource)
-        
-        // Update the input orientation to match the current user interface orientation.
-        let interfaceOrientation = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.effectiveGeometry.interfaceOrientation ?? .portrait
-        
-        let audioOrientation: AVAudioSession.StereoOrientation
-        switch interfaceOrientation {
-        case .portrait:
-            audioOrientation = .portrait
-        case .portraitUpsideDown:
-            audioOrientation = .portraitUpsideDown
-        case .landscapeLeft:
-            audioOrientation = .landscapeLeft
-        case .landscapeRight:
-            audioOrientation = .landscapeRight
-        default:
-            audioOrientation = .portrait
-        }
-        
-        try audioSession.setPreferredInputOrientation(audioOrientation)
-    }
     
     private func makeRecordingURL() -> URL {
         let directory = FileManager.default.temporaryDirectory
@@ -763,4 +798,3 @@ extension AudioRecorderManager {
     }
     
 }
-

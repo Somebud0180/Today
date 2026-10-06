@@ -168,10 +168,10 @@ struct JournalView: View {
                 
                 if selectedEntry.mediaType == .video {
                     videoViewModel = VideoViewModel(fileURL: targetURL)
-                    if autoPlayOnOpen { videoViewModel?.play() }
+                    if autoPlayOnOpen { await videoViewModel?.play() }
                 } else if selectedEntry.mediaType == .audio {
                     audioViewModel = AudioViewModel(fileURL: targetURL, preloadedWaveform: selectedEntry.decodedWaveform())
-                    if autoPlayOnOpen { audioViewModel?.play() }
+                    if autoPlayOnOpen { await audioViewModel?.play() }
                 }
                 
                 isDownloading = false
