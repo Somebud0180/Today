@@ -106,34 +106,37 @@ extension AudioTranscriptionManager {
 extension AudioTranscriptionManager {
     /// Transcribes an audio file using Apple's native SpeechAnalyzer
     func transcribeAudio(_ audioURL: URL) async -> (String?, Bool) {
-        guard enableTranscription, let transcriber = transcriber, isReady else { return (nil, false) }
+        guard enableTranscription, let locale = transcriber?.selectedLocales.first, isReady else { return (nil, false) }
+        // A module belongs to one analyzer. Reusing it for the next entry mutates
+        // a worker that the previous analyzer has already locked.
+        let transcriber = SpeechTranscriber(locale: locale, preset: .transcription)
+        let analyzer = SpeechAnalyzer(modules: [transcriber])
         
         isProcessing = true
         defer { isProcessing = false }
         
-        do {
-            let audioFile = try AVAudioFile(forReading: audioURL)
-            
-            _ = try await SpeechAnalyzer(
-                inputAudioFile: audioFile,
-                modules: [transcriber],
-                options: nil,
-                analysisContext: AnalysisContext(),
-                finishAfterFile: true,
-                volatileRangeChangedHandler: nil
-            )
-            
+        let resultsTask = Task {
             var finalTranscript = ""
             for try await result in transcriber.results {
                 if result.isFinal {
-                    let chunk = String(result.text.characters)
-                    finalTranscript += chunk + " "
+                    finalTranscript += String(result.text.characters) + " "
                 }
             }
-            
-            return (finalTranscript.trimmingCharacters(in: .whitespacesAndNewlines), true)
+            return finalTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        do {
+            let audioFile = try AVAudioFile(forReading: audioURL)
+            if let lastSample = try await analyzer.analyzeSequence(from: audioFile) {
+                try await analyzer.finalizeAndFinish(through: lastSample)
+            } else {
+                await analyzer.cancelAndFinishNow()
+            }
+            return (try await resultsTask.value, true)
             
         } catch {
+            await analyzer.cancelAndFinishNow()
+            resultsTask.cancel()
             print("Transcription failed: \(error.localizedDescription)")
             return (nil, false)
         }
@@ -145,12 +148,11 @@ extension AudioTranscriptionManager {
         do {
             let fileName = UUID().uuidString + ".m4a"
             let audioURL = FileManager.default.temporaryDirectory.appending(path: fileName, directoryHint: .notDirectory)
+            defer { try? FileManager.default.removeItem(at: audioURL) }
             
             try await extractAudio(from: videoURL, to: audioURL)
             
             let result = await transcribeAudio(audioURL)
-            
-            try? FileManager.default.removeItem(at: audioURL)
             
             return result
         } catch {

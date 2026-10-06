@@ -142,9 +142,12 @@ struct VideoRecordingView: View {
                 videoViewModel.loadVideo(fileURL: localRecordedURL)
                 videoViewModel.play()
             } else {
+                videoViewModel.pause()
                 videoViewModel.unloadVideo()
                 localRecordedURL = nil
                 hasTemporaryRecording = false
+                // Restart capture after releasing the confirmation player.
+                Task { await manager.startSession() }
             }
         }
         .onChange(of: manager.lastRecordingURL) { _, newValue in
@@ -186,6 +189,7 @@ struct VideoRecordingView: View {
             return nil
         }
         .onDisappear {
+            videoViewModel.pause()
             manager.stopRecording()
             manager.stopSession()
         }
@@ -270,6 +274,7 @@ struct VideoRecordingView: View {
             } else {
                 VStack(spacing: 16) {
                     Button(action: {
+                        videoViewModel.pause()
                         recordedURL = localRecordedURL
                         activePage = .save
                     }) {

@@ -56,6 +56,7 @@ struct CreateView: View {
     @State private var saveError: String?
     @State private var previewThumbnail: UIImage?
     @State private var isSaving: Bool = false
+    @State private var showSavingText: Bool = false
     @State private var cardOpacity: Double = 0.0
     @State private var cardScale: CGFloat = 0.0
     @State private var cardOffset: CGSize = .zero
@@ -257,13 +258,6 @@ struct CreateView: View {
                 let data = try? await ThumbnailLoader.videoData(url: url)
                 guard !Task.isCancelled else { return }
                 previewThumbnail = data.flatMap(UIImage.init(data:))
-            }
-            .overlay {
-                if isSaving {
-                    ProgressView("Saving entry…")
-                        .padding()
-                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
-                }
             }
             .alert("Couldn’t Save Entry", isPresented: Binding(get: { saveError != nil }, set: { if !$0 { saveError = nil } })) {
                 Button("OK", role: .cancel) { saveError = nil }
@@ -529,18 +523,29 @@ struct CreateView: View {
         }
         .ignoresSafeArea(.keyboard)
         .frame(width: finalWidth, height: height, alignment: .center)
+        .scaleEffect(cardScale)
+        .shadow(color: .black.opacity(shadowOpacity), radius: 10, x: 0, y: shadowOffsetY)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityTitle)
+        .accessibilityValue(accessibilityValue)
+        .overlay(alignment: .bottom) {
+            Text("Saving…")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.5), radius: 4)
+                .fixedSize(horizontal: false, vertical: true)
+                .alignmentGuide(.bottom) { dimensions in dimensions[.top] - 24 }
+                .opacity(showSavingText ? 1 : 0)
+                .accessibilityHidden(!showSavingText)
+                .allowsHitTesting(false)
+        }
         .position(
             x: isLandscape ? (proxy.size.width / 4) : (proxy.size.width / 2),
             y: isLandscape ? (proxy.size.height / 2) : getCardPosY(proxy)
         )
         .opacity(cardOpacity)
-        .scaleEffect(cardScale)
         .offset(cardOffset)
-        .shadow(color: .black.opacity(shadowOpacity), radius: 10, x: 0, y: shadowOffsetY)
         .onAppear(perform: showCardAnimation)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(accessibilityTitle)
-        .accessibilityValue(accessibilityValue)
         .safeAreaPadding(.top, proxy.safeAreaInsets.top)
     }
     
@@ -577,7 +582,16 @@ struct CreateView: View {
             Button(action: {
                 guard !isSaving else { return }
                 hideKeyboard()
-                isSaving = true
+                let liftStarted = ContinuousClock.now
+                withAnimation(.snappy(duration: 0.4)) {
+                    isSaving = true
+                    showSavingText = true
+                    cardScale = 1.05
+                    cardOffset = CGSize(width: 0, height: -12)
+                    shadowOpacity = 0.35
+                    shadowOffsetY = 12
+                }
+                UIAccessibility.post(notification: .announcement, argument: "Saving entry")
                 Task {
                     do {
                         _ = try await JournalStore.saveRecording(
@@ -585,9 +599,19 @@ struct CreateView: View {
                             transcript: transcript ?? "", mediaType: mediaType,
                             waveform: mediaType == .audio ? recordedAudioWaveform : nil,
                             context: modelContext)
-                        performSaveAnimation(proxy)
+                        // Even a fast save should let the initial lift finish before throwing.
+                        let remainingLift = Duration.milliseconds(400) - liftStarted.duration(to: .now)
+                        if remainingLift > .zero { try? await Task.sleep(for: remainingLift) }
+                        await performSaveAnimation(proxy)
                     } catch {
-                        isSaving = false
+                        withAnimation(.snappy) {
+                            isSaving = false
+                            showSavingText = false
+                            cardScale = 1
+                            cardOffset = .zero
+                            shadowOpacity = 0.25
+                            shadowOffsetY = 5
+                        }
                         saveError = error.localizedDescription
                     }
                 }
@@ -687,33 +711,34 @@ struct CreateView: View {
         }
     }
     
-    func performSaveAnimation(_ proxy: GeometryProxy) {
-        cardOffset = .zero
-        
-        withAnimation(.snappy) {
-            cardScale = 1.05
-            shadowOpacity = 0.35
+    func performSaveAnimation(_ proxy: GeometryProxy) async {
+        await animateSave(.easeOut(duration: 0.2)) {
+            showSavingText = false
         }
-        
-        withAnimation(.snappy.delay(1.0)) {
-            cardOffset = CGSize(width: 20, height: 0)
+        await animateSave(.snappy(duration: 0.25)) {
+            cardOffset.width = 20
         }
-        
-        withAnimation(.snappy.delay(1.5)) {
-            cardOffset = CGSize(width: -proxy.size.width, height: 0)
+        await animateSave(.snappy(duration: 0.45)) {
+            cardOffset.width = -proxy.size.width
         }
-        
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(2))
-            resetVariables()
-            tabSelection = 0
-            NotificationsManager.cancelCurrentReminderNotification()
+        resetVariables()
+        tabSelection = 0
+        NotificationsManager.cancelCurrentReminderNotification()
+    }
+
+    /// Sequence the fade and throw by animation completion, not a fixed save timer.
+    private func animateSave(_ animation: Animation, updates: () -> Void) async {
+        await withCheckedContinuation { continuation in
+            withAnimation(animation, completionCriteria: .removed, updates) {
+                continuation.resume()
+            }
         }
     }
-    
+
     func resetVariables() {
         previewThumbnail = nil
         isSaving = false
+        showSavingText = false
         cardOpacity = 0.0
         cardScale = 0.8
         cardOffset = .zero

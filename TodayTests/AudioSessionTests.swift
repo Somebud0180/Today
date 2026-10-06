@@ -86,4 +86,14 @@ struct AudioSessionTests {
         #expect(AVAudioSession.sharedInstance().category == .playback)
         #expect(player.isPlaying)
     }
+
+    @Test func restoredVideoConfirmationDoesNotRestartCapture() async throws {
+        let url = try makeAudioFile()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let recorder = VideoRecorderManager()
+        recorder.restoreVideo(from: url)
+        await recorder.startSession()
+        #expect(recorder.showConfirmation)
+        #expect(!recorder.isSessionRunning)
+    }
 }

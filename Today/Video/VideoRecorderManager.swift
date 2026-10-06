@@ -82,18 +82,11 @@ final class VideoRecorderManager: NSObject, ObservableObject {
         rotationObserverTokens.removeAll()
         
         let sessionToStop = session
-        
-        DispatchQueue.global(qos: .background).async {
+        // Capture manages its audio session automatically. A delayed teardown
+        // must not deactivate the shared session now owned by a newer player.
+        sessionQueue.async {
             if sessionToStop.isRunning {
                 sessionToStop.stopRunning()
-            }
-            
-            Task {
-                do {
-                    try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-                } catch {
-                    print("Failed to deactivate AVAudioSession asynchronously: \(error)")
-                }
             }
         }
     }
@@ -118,8 +111,10 @@ extension VideoRecorderManager {
     }
 
     func startSession() async {
+        guard !showConfirmation else { return }
         let granted = await requestPermissions()
         guard granted else { return }
+        guard !showConfirmation, !Task.isCancelled else { return }
 
         sessionQueue.async { [weak self] in
             guard let self else { return }
@@ -743,19 +738,28 @@ extension VideoRecorderManager: AVCaptureFileOutputRecordingDelegate {
             let nsError = error as NSError
             // Ignore normal stop flow errors (19914, -19431) from AVFoundation
             if nsError.code == 19914 || nsError.code == -19431 || error.localizedDescription.lowercased().contains("recording stopped") {
-                DispatchQueue.main.async {
-                    self.lastRecordingURL = outputFileURL
-                    self.showConfirmation = true
-                }
+                self.finishRecordingForConfirmation(at: outputFileURL)
                 return
             }
             setErrorOnMain(RecorderError.recordingFailed(error.localizedDescription))
             return
         }
         
-        DispatchQueue.main.async {
-            self.lastRecordingURL = outputFileURL
-            self.showConfirmation = true
+        finishRecordingForConfirmation(at: outputFileURL)
+    }
+
+    private func finishRecordingForConfirmation(at url: URL) {
+        sessionQueue.async {
+            // Capture must relinquish its microphone before AVPlayer changes
+            // the shared audio session to playback (otherwise activation fails).
+            if self.session.isRunning {
+                self.session.stopRunning()
+            }
+            DispatchQueue.main.async {
+                self.isSessionRunning = false
+                self.lastRecordingURL = url
+                self.showConfirmation = true
+            }
         }
     }
 }
