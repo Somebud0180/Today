@@ -377,6 +377,7 @@ struct VideoRecordingView: View {
     private func toggleRecording() {
         if manager.isRecording {
             manager.stopRecording()
+            hasTemporaryRecording = true
         } else {
             manager.startRecording()
         }

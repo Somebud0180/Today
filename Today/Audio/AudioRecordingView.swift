@@ -86,6 +86,7 @@ struct AudioRecordingView: View {
                         firstTimePlaying = true
                         elapsedTime = 0
                         levels = []
+                        hasTemporaryRecording = false
                     } catch {
                         errorMessage = "Failed to discard recording: \(error.localizedDescription)"
                         showError = true

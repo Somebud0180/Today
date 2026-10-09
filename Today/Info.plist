@@ -8,5 +8,24 @@
 	</array>
 	<key>UIFileSharingEnabled</key>
 	<true/>
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>record-video-entry</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Record video entry</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>video.fill</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>record-audio-entry</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Record audio entry</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>mic.fill</string>
+		</dict>
+	</array>
 </dict>
 </plist>

@@ -21,6 +21,7 @@ struct DefaultSettings {
 }
 
 struct ContentView: View {
+    @ObservedObject private var recordingActions = RecordingActionRouter.shared
     @EnvironmentObject var transcriptionManager: AudioTranscriptionManager
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
@@ -48,7 +49,7 @@ struct ContentView: View {
             }
             
             Tab("Create Entry", systemImage: "note.text.badge.plus", value: 1) {
-                CreateView(tabSelection: $tabSelection, backgroundBlur: $backgroundBlur)
+                CreateView(tabSelection: $tabSelection, backgroundBlur: $backgroundBlur, canHandleRecordingAction: hasCompletedOnboarding && !showOnboarding && scenePhase == .active)
                     .preferredColorScheme(preferredColorScheme.colorScheme)
                     .environmentObject(transcriptionManager)
             }
@@ -88,9 +89,20 @@ struct ContentView: View {
                 searchPresented = true
             }
         }
+        .onChange(of: recordingActions.pendingRequest, initial: true) { _, _ in
+            openRequestedRecorder()
+        }
+        .onChange(of: showOnboarding) { _, _ in openRequestedRecorder() }
+        .onChange(of: hasCompletedOnboarding) { _, _ in openRequestedRecorder() }
+        .onChange(of: scenePhase) { _, _ in openRequestedRecorder() }
         .fullScreenCover(isPresented: $showOnboarding) {
             OnboardingView()
         }
+    }
+    private func openRequestedRecorder() {
+        guard recordingActions.pendingRequest != nil,
+              hasCompletedOnboarding, !showOnboarding, scenePhase == .active else { return }
+        tabSelection = 1
     }
 }
 

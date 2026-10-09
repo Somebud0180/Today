@@ -5,11 +5,18 @@
 //  Created by Ethan John Lagera on 5/6/26.
 //
 
+import AppIntents
 import SwiftUI
 import SwiftData
 
 @main
 struct TodayApp: App {
+    @UIApplicationDelegateAdaptor(TodayAppDelegate.self) private var appDelegate
+
+    init() {
+        TodayRecordingShortcuts.updateAppShortcutParameters()
+    }
+
     @StateObject private var transcriptionManager = AudioTranscriptionManager()
     
     var sharedModelContainer: ModelContainer = {

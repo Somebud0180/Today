@@ -17,6 +17,9 @@ private enum TransitionDirection {
 }
 
 struct CreateView: View {
+    @ObservedObject private var recordingActions = RecordingActionRouter.shared
+    @State private var showEntryInProgress = false
+
     enum Page {
         case menu
         case video
@@ -29,6 +32,7 @@ struct CreateView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Binding var tabSelection: Int
     @Binding var backgroundBlur: CGFloat
+    var canHandleRecordingAction: Bool = true
     
     @AppStorage("enableTranscription") private var enableTranscription: Bool = DefaultSettings.enableTranscription
     @AppStorage("transcribeOnSave") private var transcribeOnSave: Bool = DefaultSettings.transcribeOnSave
@@ -288,6 +292,28 @@ struct CreateView: View {
                     .ignoresSafeArea(.all)
             )
         }
+        .onChange(of: recordingActions.pendingRequest, initial: true) { _, _ in handleRecordingAction() }
+        .onChange(of: canHandleRecordingAction) { _, _ in handleRecordingAction() }
+        .onChange(of: tabSelection) { _, _ in handleRecordingAction() }
+        .alert("Entry in Progress", isPresented: $showEntryInProgress) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Finish or discard your current entry before starting another recording.")
+        }
+    }
+
+    private func handleRecordingAction() {
+        guard canHandleRecordingAction, tabSelection == 1,
+              let request = recordingActions.pendingRequest else { return }
+        recordingActions.consume(request)
+        // Never replace a recorder or save screen: it may contain unsaved media.
+        guard activePage == .menu || !screenHasRecording else {
+            let requestedPage: Page = request.destination == .video ? .video : .audio
+            if activePage != requestedPage { showEntryInProgress = true }
+            return
+        }
+        transitionDirection = .forward
+        activePage = request.destination == .video ? .video : .audio
     }
     
 #if canImport(JournalingSuggestions)
