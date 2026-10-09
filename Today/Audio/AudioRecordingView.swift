@@ -25,7 +25,6 @@ struct AudioRecordingView: View {
     @State private var isPlaying: Bool = false
     @State private var firstTimePlaying: Bool = true
     @State private var showDiscardConfirmation: Bool = false
-    @State private var showInputPicker = false
     @State private var localRecordedURL: URL? = nil
     @State private var isLandscape: Bool = false
     
@@ -107,7 +106,12 @@ struct AudioRecordingView: View {
                 firstTimePlaying = true
             }
         }
-        .task { await manager.prepareRecordingSession() }
+        .task(id: hasRecording) {
+            if !hasRecording { await manager.prepareRecordingSession() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            manager.refreshActiveMicrophoneName()
+        }
         .onAppear {
             if let recordedURL = recordedURL, recordedWaveform != nil, localRecordedURL == nil {
                 let fileName = recordedURL.lastPathComponent
@@ -182,23 +186,18 @@ struct AudioRecordingView: View {
     func buttonView() -> some View {
         VStack {
             if !hasRecording {
-                Button {
-                    showInputPicker = true
-                } label: {
-                    AVInputPickerButton(isPresented: $showInputPicker) {
-                        Label(manager.activeMicrophoneName, systemImage: "microphone.fill")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding(12)
-                    }
-                }
-                .buttonStyle(.glassProminent)
-                .disabled(isRecording)
-                .opacity(isRecording ? 0.5 : 1.0)
-                .accessibilityLabel("Microphone input")
-                .accessibilityValue(manager.activeMicrophoneName)
-                .accessibilityHint("Double tap to choose a different microphone")
-                
+                Label(manager.activeMicrophoneName, systemImage: "microphone.fill")
+                    .font(.caption.weight(.medium))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .glassEffect(.regular, in: Capsule())
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Active microphone")
+                    .accessibilityValue(manager.activeMicrophoneName)
+                    .frame(maxWidth: .infinity)
+                    .padding(.bottom, 8)
+
                 Button(action: toggleRecording) {
                     Text(isRecording ? "Stop Recording" : "Start Recording")
                         .frame(maxWidth: .infinity)

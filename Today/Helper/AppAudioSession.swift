@@ -33,16 +33,17 @@ enum AppAudioSession {
                 .allowBluetoothHFP, .bluetoothHighQualityRecording,
                 .interruptSpokenAudioAndMixWithOthers
             ])
-            let preferredUID = session.preferredInput?.uid ?? preferredInputUID
-            let inputs = session.availableInputs ?? []
-            let input = inputs.first { $0.uid == preferredUID }
-                ?? inputs.first { $0.portType == .builtInMic }
-                ?? inputs.first
-            if let input { try session.setPreferredInput(input) }
+            // A nil preference follows the system picker, including "Same as
+            // System". Do not turn the current route into an explicit preference.
+            if let preferredInputUID,
+               let preferredInput = session.availableInputs?.first(where: { $0.uid == preferredInputUID }) {
+                try session.setPreferredInput(preferredInput)
+            }
             if let owner {
                 try session.setActive(true)
                 worker.owner = owner
             }
+            let input = session.currentRoute.inputs.first ?? session.preferredInput
             if let orientation = microphoneOrientation,
                let input, input.portType == .builtInMic,
                let source = input.dataSources?.first(where: { $0.orientation == orientation }),

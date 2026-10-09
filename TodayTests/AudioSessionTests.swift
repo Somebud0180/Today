@@ -80,6 +80,18 @@ struct AudioSessionTests {
         #expect(session.categoryOptions.contains(.defaultToSpeaker))
     }
 
+    @Test func recordingKeepsSystemInputPreference() async throws {
+        let session = AVAudioSession.sharedInstance()
+        let owner = UUID()
+        defer { AppAudioSession.deactivate(owner: owner) }
+        _ = try await AppAudioSession.configureRecording(owner: owner)
+        try await AppAudioSession.perform {
+            try AVAudioSession.sharedInstance().setPreferredInput(nil)
+        }
+        _ = try await AppAudioSession.configureRecording(owner: owner)
+        #expect(session.preferredInput == nil)
+    }
+
     @Test func recordingPreviewRestoresPlaybackCategory() async throws {
         let url = try makeAudioFile()
         defer { try? FileManager.default.removeItem(at: url) }

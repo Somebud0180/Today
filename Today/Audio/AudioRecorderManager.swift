@@ -108,7 +108,7 @@ class AudioRecorderManager: NSObject, ObservableObject {
     @Published private(set) var isPlayingRecording: Bool = false
     @Published private(set) var didRecordingEnd: Bool = false
     
-    @Published var activeMicrophoneName: String = "Select Audio Input"
+    @Published var activeMicrophoneName: String = "System Microphone"
     @Published var availableRecordingOptions: [RecordingOption] = []
     
     @Published private(set) var lastRecordingURL: URL?
@@ -146,7 +146,6 @@ class AudioRecorderManager: NSObject, ObservableObject {
     private var audioSessionOwner = UUID()
     private var sessionRequest = UUID()
     private var isStartingRecording = false
-    private var preferredRecordingInputUID: String?
     private nonisolated struct PreparedRecorder: @unchecked Sendable {
         let recorder: AVAudioRecorder
     }
@@ -183,7 +182,7 @@ class AudioRecorderManager: NSObject, ObservableObject {
         super.init()
         
         self.setupAvailableRecordingOptions()
-        self.updateActiveMicrophoneName()
+        self.refreshActiveMicrophoneName()
         self.setupRouteChangeListener()
     }
     
@@ -204,12 +203,11 @@ class AudioRecorderManager: NSObject, ObservableObject {
 
 // MARK: - Microphone
 extension AudioRecorderManager {
-    private func updateActiveMicrophoneName() {
-        // Grab the user-selected input data source name, or fallback to the generic port name
+    func refreshActiveMicrophoneName() {
         if let currentInput = audioSession.currentRoute.inputs.first {
-            let name = currentInput.selectedDataSource?.dataSourceName ?? currentInput.portName
-            self.activeMicrophoneName = name
-            self.preferredRecordingInputUID = currentInput.uid
+            self.activeMicrophoneName = currentInput.portName
+        } else {
+            self.activeMicrophoneName = "System Microphone"
         }
     }
     
@@ -224,7 +222,7 @@ extension AudioRecorderManager {
     
     @objc nonisolated private func handleRouteChange(notification: Notification) {
         Task { @MainActor [weak self] in
-            self?.updateActiveMicrophoneName()
+            self?.refreshActiveMicrophoneName()
         }
     }
 }
@@ -568,11 +566,27 @@ extension AudioRecorderManager {
     
     func prepareRecordingSession() async {
         guard lastRecordingURL == nil, recorderState == .stopped, !isStartingRecording else { return }
+        let request = sessionRequest
+        let owner = audioSessionOwner
         do {
-            try await configureAudioSession()
+            try await checkPermission()
+            try Task.checkCancellation()
+            guard sessionRequest == request else { return }
+            // Activate the input route so the capsule reflects the actual
+            // microphone and system audio controls can configure this session.
+            try await configureAudioSession(activate: true)
+            try Task.checkCancellation()
+            guard sessionRequest == request else {
+                AppAudioSession.deactivate(owner: owner)
+                return
+            }
             setupAvailableRecordingOptions()
-            updateActiveMicrophoneName()
+            refreshActiveMicrophoneName()
+        } catch is CancellationError {
+            AppAudioSession.deactivate(owner: owner)
         } catch {
+            AppAudioSession.deactivate(owner: owner)
+            guard sessionRequest == request else { return }
             self.error = error
         }
     }
@@ -586,9 +600,8 @@ extension AudioRecorderManager {
         case .landscapeRight: orientation = .landscapeRight
         default: orientation = .portrait
         }
-        preferredRecordingInputUID = try await AppAudioSession.configureRecording(
+        _ = try await AppAudioSession.configureRecording(
             owner: activate ? audioSessionOwner : nil,
-            preferredInputUID: preferredRecordingInputUID,
             microphoneOrientation: recordingOption?.audioOrientation,
             stereoOrientation: orientation
         )
