@@ -2,30 +2,30 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>video.fill</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Record video entry</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>record-video-entry</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>mic.fill</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Record audio entry</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>record-audio-entry</string>
+		</dict>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
 	</array>
 	<key>UIFileSharingEnabled</key>
 	<true/>
-	<key>UIApplicationShortcutItems</key>
-	<array>
-		<dict>
-			<key>UIApplicationShortcutItemType</key>
-			<string>record-video-entry</string>
-			<key>UIApplicationShortcutItemTitle</key>
-			<string>Record video entry</string>
-			<key>UIApplicationShortcutItemIconSymbolName</key>
-			<string>video.fill</string>
-		</dict>
-		<dict>
-			<key>UIApplicationShortcutItemType</key>
-			<string>record-audio-entry</string>
-			<key>UIApplicationShortcutItemTitle</key>
-			<string>Record audio entry</string>
-			<key>UIApplicationShortcutItemIconSymbolName</key>
-			<string>mic.fill</string>
-		</dict>
-	</array>
 </dict>
 </plist>
