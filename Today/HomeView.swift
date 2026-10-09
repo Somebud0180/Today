@@ -152,6 +152,8 @@ struct HomeView: View {
                             .scrollTargetLayout()
                             .background(HomePagedInteraction(isEnabled: !gridOwnsScroll))
                         }
+                        .padding(.leading, proxy.safeAreaInsets.leading)
+                        .padding(.trailing, proxy.safeAreaInsets.trailing)
                         .defaultScrollAnchor(.bottom)
                         .scrollPosition(id: $outerPage)
                         .scrollTargetBehavior(.paging)
