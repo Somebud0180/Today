@@ -158,8 +158,10 @@ struct AudioRecordingView: View {
             if !entryTitle.isEmpty {
                 Text(entryTitle)
                     .font(.headline)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
                     .padding(4)
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, 8)
                     .glassEffect(
                         .regular,
                         in: Capsule()
@@ -174,7 +176,7 @@ struct AudioRecordingView: View {
                 .accessibilityAddTraits(.updatesFrequently)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
+        .padding(.vertical, isLandscape ? 8 : 24)
     }
     
     func waveformView() -> some View {

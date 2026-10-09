@@ -71,12 +71,15 @@ struct VideoRecordingView: View {
                             if !entryTitle.isEmpty {
                                 Text(entryTitle)
                                     .font(.headline)
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.center)
                                     .padding(4)
-                                    .padding(.horizontal, 4)
+                                    .padding(.horizontal, 8)
                                     .glassEffect(
                                         .regular,
                                         in: Capsule()
                                     )
+                                    .padding()
                             }
                         }
                         .animation(.smooth, value: manager.isRecording)
