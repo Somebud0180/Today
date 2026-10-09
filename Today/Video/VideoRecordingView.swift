@@ -15,6 +15,7 @@ struct VideoRecordingView: View {
     @Binding var activePage: CreateView.Page
     @Binding var recordedURL: URL?
     @Binding var hasTemporaryRecording: Bool
+    @Binding var entryTitle: String
     var onBack: () -> Void
     
     @State private var localRecordedURL: URL?
@@ -28,12 +29,13 @@ struct VideoRecordingView: View {
     @State private var errorMessage = ""
     @State private var isLandscape: Bool = false
     
-    init(activePage: Binding<CreateView.Page>, recordedURL: Binding<URL?>, hasTemporaryRecording: Binding<Bool>, onBack: @escaping () -> Void ) {
+    init(activePage: Binding<CreateView.Page>, recordedURL: Binding<URL?>, hasTemporaryRecording: Binding<Bool>, entryTitle: Binding<String>, onBack: @escaping () -> Void ) {
         _manager = StateObject(wrappedValue: VideoRecorderManager())
         _videoViewModel = StateObject(wrappedValue: VideoViewModel(fileURL: nil))
         self._activePage = activePage
         self._recordedURL = recordedURL
         self._hasTemporaryRecording = hasTemporaryRecording
+        self._entryTitle = entryTitle
         self.onBack = onBack
     }
 
@@ -51,19 +53,33 @@ struct VideoRecordingView: View {
                         .simultaneousGesture(zoomGesture)
                     
                     ZStack(alignment: .top) {
-                        if manager.isRecording {
-                            Text(TimeFormatter.formatDuration(manager.recordingDuration))
-                                .foregroundStyle(.white)
-                                .font(.title3)
-                                .padding(4)
-                                .glassEffect(
-                                    .regular.tint(.red),
-                                    in: RoundedRectangle(cornerRadius: 4)
-                                )
-                                .accessibilityLabel("Elapsed recording time")
-                                .accessibilityValue(TimeFormatter.accessibleTimeFormat(manager.recordingDuration))
-                                .accessibilityAddTraits(.updatesFrequently)
+                        VStack {
+                            if manager.isRecording {
+                                Text(TimeFormatter.formatDuration(manager.recordingDuration))
+                                    .foregroundStyle(.white)
+                                    .font(.title3)
+                                    .padding(4)
+                                    .glassEffect(
+                                        .regular.tint(.red),
+                                        in: RoundedRectangle(cornerRadius: 4)
+                                    )
+                                    .accessibilityLabel("Elapsed recording time")
+                                    .accessibilityValue(TimeFormatter.accessibleTimeFormat(manager.recordingDuration))
+                                    .accessibilityAddTraits(.updatesFrequently)
+                            }
+                            
+                            if !entryTitle.isEmpty {
+                                Text(entryTitle)
+                                    .font(.headline)
+                                    .padding(4)
+                                    .padding(.horizontal, 4)
+                                    .glassEffect(
+                                        .regular,
+                                        in: Capsule()
+                                    )
+                            }
                         }
+                        .animation(.smooth, value: manager.isRecording)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 }
@@ -424,6 +440,7 @@ struct VideoRecordingView: View {
             activePage: .constant(.video),
             recordedURL: .constant(nil),
             hasTemporaryRecording: .constant(false),
+            entryTitle: .constant(""),
             onBack: { }
         )
     }

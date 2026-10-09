@@ -15,6 +15,7 @@ struct AudioRecordingView: View {
     @Binding var recordedURL: URL?
     @Binding var recordedWaveform: CodableAudioWaveform?
     @Binding var hasTemporaryRecording: Bool
+    @Binding var entryTitle: String
     var onBack: () -> Void
     
     @State private var levels: [CGFloat] = []
@@ -154,16 +155,26 @@ struct AudioRecordingView: View {
     
     func stopwatchView() -> some View {
         VStack(spacing: 16) {
+            if !entryTitle.isEmpty {
+                Text(entryTitle)
+                    .font(.headline)
+                    .padding(4)
+                    .padding(.horizontal, 4)
+                    .glassEffect(
+                        .regular,
+                        in: Capsule()
+                    )
+            }
+            
             Text(TimeFormatter.formatDuration(elapsedTime))
                 .font(.system(size: 48, weight: .bold, design: .monospaced))
                 .foregroundStyle(.primary)
+                .accessibilityLabel("Elapsed recording time")
+                .accessibilityValue(TimeFormatter.accessibleTimeFormat(elapsedTime))
+                .accessibilityAddTraits(.updatesFrequently)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 24)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Elapsed recording time")
-        .accessibilityValue(TimeFormatter.accessibleTimeFormat(elapsedTime))
-        .accessibilityAddTraits(.updatesFrequently)
     }
     
     func waveformView() -> some View {
@@ -437,6 +448,7 @@ struct AudioRecordingView: View {
             recordedURL: .constant(nil),
             recordedWaveform: .constant(nil),
             hasTemporaryRecording: .constant(false),
+            entryTitle: .constant(""),
             onBack: { }
         )
     }

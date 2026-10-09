@@ -123,7 +123,8 @@ struct CreateView: View {
                         VideoRecordingView(
                             activePage: $activePage,
                             recordedURL: $recordedVideoURL,
-                            hasTemporaryRecording: $screenHasRecording
+                            hasTemporaryRecording: $screenHasRecording,
+                            entryTitle: $entryTitle
                         ) {
                             transitionDirection = .backward
                             withAnimation(.snappy) {
@@ -137,7 +138,8 @@ struct CreateView: View {
                             activePage: $activePage,
                             recordedURL: $recordedAudioURL,
                             recordedWaveform: $recordedAudioWaveform,
-                            hasTemporaryRecording: $screenHasRecording
+                            hasTemporaryRecording: $screenHasRecording,
+                            entryTitle: $entryTitle
                         ) {
                             transitionDirection = .backward
                             withAnimation(.snappy) {
